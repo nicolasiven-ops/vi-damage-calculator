@@ -103,11 +103,15 @@ const FALLBACK = {
     durationSeconds: 3,
     /**
      * 16 s at level 1, falling 0.5 s per level until it flattens out at 12 s
-     * from level 9 on. The game data expresses this as a breakpoint curve.
+     * from level 9 on. The game data expresses this as a breakpoint curve whose
+     * per-level step stops at level 10, which lands on the same 16–12 range the
+     * client shows.
      */
     cooldownAtLevel1: 16,
     cooldownPerLevel: -0.5,
     cooldownFloor: 12,
+    /** Denting Blows' proc refunds this much of the shield's remaining cooldown. */
+    cooldownRefundOnProc: 4,
   },
 } as const;
 
@@ -182,6 +186,7 @@ const ABILITIES: AbilityMeta[] = [
       'Zusatzschaden in % des maximalen Lebens des Ziels, skaliert mit Bonus-AD.',
       `Reduziert die Rüstung des Ziels um ${pct(FALLBACK.w.armorShredPercent)} für ${FALLBACK.w.shredDurationSeconds} s.`,
       `Gewährt Vi Angriffstempo für ${FALLBACK.w.attackSpeedDurationSeconds} s.`,
+      `Verkürzt die Restabklingzeit des Explosionsschilds um ${FALLBACK.passive.cooldownRefundOnProc} s.`,
       `Gegen Vasallen und Monster auf ${FALLBACK.w.monsterCap} Schaden begrenzt.`,
     ],
   },
@@ -500,6 +505,32 @@ class ViRuntime implements ChampionRuntime {
       durationSeconds: buffDuration,
       label: `Beulenschläge · +${num(attackSpeed)} % Angriffstempo`,
     });
+
+    this.refundPassiveCooldown(ctx);
+  }
+
+  /**
+   * Denting Blows shortens Blast Shield's remaining cooldown, which is the only
+   * way the shield can come back inside one combo. Riot keeps the amount on the
+   * passive, not on W.
+   */
+  private refundPassiveCooldown(ctx: SimContext): void {
+    if (this.passiveReadyAt <= ctx.time) return;
+    const refund = gameValue(
+      this.ctx,
+      SPELL_IDS.P,
+      'CDReductionOn3Hit',
+      1,
+      FALLBACK.passive.cooldownRefundOnProc,
+    ).value;
+    if (refund <= 0) return;
+
+    this.passiveReadyAt = Math.max(ctx.time, this.passiveReadyAt - refund);
+    ctx.addEvent({
+      kind: 'info',
+      label: 'Explosionsschild',
+      detail: `Abklingzeit um ${num(refund)} s verkürzt · wieder bereit in ${num(Math.max(0, this.passiveReadyAt - ctx.time))} s`,
+    });
   }
 
   /** Blast Shield: any ability damage, on its own level-scaled cooldown. */
@@ -620,8 +651,11 @@ export const VI_MODULE: ChampionModule = {
     const pCooldownLow = calcValue(ctx, SPELL_IDS.P, 'ShieldCooldown', 1, { level: 1, value: () => 0 }, passiveCooldownFallback(1));
     const pCooldownHigh = calcValue(ctx, SPELL_IDS.P, 'ShieldCooldown', 1, { level: 18, value: () => 0 }, passiveCooldownFallback(18));
 
+    const pRefund = gameValue(ctx, SPELL_IDS.P, 'CDReductionOn3Hit', 1, FALLBACK.passive.cooldownRefundOnProc);
+
     row('P', 'Schild', `${pct(pShield.value)} max. Leben`, pShield);
     row('P', 'Schilddauer', `${num(pDuration.value)} s`, pDuration);
+    row('P', 'Verkürzung durch Beulenschläge', `${num(pRefund.value)} s`, pRefund);
     row(
       'P',
       'Abklingzeit',

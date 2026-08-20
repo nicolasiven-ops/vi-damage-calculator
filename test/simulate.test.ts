@@ -99,11 +99,16 @@ describe('Vault Breaker (Q)', () => {
   });
 
   it('scales with bonus attack damage only', () => {
-    const withBonus = run([step({ kind: 'ability', slot: 'Q' }, 0)], {
-      bonusStats: { ...emptyStats(), attackDamage: 100 },
-    });
+    const bonusStats = { ...emptyStats(), attackDamage: 100 };
+    const withBonus = run([step({ kind: 'ability', slot: 'Q' }, 0)], { bonusStats });
+    const stats = resolveChampionStats(FIXTURE_CHAMPION_STATS, 11, bonusStats);
+
     const expected = VI_CONSTANTS.q.minBase[4]! + VI_CONSTANTS.q.minBonusAdRatio * 100;
     expect(withBonus.instances[0]!.raw).toBeCloseTo(expected, 6);
+    // Guards the regression this replaced: base AD must not count towards Q.
+    expect(withBonus.instances[0]!.raw).toBeLessThan(
+      VI_CONSTANTS.q.minBase[4]! + VI_CONSTANTS.q.minBonusAdRatio * stats.totalAttackDamage,
+    );
   });
 
   it('costs its charge time on the timeline', () => {
@@ -197,6 +202,85 @@ describe('Denting Blows (W)', () => {
     // Same raw damage, more of it gets through once armor is reduced.
     expect(attacks[3]!.raw).toBeCloseTo(attacks[0]!.raw, 4);
     expect(attacks[3]!.mitigated).toBeGreaterThan(attacks[0]!.mitigated);
+  });
+});
+
+describe('Cease and Desist (R)', () => {
+  it('uses the maintained base damage and scales off bonus AD', () => {
+    const result = run([step({ kind: 'ability', slot: 'R' })], {
+      bonusStats: { ...emptyStats(), attackDamage: 100 },
+    });
+    const expected = VI_CONSTANTS.r.base[2]! + VI_CONSTANTS.r.bonusAdRatio * 100;
+    expect(result.instances[0]!.raw).toBeCloseTo(expected, 6);
+  });
+});
+
+describe('Blast Shield (P)', () => {
+  it('shields for a percentage of Vi maximum health when an ability lands', () => {
+    const result = run([step({ kind: 'ability', slot: 'Q' }, 0)]);
+    const stats = resolveChampionStats(FIXTURE_CHAMPION_STATS, 11, emptyStats());
+    expect(result.shieldGained).toBeCloseTo(
+      stats.maxHealth * VI_CONSTANTS.passive.maxHealthPercent,
+      6,
+    );
+  });
+
+  it('does not proc on basic attacks', () => {
+    const result = run([step({ kind: 'attack' }), step({ kind: 'attack' })]);
+    expect(result.shieldGained).toBe(0);
+  });
+
+  it('only procs once while on cooldown', () => {
+    const result = run([
+      step({ kind: 'ability', slot: 'Q' }, 0),
+      step({ kind: 'ability', slot: 'R' }),
+    ]);
+    const stats = resolveChampionStats(FIXTURE_CHAMPION_STATS, 11, emptyStats());
+    expect(result.shieldGained).toBeCloseTo(
+      stats.maxHealth * VI_CONSTANTS.passive.maxHealthPercent,
+      6,
+    );
+  });
+
+  /**
+   * Denting Blows refunds part of the shield's cooldown, which is the only way
+   * the shield comes back inside a single combo.
+   */
+  it('comes back sooner when Denting Blows procs', () => {
+    /**
+     * The window is picked so that only the refund can explain the result. At
+     * level 11 the shield's cooldown is 12 s and the refund is 4 s, so it is
+     * ready again at 8 s. Both combos put the ultimate at roughly 10.3 s: past
+     * the shortened cooldown, still short of the full one. The three attacks
+     * cost time themselves, which is why the ultimate is timed rather than the
+     * wait — a test that only compared combo lengths would pass without any
+     * refund at all.
+     */
+    const withoutProc = run([
+      step({ kind: 'ability', slot: 'Q' }, 0),
+      step({ kind: 'wait', seconds: 10 }),
+      step({ kind: 'ability', slot: 'R' }),
+    ]);
+    const withProc = run([
+      step({ kind: 'ability', slot: 'Q' }, 0),
+      step({ kind: 'attack' }),
+      step({ kind: 'attack' }),
+      step({ kind: 'attack' }),
+      step({ kind: 'wait', seconds: 7 }),
+      step({ kind: 'ability', slot: 'R' }),
+    ]);
+
+    const ultimate = (result: ReturnType<typeof run>) =>
+      result.instances.find((entry) => entry.slot === 'R')!.time;
+    expect(ultimate(withoutProc)).toBeGreaterThan(8);
+    expect(ultimate(withoutProc)).toBeLessThan(12);
+    expect(ultimate(withProc)).toBeGreaterThan(8);
+    expect(ultimate(withProc)).toBeLessThan(12);
+
+    const stats = resolveChampionStats(FIXTURE_CHAMPION_STATS, 11, emptyStats());
+    const oneShield = stats.maxHealth * VI_CONSTANTS.passive.maxHealthPercent;
+    expect(withoutProc.shieldGained).toBeCloseTo(oneShield, 6);
+    expect(withProc.shieldGained).toBeCloseTo(oneShield * 2, 6);
   });
 });
 
