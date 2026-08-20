@@ -19,7 +19,7 @@
 
 import { useMemo, useState } from 'react';
 import type { ComboAnalysis } from '../engine/analysis';
-import { DAMAGE_TYPE_LABELS, type DamageType } from '../engine/types';
+import { DAMAGE_TYPE_LABELS, type DamageInstance, type DamageType } from '../engine/types';
 
 const WIDTH = 940;
 const HEIGHT = 380;
@@ -37,13 +37,25 @@ interface Props {
   targetStartingHealth: number;
 }
 
+/**
+ * One point in time on the curve, with everything that landed at it.
+ *
+ * Hits can share a timestamp exactly: Denting Blows procs on the attack that
+ * triggered it, so both land at the same instant. Drawing them as two separate
+ * points put one circle on top of the other and made the hidden one impossible
+ * to hover — the readout below then only ever showed one of the two.
+ */
 interface Step {
   time: number;
   /** Cumulative mitigated damage per type at this point in time. */
   totals: Record<DamageType, number>;
   total: number;
-  label: string | null;
+  /** Everything that landed at this instant, in the order it resolved. */
+  instances: DamageInstance[];
 }
+
+/** Two hits count as simultaneous when the clock cannot tell them apart. */
+const SAME_INSTANT = 1e-6;
 
 export function DamageChart({ analysis, targetStartingHealth }: Props) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
@@ -55,16 +67,28 @@ export function DamageChart({ analysis, targetStartingHealth }: Props) {
 
   const steps = useMemo<Step[]>(() => {
     const running: Record<DamageType, number> = { physical: 0, magic: 0, true: 0 };
-    const result: Step[] = [
-      { time: 0, totals: { ...running }, total: 0, label: null },
-    ];
+    const result: Step[] = [{ time: 0, totals: { ...running }, total: 0, instances: [] }];
+
     for (const point of analysis.curve) {
       running[point.instance.type] += point.instance.mitigated;
+      const totals = { ...running };
+      const total = running.physical + running.magic + running.true;
+      const last = result[result.length - 1]!;
+
+      // Fold a simultaneous hit into the step that is already there, so the
+      // curve keeps one reachable point per instant.
+      if (result.length > 1 && Math.abs(point.instance.time - last.time) < SAME_INSTANT) {
+        last.totals = totals;
+        last.total = total;
+        last.instances.push(point.instance);
+        continue;
+      }
+
       result.push({
         time: point.instance.time,
-        totals: { ...running },
-        total: running.physical + running.magic + running.true,
-        label: point.instance.sourceLabel,
+        totals,
+        total,
+        instances: [point.instance],
       });
     }
     return result;
@@ -111,8 +135,6 @@ export function DamageChart({ analysis, targetStartingHealth }: Props) {
   const xTicks = niceTicks(endTime, 6);
 
   const hovered = hoverIndex !== null ? steps[hoverIndex] : null;
-  const hoveredInstance =
-    hoverIndex !== null && hoverIndex > 0 ? analysis.curve[hoverIndex - 1]?.instance ?? null : null;
 
   return (
     <figure className="chart-figure">
@@ -215,15 +237,15 @@ export function DamageChart({ analysis, targetStartingHealth }: Props) {
             </>
           )}
 
-          {/* One marker per damage instance */}
-          {analysis.curve.map((point, index) => (
+          {/* One marker per instant, not per hit: simultaneous hits share it */}
+          {steps.slice(1).map((step, index) => (
             <circle
-              key={point.instance.id}
-              cx={x(point.instance.time)}
-              cy={y(point.cumulative)}
+              key={step.instances[0]!.id}
+              cx={x(step.time)}
+              cy={y(step.total)}
               r={hoverIndex === index + 1 ? 6 : 4}
               fill="var(--surface-1)"
-              stroke={SERIES_COLOR[point.instance.type]}
+              stroke={SERIES_COLOR[step.instances[step.instances.length - 1]!.type]}
               strokeWidth={2}
             />
           ))}
@@ -297,18 +319,26 @@ export function DamageChart({ analysis, targetStartingHealth }: Props) {
       {hovered && (
         <figcaption className="chart-tooltip" role="status">
           <span className="chart-tooltip-time mono">{hovered.time.toFixed(2)} s</span>
-          {hoveredInstance ? (
-            <>
-              <span className="chart-tooltip-source">{hoveredInstance.sourceLabel}</span>
-              <span className="chart-tooltip-value mono">
-                +{Math.round(hoveredInstance.mitigated).toLocaleString('de-DE')}
-              </span>
-              <span className="chart-tooltip-type" style={{ color: SERIES_COLOR[hoveredInstance.type] }}>
-                {DAMAGE_TYPE_LABELS[hoveredInstance.type]}
-              </span>
-            </>
-          ) : (
+          {hovered.instances.length === 0 ? (
             <span className="chart-tooltip-source">Combo-Start</span>
+          ) : (
+            // Everything that landed at this instant, each hit on its own line.
+            <span className="chart-tooltip-hits">
+              {hovered.instances.map((instance) => (
+                <span className="chart-tooltip-hit" key={instance.id}>
+                  <span className="chart-tooltip-source">{instance.sourceLabel}</span>
+                  <span className="chart-tooltip-value mono">
+                    +{Math.round(instance.mitigated).toLocaleString('de-DE')}
+                  </span>
+                  <span
+                    className="chart-tooltip-type"
+                    style={{ color: SERIES_COLOR[instance.type] }}
+                  >
+                    {DAMAGE_TYPE_LABELS[instance.type]}
+                  </span>
+                </span>
+              ))}
+            </span>
           )}
           <span className="chart-tooltip-total mono">
             gesamt {Math.round(hovered.total).toLocaleString('de-DE')}

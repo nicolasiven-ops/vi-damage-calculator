@@ -1112,6 +1112,19 @@
   font-weight: 600;
 }
 
+/* Several hits can share one instant — each gets its own line. */
+.chart-tooltip-hits {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.chart-tooltip-hit {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
 .chart-tooltip-total {
   margin-left: auto;
   color: var(--text-secondary);
@@ -1251,6 +1264,39 @@
 .timeline-table .numeric,
 .formula-table .numeric {
   text-align: right;
+}
+
+/* Non-damage rows: present for context, never competing with the numbers. */
+.timeline-event-row td {
+  color: var(--text-secondary);
+  background: rgba(9, 20, 35, 0.45);
+}
+
+.timeline-event-kind {
+  display: inline-block;
+  min-width: 58px;
+  margin-right: var(--space-2);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.timeline-event-kind.kind-cast {
+  color: var(--gold-400);
+}
+
+.timeline-event-kind.kind-shred {
+  color: var(--series-physical);
+}
+
+.timeline-event-kind.kind-shield,
+.timeline-event-kind.kind-buff {
+  color: var(--status-good);
+}
+
+.timeline-event-detail {
+  font-size: 11px;
 }
 
 .timeline-table .strong {

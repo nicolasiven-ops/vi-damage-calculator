@@ -67,8 +67,16 @@ export interface SimContext {
     durationSeconds: number;
     label: string;
   }): void;
-  addEvent(event: Omit<TimelineEvent, 'id' | 'time'>): void;
+  addEvent(event: Omit<TimelineEvent, 'id' | 'time' | 'seq'>): void;
   warn(message: string): void;
+}
+
+/** A cast's cost in time, and where that time went. */
+export interface CastTiming {
+  /** Total time before the next combo step may start. */
+  seconds: number;
+  /** Named contributions, in the order they happen. */
+  parts: { label: string; seconds: number }[];
 }
 
 export interface BasicAttackModifier {
@@ -87,10 +95,17 @@ export interface ChampionRuntime {
   /** Called when the combo casts one of this champion's abilities. */
   castAbility?(slot: AbilitySlot, ctx: SimContext, options: { chargeSeconds: number }): void;
   /**
-   * Time in seconds the cast occupies before the next combo step may start.
-   * Returning 0 means the ability is effectively instant.
+   * How long the cast occupies the combo, broken into named parts.
+   *
+   * The parts are what the timeline shows. Without them the first damage of a
+   * charged Q appears out of nowhere 1.5 s in, and there is no way to tell
+   * from the app that this is 1.25 s of charge plus a dash.
    */
-  castDuration?(slot: AbilitySlot, ctx: SimContext, options: { chargeSeconds: number }): number;
+  castDuration?(
+    slot: AbilitySlot,
+    ctx: SimContext,
+    options: { chargeSeconds: number },
+  ): CastTiming;
   /** True when casting this ability resets the auto-attack timer. */
   resetsAutoAttack?(slot: AbilitySlot): boolean;
   /**

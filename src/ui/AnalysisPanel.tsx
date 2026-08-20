@@ -10,9 +10,15 @@
  * row labels. Colour there would encode nothing.
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { ComboAnalysis } from '../engine/analysis';
-import { DAMAGE_TYPE_LABELS, type DamageType, type TargetConfig } from '../engine/types';
+import {
+  DAMAGE_TYPE_LABELS,
+  type DamageInstance,
+  type DamageType,
+  type TargetConfig,
+  type TimelineEvent,
+} from '../engine/types';
 import type { AbilitySlot } from '../engine/types';
 import type {
   AbilityMeta,
@@ -49,6 +55,20 @@ const SOURCE_TAGS: Record<ValueSource, { label: string; tone: string }> = {
   registry: { label: 'Registry', tone: 'gold' },
 };
 
+/** Short tags for what kind of thing an event was. */
+const EVENT_LABELS: Record<TimelineEvent['kind'], string> = {
+  cast: 'Wirken',
+  shield: 'Schild',
+  shred: 'Rüstung',
+  buff: 'Buff',
+  info: 'Info',
+  warning: 'Hinweis',
+};
+
+type TimelineRow =
+  | { kind: 'damage'; seq: number; instance: DamageInstance }
+  | { kind: 'event'; seq: number; event: TimelineEvent };
+
 const STATUS_TAGS: Record<GameDataStatus['state'], { label: string; tone: string }> = {
   idle: { label: 'Spieldaten aus', tone: 'gold' },
   loading: { label: 'Spieldaten …', tone: '' },
@@ -66,9 +86,27 @@ export function AnalysisPanel({
   ranks,
   gameDataStatus,
 }: Props) {
-  const [showTimeline, setShowTimeline] = useState(false);
   const [showFormulas, setShowFormulas] = useState(false);
   const formulaRows = showFormulas ? module.describeValues(moduleCtx, ranks) : [];
+
+  /**
+   * Damage and non-damage events in one chronological list.
+   *
+   * Both carry a shared sequence number, so a proc that lands at the same
+   * instant as the attack that triggered it stays in the order it resolved —
+   * which is the only way to read off that the armour shred came last.
+   */
+  const timelineRows = useMemo<TimelineRow[]>(() => {
+    const rows: TimelineRow[] = [
+      ...analysis.curve.map((point) => ({
+        kind: 'damage' as const,
+        seq: point.instance.seq,
+        instance: point.instance,
+      })),
+      ...analysis.events.map((event) => ({ kind: 'event' as const, seq: event.seq, event })),
+    ];
+    return rows.sort((a, b) => a.seq - b.seq);
+  }, [analysis.curve, analysis.events]);
 
   const startingHealth = target.maxHealth * target.currentHealthPercent;
   const kills = analysis.killTime !== null;
@@ -82,9 +120,6 @@ export function AnalysisPanel({
           <div className="analysis-header-actions">
             <button className="btn subtle" onClick={() => setShowFormulas((value) => !value)}>
               Formeln
-            </button>
-            <button className="btn subtle" onClick={() => setShowTimeline((value) => !value)}>
-              {showTimeline ? 'Zeitachse ausblenden' : 'Zeitachse'}
             </button>
           </div>
         }
@@ -183,49 +218,62 @@ export function AnalysisPanel({
         <TypeSplit analysis={analysis} />
       </Panel>
 
-      {showTimeline && (
-        <Panel index="08" title="Zeitachse">
-          <div className="table-scroll">
-            <table className="timeline-table">
-              <thead>
-                <tr>
-                  <th>Zeit</th>
-                  <th>Quelle</th>
-                  <th>Art</th>
-                  <th className="numeric">Roh</th>
-                  <th className="numeric">Effektiv</th>
-                  <th className="numeric">Ziel-LP</th>
-                  <th>Details</th>
-                </tr>
-              </thead>
-              <tbody>
-                {analysis.curve.map((point) => (
-                  <tr key={point.instance.id}>
-                    <td className="mono">{point.instance.time.toFixed(2)} s</td>
+      <Panel index="08" title="Zeitachse">
+        <div className="table-scroll">
+          <table className="timeline-table">
+            <thead>
+              <tr>
+                <th>Zeit</th>
+                <th>Quelle</th>
+                <th>Art</th>
+                <th className="numeric">Roh</th>
+                <th className="numeric">Effektiv</th>
+                <th className="numeric">Ziel-LP</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody>
+              {timelineRows.map((row) =>
+                row.kind === 'event' ? (
+                  <tr key={row.event.id} className="timeline-event-row">
+                    <td className="mono">{row.event.time.toFixed(2)} s</td>
                     <td>
-                      <span
-                        className="type-dot"
-                        style={{ background: TYPE_COLOR[point.instance.type] }}
-                        aria-hidden="true"
-                      />
-                      {point.instance.sourceLabel}
+                      <span className={`timeline-event-kind kind-${row.event.kind}`}>
+                        {EVENT_LABELS[row.event.kind]}
+                      </span>
+                      {row.event.label}
                     </td>
-                    <td>{DAMAGE_TYPE_LABELS[point.instance.type]}</td>
-                    <td className="mono numeric">{Math.round(point.instance.raw).toLocaleString('de-DE')}</td>
-                    <td className="mono numeric strong">
-                      {Math.round(point.instance.mitigated).toLocaleString('de-DE')}
+                    <td colSpan={4} className="timeline-event-detail">
+                      {row.event.detail}
                     </td>
-                    <td className="mono numeric">
-                      {Math.round(point.instance.targetHpAfter).toLocaleString('de-DE')}
-                    </td>
-                    <td className="timeline-notes">{point.instance.notes.join(' · ')}</td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Panel>
-      )}
+                ) : (
+                <tr key={row.instance.id}>
+                  <td className="mono">{row.instance.time.toFixed(2)} s</td>
+                  <td>
+                    <span
+                      className="type-dot"
+                      style={{ background: TYPE_COLOR[row.instance.type] }}
+                      aria-hidden="true"
+                    />
+                    {row.instance.sourceLabel}
+                  </td>
+                  <td>{DAMAGE_TYPE_LABELS[row.instance.type]}</td>
+                  <td className="mono numeric">{Math.round(row.instance.raw).toLocaleString('de-DE')}</td>
+                  <td className="mono numeric strong">
+                    {Math.round(row.instance.mitigated).toLocaleString('de-DE')}
+                  </td>
+                  <td className="mono numeric">
+                    {Math.round(row.instance.targetHpAfter).toLocaleString('de-DE')}
+                  </td>
+                  <td className="timeline-notes">{row.instance.notes.join(' · ')}</td>
+                </tr>
+                ),
+              )}
+            </tbody>
+          </table>
+      </div>
+      </Panel>
 
       {showFormulas && (
         <Panel index="09" title="Formel-Inspektor">

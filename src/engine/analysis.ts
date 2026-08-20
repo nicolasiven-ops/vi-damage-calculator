@@ -8,7 +8,13 @@
 
 import type { ChampionStats } from '../model/stats';
 import { resistanceMultiplier } from './damage';
-import type { DamageInstance, DamageType, SimulationResult, TargetConfig } from './types';
+import type {
+  DamageInstance,
+  DamageType,
+  SimulationResult,
+  TargetConfig,
+  TimelineEvent,
+} from './types';
 
 export interface SourceBreakdown {
   key: string;
@@ -72,6 +78,15 @@ export interface ComboAnalysis {
   shieldGained: number;
   healingDone: number;
   warnings: string[];
+  /**
+   * Everything that happened but dealt no damage: casts and their timing,
+   * shields, shreds, buffs, stack counters.
+   *
+   * The simulation always recorded these; nothing showed them, which left the
+   * app unable to explain its own timeline — why a charged Q lands 1.5 s in,
+   * for instance.
+   */
+  events: TimelineEvent[];
 }
 
 export function analyse(
@@ -193,6 +208,7 @@ export function analyse(
     shieldGained: result.shieldGained,
     healingDone: result.healingDone,
     warnings: [...result.warnings, ...unusedStatWarnings(attacker)],
+    events: result.events,
   };
 }
 

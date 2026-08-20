@@ -28,7 +28,7 @@
  * now come from the same file the client reads.
  */
 
-import type { ChampionRuntime, SimContext } from '../../engine/context';
+import type { CastTiming, ChampionRuntime, SimContext } from '../../engine/context';
 import type { AbilitySlot } from '../../engine/types';
 import { num, statLookup } from '../spellcalc';
 import {
@@ -170,7 +170,7 @@ const ABILITIES: AbilityMeta[] = [
     modelNotes: [
       'Schaden skaliert linear mit der Ladezeit zwischen Minimum und Maximum.',
       'Skaliert mit Bonus-Angriffsschaden, nicht mit Gesamt-AD.',
-      'Wendet keine Treffereffekte an.',
+      'Setzt einen Stapel von Beulenschlägen — Treffereffekte von Items und Runen dagegen nicht.',
       'Löst das Explosionsschild aus.',
     ],
   },
@@ -181,8 +181,10 @@ const ABILITIES: AbilityMeta[] = [
     maxRank: 5,
     castable: false,
     modelNotes: [
-      `Jeder ${FALLBACK.w.hitsToProc}. Basisangriff auf dasselbe Ziel löst aus.`,
+      `Jeder ${FALLBACK.w.hitsToProc}. Treffer auf dasselbe Ziel löst aus.`,
+      'Nicht nur Basisangriffe zählen: Tresorknacker setzt ebenfalls einen Stapel.',
       `Die Zähler verfallen, wenn zwischen zwei Treffern mehr als ${FALLBACK.w.markerSeconds} s liegen.`,
+      'Die Rüstungsreduktion wirkt erst auf alles, was nach der Auslösung folgt — nicht auf den auslösenden Treffer und nicht auf den Zusatzschaden selbst.',
       'Zusatzschaden in % des maximalen Lebens des Ziels, skaliert mit Bonus-AD.',
       `Reduziert die Rüstung des Ziels um ${pct(FALLBACK.w.armorShredPercent)} für ${FALLBACK.w.shredDurationSeconds} s.`,
       `Gewährt Vi Angriffstempo für ${FALLBACK.w.attackSpeedDurationSeconds} s.`,
@@ -260,17 +262,29 @@ class ViRuntime implements ChampionRuntime {
     ).value;
   }
 
-  castDuration(slot: AbilitySlot, ctx: SimContext, options: { chargeSeconds: number }): number {
+  /**
+   * What a cast costs in time, itemised.
+   *
+   * None of these are published by Riot in machine-readable form, so they are
+   * assumptions — editable in the Simulation panel and named here so the
+   * timeline can show which assumption delayed the first hit.
+   */
+  castDuration(slot: AbilitySlot, ctx: SimContext, options: { chargeSeconds: number }): CastTiming {
+    const parts = (entries: { label: string; seconds: number }[]): CastTiming => ({
+      seconds: entries.reduce((sum, entry) => sum + entry.seconds, 0),
+      parts: entries,
+    });
+
     switch (slot) {
       case 'Q':
-        return Math.min(options.chargeSeconds, this.chargeWindow(ctx)) + ctx.timings.dashTravel;
+        return parts([
+          { label: 'Ladezeit', seconds: Math.min(options.chargeSeconds, this.chargeWindow(ctx)) },
+          { label: 'Sprint bis zum Ziel', seconds: ctx.timings.dashTravel },
+        ]);
       case 'R':
-        return ctx.timings.dashTravel;
-      case 'E':
-        // Casting E only buffs the next attack; it costs an input frame.
-        return ctx.timings.inputDelay;
+        return parts([{ label: 'Sprint bis zum Ziel', seconds: ctx.timings.dashTravel }]);
       default:
-        return ctx.timings.inputDelay;
+        return parts([{ label: 'Eingabe', seconds: ctx.timings.inputDelay }]);
     }
   }
 
@@ -336,6 +350,8 @@ class ViRuntime implements ChampionRuntime {
       ],
     });
 
+    // Vault Breaker applies Denting Blows to everything it hits.
+    this.applyDentingBlows(ctx);
     this.tryPassive(ctx);
   }
 
@@ -428,12 +444,26 @@ class ViRuntime implements ChampionRuntime {
     };
   }
 
-  /**
-   * Denting Blows counts hits on the same target. The counter is a buff on the
-   * target with its own duration, so a combo slow enough to let it lapse starts
-   * over — the same way it does in the client.
-   */
   onBasicAttackHit(ctx: SimContext): void {
+    this.applyDentingBlows(ctx);
+  }
+
+  /**
+   * One stack of Denting Blows on the current target.
+   *
+   * Basic attacks are not the only source: Vault Breaker applies a stack too
+   * ("applying Denting Blows to all enemies hit" in its own tooltip), which
+   * makes Q → AA → E a three-stack sequence that procs on the E.
+   *
+   * The counter is a buff on the target with its own duration, so a combo slow
+   * enough to let it lapse starts over — the same way it does in the client.
+   *
+   * Order matters and is deliberate: the caller has already dealt its damage
+   * when this runs, and the proc deals its own damage *before* applying the
+   * armour reduction. Riot resolves it the same way — the shred never applies
+   * to the hit that triggered it, only to what comes after.
+   */
+  private applyDentingBlows(ctx: SimContext): void {
     const rank = ctx.rank('W');
     if (rank < 1) return;
 

@@ -27,8 +27,10 @@ Modelliert sind unter anderem:
 - **Ladezeit-Skalierung** von Tresorknacker (Q), linear zwischen Minimum und Maximum
 - **Beulenschläge (W)** als Zähler auf demselben Ziel, mit %-Max-Leben-Schaden,
   Bonus-AD-Skalierung, Monster-Kappe und der 20 %-Rüstungsreduktion zum richtigen
-  Zeitpunkt — inklusive Verfall des Zählers, wenn zwischen zwei Treffern mehr Zeit
-  liegt als die Markierung hält
+  Zeitpunkt: **nach** dem auslösenden Treffer und nach dem Zusatzschaden selbst,
+  wirksam also erst auf alles Folgende. Tresorknacker setzt ebenfalls einen Stapel
+  (Riots Q-Tooltip sagt das ausdrücklich), die Ultimative nicht. Der Zähler
+  verfällt, wenn zwischen zwei Treffern mehr Zeit liegt als die Markierung hält
 - **Übermäßige Gewalt (E)** als ein Schritt, der den verstärkten Angriff enthält:
   In der Combo heißt „E" das, was Spieler damit meinen — draufhauen. Der Schaden
   ersetzt den Angriffsschaden (statt obendrauf zu kommen), mit Angriffstimer-Reset
@@ -112,7 +114,9 @@ schlägt der Test fehl und nennt die betroffene Zeile.
   **„ungelesen"** ausgewiesen statt verworfen.
 - Animations- und Wirkzeiten veröffentlicht Riot nirgends maschinenlesbar. Sie
   sind editierbare Annahmen im Panel *Simulation* und verschieben nur die
-  Zeitachse, nicht die Schadenssummen.
+  Zeitachse, nicht die Schadenssummen. Wo sie wirken, steht in der Zeitachse
+  namentlich: „1,25 s Ladezeit + 0,25 s Sprint bis zum Ziel" erklärt, warum der
+  erste Treffer einer voll geladenen Q erst nach 1,5 s landet.
 
 ## Aufbau
 

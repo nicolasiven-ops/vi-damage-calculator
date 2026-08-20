@@ -16,7 +16,13 @@ import { runeAmplifiers, runeRuntimes, type HitInfo, type RuneRuntime } from '..
 import { cooldownMultiplier, resolveChampionStats, sumStats, type StatBlock } from '../model/stats';
 import type { ChampionModule, ChampionModuleContext } from '../model/champions/types';
 import { cooldownValue } from '../model/champions/types';
-import type { BasicAttackModifier, ChampionRuntime, DealDamageArgs, SimContext } from './context';
+import type {
+  BasicAttackModifier,
+  CastTiming,
+  ChampionRuntime,
+  DealDamageArgs,
+  SimContext,
+} from './context';
 import { mitigate } from './damage';
 import type {
   AbilitySlot,
@@ -53,6 +59,24 @@ interface ScheduledEvent {
 /** Guards against runaway combos if a step somehow never advances the clock. */
 const MAX_SIMULATED_SECONDS = 120;
 
+/** German decimal notation for the short durations the timeline reports. */
+function seconds(value: number): string {
+  return (Math.round(value * 100) / 100).toString().replace('.', ',');
+}
+
+/**
+ * "1,25 s Ladezeit + 0,25 s Sprint = 1,5 s".
+ *
+ * The breakdown is the point: a combo whose first damage lands 1.5 s in should
+ * be able to say why, without anyone reading the source.
+ */
+function describeCastTiming(timing: CastTiming): string {
+  const parts = timing.parts.filter((part) => part.seconds > 0.001);
+  if (parts.length === 0) return 'ohne Wirkzeit';
+  const listed = parts.map((part) => `${seconds(part.seconds)} s ${part.label}`).join(' + ');
+  return parts.length > 1 ? `${listed} = ${seconds(timing.seconds)} s` : listed;
+}
+
 export function simulate(
   input: SimulationInput,
   module: ChampionModule,
@@ -71,6 +95,8 @@ export function simulate(
   let healingDone = 0;
   let instanceCounter = 0;
   let eventCounter = 0;
+  /** Shared across damage and events, so the timeline can interleave them. */
+  let sequence = 0;
   /** Depth guard so rune and item procs cannot trigger each other forever. */
   let procDepth = 0;
 
@@ -221,9 +247,10 @@ export function simulate(
     },
   };
 
-  function addEvent(event: Omit<TimelineEvent, 'id' | 'time'>): void {
+  function addEvent(event: Omit<TimelineEvent, 'id' | 'time' | 'seq'>): void {
     eventCounter += 1;
-    events.push({ ...event, id: `ev${eventCounter}`, time });
+    sequence += 1;
+    events.push({ ...event, id: `ev${eventCounter}`, seq: sequence, time });
   }
 
   /* ------------------------------------------------------------------ damage */
@@ -272,8 +299,10 @@ export function simulate(
     targetCurrentHealth = Math.max(0, targetCurrentHealth - result.mitigated);
 
     instanceCounter += 1;
+    sequence += 1;
     const instance: DamageInstance = {
       id: `dmg${instanceCounter}`,
+      seq: sequence,
       time,
       sourceId: args.sourceId,
       sourceLabel: args.sourceLabel,
@@ -326,8 +355,10 @@ export function simulate(
 
   function performAttack(): void {
     const stats = currentStats();
+    const idleSince = time;
     advanceTo(Math.max(time, nextAttackReadyAt));
     const attackStart = time;
+    const waited = attackStart - idleSince;
 
     const windup = input.timings.attackWindup / Math.max(0.1, stats.totalAttackSpeed);
     advance(windup);
@@ -356,6 +387,7 @@ export function simulate(
       triggersOnHit: true,
       notes: [
         ...(modifier?.notes ?? []),
+        `${seconds(windup)} s Ausholzeit` + (waited > 0.001 ? ` nach ${seconds(waited)} s Angriffstimer` : ''),
         ...(critFactor !== 1 ? [`Krit-Faktor ×${critFactor.toFixed(3)}`] : []),
       ],
     });
@@ -394,9 +426,12 @@ export function simulate(
       );
     }
 
-    const duration = championRuntime.castDuration?.(slot, ctx, { chargeSeconds }) ?? 0;
-    addEvent({ kind: 'cast', label: `${slot} gewirkt`, detail: `${duration.toFixed(2)} s Wirkzeit` });
-    advance(duration);
+    const timing: CastTiming = championRuntime.castDuration?.(slot, ctx, { chargeSeconds }) ?? {
+      seconds: 0,
+      parts: [],
+    };
+    addEvent({ kind: 'cast', label: `${slot} gewirkt`, detail: describeCastTiming(timing) });
+    advance(timing.seconds);
 
     championRuntime.castAbility?.(slot, ctx, { chargeSeconds });
 

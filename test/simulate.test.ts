@@ -225,6 +225,73 @@ describe('Denting Blows (W)', () => {
     expect(attacks[3]!.raw).toBeCloseTo(attacks[0]!.raw, 4);
     expect(attacks[3]!.mitigated).toBeGreaterThan(attacks[0]!.mitigated);
   });
+
+  /**
+   * The shred lands after the damage that triggered it. Riot resolves it that
+   * way, and it matters: the third attack and the proc itself still meet the
+   * target's full armour, only what comes afterwards benefits.
+   */
+  it('applies the armor reduction after the triggering damage, not before', () => {
+    const result = run([
+      step({ kind: 'attack' }),
+      step({ kind: 'attack' }),
+      step({ kind: 'attack' }),
+      step({ kind: 'attack' }),
+    ]);
+    const attacks = result.instances.filter((entry) => entry.sourceId === 'AA');
+    const proc = result.instances.find((entry) => entry.slot === 'W')!;
+
+    // The share that gets through is the armour multiplier; equal shares mean
+    // equal armour. The first three attacks and the proc all see 100 armour.
+    const share = (raw: number, mitigated: number) => mitigated / raw;
+    const unshredded = share(attacks[0]!.raw, attacks[0]!.mitigated);
+    expect(share(attacks[1]!.raw, attacks[1]!.mitigated)).toBeCloseTo(unshredded, 6);
+    expect(share(attacks[2]!.raw, attacks[2]!.mitigated)).toBeCloseTo(unshredded, 6);
+    expect(share(proc.raw, proc.mitigated)).toBeCloseTo(unshredded, 6);
+
+    // Only the fourth one lands into reduced armour.
+    expect(share(attacks[3]!.raw, attacks[3]!.mitigated)).toBeGreaterThan(unshredded);
+  });
+
+  /**
+   * Vault Breaker applies Denting Blows itself — its own tooltip says so. That
+   * makes Q → AA → E proc on the E, which is the sequence people actually play.
+   */
+  it('counts Vault Breaker as a Denting Blows hit', () => {
+    const withQ = run([
+      step({ kind: 'ability', slot: 'Q' }, 0),
+      step({ kind: 'attack' }),
+      step({ kind: 'ability', slot: 'E' }),
+    ]);
+    expect(withQ.instances.filter((entry) => entry.slot === 'W')).toHaveLength(1);
+
+    // Without the Q the same two attacks are only two hits, so nothing procs.
+    const withoutQ = run([step({ kind: 'attack' }), step({ kind: 'ability', slot: 'E' })]);
+    expect(withoutQ.instances.filter((entry) => entry.slot === 'W')).toHaveLength(0);
+  });
+
+  it('procs on the second attack after a Vault Breaker', () => {
+    const result = run([
+      step({ kind: 'ability', slot: 'Q' }, 0),
+      step({ kind: 'attack' }),
+      step({ kind: 'attack' }),
+    ]);
+    const proc = result.instances.find((entry) => entry.slot === 'W');
+    const attacks = result.instances.filter((entry) => entry.sourceId === 'AA');
+    expect(proc).toBeDefined();
+    // Third hit overall, so it lands together with the second attack.
+    expect(proc!.time).toBeCloseTo(attacks[1]!.time, 6);
+  });
+
+  it('does not count the ultimate as a Denting Blows hit', () => {
+    // R deals damage but applies nothing; two attacks plus R stay below three.
+    const result = run([
+      step({ kind: 'attack' }),
+      step({ kind: 'ability', slot: 'R' }),
+      step({ kind: 'attack' }),
+    ]);
+    expect(result.instances.filter((entry) => entry.slot === 'W')).toHaveLength(0);
+  });
 });
 
 describe('Cease and Desist (R)', () => {

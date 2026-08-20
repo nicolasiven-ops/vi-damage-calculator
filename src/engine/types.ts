@@ -18,6 +18,14 @@ export type SourceKind = 'ability' | 'attack' | 'passive' | 'rune' | 'item' | 's
 /** One resolved hit on the timeline. */
 export interface DamageInstance {
   id: string;
+  /**
+   * Position in the order things actually resolved.
+   *
+   * Timestamps are not enough to order a timeline: a proc lands at the same
+   * instant as the attack that triggered it, and which came first is the whole
+   * point. Damage and events share one counter so they can be interleaved.
+   */
+  seq: number;
   /** Seconds since the combo started. */
   time: number;
   sourceId: string;
@@ -39,6 +47,8 @@ export interface DamageInstance {
 /** Non-damage timeline events worth showing (shields, shreds, buffs). */
 export interface TimelineEvent {
   id: string;
+  /** Shared ordering with DamageInstance — see the note there. */
+  seq: number;
   time: number;
   label: string;
   detail: string;
