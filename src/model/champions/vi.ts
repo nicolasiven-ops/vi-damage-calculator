@@ -405,15 +405,27 @@ export const VI_MODULE: ChampionModule = {
     const qMax = effectValue(spell('Q'), 2, qRank, [...FALLBACK.q.maxBase]);
     const qCd = cooldownValue(spell('Q'), qRank, [...FALLBACK.q.cooldown]);
     rows.push(
-      { slot: 'Q', label: 'Basisschaden (ungeladen)', value: qMin.value.toFixed(0), source: qMin.source },
-      { slot: 'Q', label: 'Basisschaden (voll geladen)', value: qMax.value.toFixed(0), source: qMax.source },
+      {
+        slot: 'Q',
+        label: 'Basisschaden (ungeladen)',
+        value: qMin.value.toFixed(0),
+        source: qMin.source,
+        note: qMin.note,
+      },
+      {
+        slot: 'Q',
+        label: 'Basisschaden (voll geladen)',
+        value: qMax.value.toFixed(0),
+        source: qMax.source,
+        note: qMax.note,
+      },
       {
         slot: 'Q',
         label: 'Gesamt-AD-Verhältnis',
         value: `${pct(FALLBACK.q.minTotalAdRatio)} → ${pct(FALLBACK.q.maxTotalAdRatio)}`,
         source: 'registry',
       },
-      { slot: 'Q', label: 'Abklingzeit', value: `${qCd.value} s`, source: qCd.source },
+      { slot: 'Q', label: 'Abklingzeit', value: `${qCd.value} s`, source: qCd.source, note: qCd.note },
     );
 
     const wRank = Math.max(1, ranks.W);
@@ -447,7 +459,13 @@ export const VI_MODULE: ChampionModule = {
     const eRank = Math.max(1, ranks.E);
     const eBase = effectValue(spell('E'), 1, eRank, [...FALLBACK.e.base]);
     rows.push(
-      { slot: 'E', label: 'Basisschaden', value: eBase.value.toFixed(0), source: eBase.source },
+      {
+        slot: 'E',
+        label: 'Basisschaden',
+        value: eBase.value.toFixed(0),
+        source: eBase.source,
+        note: eBase.note,
+      },
       {
         slot: 'E',
         label: 'Gesamt-AD-Verhältnis',
@@ -461,14 +479,20 @@ export const VI_MODULE: ChampionModule = {
     const rBase = effectValue(spell('R'), 1, rRank, [...FALLBACK.r.base]);
     const rCd = cooldownValue(spell('R'), rRank, [...FALLBACK.r.cooldown]);
     rows.push(
-      { slot: 'R', label: 'Basisschaden', value: rBase.value.toFixed(0), source: rBase.source },
+      {
+        slot: 'R',
+        label: 'Basisschaden',
+        value: rBase.value.toFixed(0),
+        source: rBase.source,
+        note: rBase.note,
+      },
       {
         slot: 'R',
         label: 'Bonus-AD-Verhältnis',
         value: pct(FALLBACK.r.bonusAdRatio),
         source: 'registry',
       },
-      { slot: 'R', label: 'Abklingzeit', value: `${rCd.value} s`, source: rCd.source },
+      { slot: 'R', label: 'Abklingzeit', value: `${rCd.value} s`, source: rCd.source, note: rCd.note },
     );
 
     rows.push({

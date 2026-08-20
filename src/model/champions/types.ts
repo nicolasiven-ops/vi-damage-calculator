@@ -57,14 +57,30 @@ export interface ChampionModule {
   describeValues(
     ctx: ChampionModuleContext,
     ranks: Record<AbilitySlot, number>,
-  ): { slot: AbilitySlot; label: string; value: string; source: SourcedNumber['source'] }[];
+  ): {
+    slot: AbilitySlot;
+    label: string;
+    value: string;
+    source: SourcedNumber['source'];
+    /** Why this value came from where it did, when that is not obvious. */
+    note?: string;
+  }[];
 }
 
 /* ------------------------------------------------ Data Dragon value helpers */
 
+const ZERO_NOTE =
+  'Data Dragon liefert hier 0 — Riot füllt die effect-Arrays überarbeiteter Kits nicht mehr. Gepflegte Konstante verwendet.';
+
 /**
  * Read `spell.effect[index][rank - 1]`, falling back to a maintained constant.
  * Data Dragon's `effect` array is 1-based with a `null` at index 0.
+ *
+ * A zero is treated as *missing*, not as data. Riot ships zero-filled `effect`
+ * arrays for reworked kits — the real numbers moved into tooltip placeholders
+ * that are resolved from a source Data Dragon does not expose. Accepting those
+ * zeros silently replaces every base damage with nothing, which is strictly
+ * worse than the maintained constant they would otherwise override.
  */
 export function effectValue(
   spell: DDragonSpell | undefined,
@@ -75,13 +91,13 @@ export function effectValue(
 ): SourcedNumber {
   const row = spell?.effect?.[effectIndex];
   const fromDDragon = Array.isArray(row) ? row[Math.max(0, rank - 1)] : undefined;
-  if (typeof fromDDragon === 'number' && Number.isFinite(fromDDragon)) {
-    return { value: fromDDragon, source: 'ddragon' };
-  }
+  const usable = typeof fromDDragon === 'number' && Number.isFinite(fromDDragon) && fromDDragon > 0;
+  if (usable) return { value: fromDDragon as number, source: 'ddragon' };
+
   return {
     value: fallback[Math.max(0, Math.min(fallback.length - 1, rank - 1))] ?? 0,
     source: 'registry',
-    note,
+    note: fromDDragon === 0 ? ZERO_NOTE : note,
   };
 }
 
@@ -105,18 +121,19 @@ export function varCoefficient(
   return { value: fallback, source: 'registry', note };
 }
 
-/** Read a per-rank cooldown, falling back to a constant. */
+/** Read a per-rank cooldown, falling back to a constant. Zero means missing. */
 export function cooldownValue(
   spell: DDragonSpell | undefined,
   rank: number,
   fallback: number[],
 ): SourcedNumber {
   const fromDDragon = spell?.cooldown?.[Math.max(0, rank - 1)];
-  if (typeof fromDDragon === 'number' && Number.isFinite(fromDDragon)) {
+  if (typeof fromDDragon === 'number' && Number.isFinite(fromDDragon) && fromDDragon > 0) {
     return { value: fromDDragon, source: 'ddragon' };
   }
   return {
     value: fallback[Math.max(0, Math.min(fallback.length - 1, rank - 1))] ?? 0,
     source: 'registry',
+    note: fromDDragon === 0 ? ZERO_NOTE : undefined,
   };
 }

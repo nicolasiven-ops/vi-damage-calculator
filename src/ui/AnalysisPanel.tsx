@@ -218,7 +218,10 @@ export function AnalysisPanel({ analysis, target, module, moduleCtx, ranks }: Pr
                     <td>
                       <span className={`slot-chip slot-${row.slot.toLowerCase()}`}>{row.slot}</span>
                     </td>
-                    <td>{row.label}</td>
+                    <td>
+                      {row.label}
+                      {row.note && <span className="formula-note">{row.note}</span>}
+                    </td>
                     <td className="mono">{row.value}</td>
                     <td>
                       <span className={`tag ${row.source === 'ddragon' ? 'good' : 'gold'}`}>

@@ -1264,6 +1264,14 @@
   max-width: 320px;
 }
 
+.formula-note {
+  display: block;
+  margin-top: 2px;
+  font-size: 10.5px;
+  color: var(--status-warn);
+  max-width: 420px;
+}
+
 .type-dot {
   display: inline-block;
   width: 8px;
