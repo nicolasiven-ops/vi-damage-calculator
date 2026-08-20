@@ -3,10 +3,21 @@ import { analyse } from '../src/engine/analysis';
 import { simulate } from '../src/engine/simulate';
 import { DEFAULT_TIMINGS, type ComboStep, type SimulationInput, type TargetConfig } from '../src/engine/types';
 import { VI_MODULE, VI_CONSTANTS } from '../src/model/champions/vi';
+import type { ChampionModuleContext } from '../src/model/champions/types';
 import { emptyStats, resolveChampionStats, statAtLevel } from '../src/model/stats';
 import { FIXTURE_CHAMPION, FIXTURE_CHAMPION_STATS, FIXTURE_SPELLS_BY_ID } from './fixtures';
 
-const moduleCtx = { detail: FIXTURE_CHAMPION, spellById: FIXTURE_SPELLS_BY_ID };
+/**
+ * This suite deliberately runs *without* game data, so it covers the fallback
+ * path: what the calculator does when CommunityDragon cannot be reached and the
+ * maintained constants have to carry the combo. The game-data path is covered in
+ * `vi.test.ts`, which runs the same module against the real bin file.
+ */
+const moduleCtx: ChampionModuleContext = {
+  detail: FIXTURE_CHAMPION,
+  spellById: FIXTURE_SPELLS_BY_ID,
+  gameData: null,
+};
 
 const TARGET: TargetConfig = {
   name: 'Testziel',
@@ -78,12 +89,21 @@ describe('Vault Breaker (Q)', () => {
     expect(full.instances[0]!.raw).toBeGreaterThan(uncharged.instances[0]!.raw * 1.8);
   });
 
-  it('reads its base damage from Data Dragon when available', () => {
+  it('falls back to the maintained constant when game data is unavailable', () => {
     const result = run([step({ kind: 'ability', slot: 'Q' }, 0)]);
-    const stats = resolveChampionStats(FIXTURE_CHAMPION_STATS, 11, emptyStats());
-    // Fixture effect[1] at rank 5 is 120, ratio at zero charge is 0.6 total AD.
-    const expected = 120 + 0.6 * stats.totalAttackDamage;
+    // Rank 5, no bonus AD in this build: the base damage alone. Riot
+    // publishes 120 for rank 5, and Q scales with bonus AD, not total AD, so
+    // there is nothing to add here.
+    const expected = VI_CONSTANTS.q.minBase[4]!;
     expect(result.instances[0]!.raw).toBeCloseTo(expected, 6);
+  });
+
+  it('scales with bonus attack damage only', () => {
+    const withBonus = run([step({ kind: 'ability', slot: 'Q' }, 0)], {
+      bonusStats: { ...emptyStats(), attackDamage: 100 },
+    });
+    const expected = VI_CONSTANTS.q.minBase[4]! + VI_CONSTANTS.q.minBonusAdRatio * 100;
+    expect(withBonus.instances[0]!.raw).toBeCloseTo(expected, 6);
   });
 
   it('costs its charge time on the timeline', () => {

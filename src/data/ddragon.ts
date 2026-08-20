@@ -13,7 +13,7 @@
  * displayed names and degrades stat parsing accordingly.
  */
 
-import { readCache, writeCache } from './cache';
+import { CdnError, getJson } from './http';
 import { OFFLINE_BUNDLE } from './fallback';
 import type {
   DDragonChampionDetail,
@@ -25,46 +25,20 @@ import type {
 
 const CDN = 'https://ddragon.leagueoflegends.com';
 const VERSIONS_TTL_MS = 6 * 60 * 60 * 1000; // 6h — patches ship far less often
-const FETCH_TIMEOUT_MS = 15_000;
 
 export const DEFAULT_LOCALE = 'en_US';
 
-export class DDragonError extends Error {
-  constructor(
-    message: string,
-    readonly cause?: unknown,
-  ) {
-    super(message);
-    this.name = 'DDragonError';
-  }
-}
-
-async function getJson<T>(url: string, cacheKey: string, ttlMs: number | null): Promise<T> {
-  const cached = readCache<T>(cacheKey);
-  if (cached !== null) return cached;
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-  try {
-    const res = await fetch(url, { signal: controller.signal, mode: 'cors' });
-    if (!res.ok) throw new DDragonError(`${url} antwortete mit HTTP ${res.status}`);
-    const json = (await res.json()) as T;
-    writeCache(cacheKey, json, ttlMs);
-    return json;
-  } catch (err) {
-    if (err instanceof DDragonError) throw err;
-    const reason = err instanceof Error && err.name === 'AbortError' ? 'Zeitüberschreitung' : 'Netzwerkfehler';
-    throw new DDragonError(`${reason} beim Laden von ${url}`, err);
-  } finally {
-    clearTimeout(timer);
-  }
-}
+/**
+ * Kept as the name the rest of the app throws and catches. Data Dragon and
+ * CommunityDragon fail the same way, so they share one error type.
+ */
+export { CdnError as DDragonError };
 
 /** Newest patch version first. */
 export async function fetchVersions(): Promise<string[]> {
   const versions = await getJson<string[]>(`${CDN}/api/versions.json`, 'versions', VERSIONS_TTL_MS);
   if (!Array.isArray(versions) || versions.length === 0) {
-    throw new DDragonError('versions.json war leer');
+    throw new CdnError('versions.json war leer');
   }
   return versions;
 }
@@ -96,7 +70,7 @@ export async function fetchChampionDetail(
     null,
   );
   const detail = payload.data?.[championId];
-  if (!detail) throw new DDragonError(`Champion ${championId} fehlt in Data Dragon ${version}`);
+  if (!detail) throw new CdnError(`Champion ${championId} fehlt in Data Dragon ${version}`);
   return detail;
 }
 

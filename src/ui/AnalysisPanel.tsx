@@ -14,7 +14,13 @@ import { useState } from 'react';
 import type { ComboAnalysis } from '../engine/analysis';
 import { DAMAGE_TYPE_LABELS, type DamageType, type TargetConfig } from '../engine/types';
 import type { AbilitySlot } from '../engine/types';
-import type { AbilityMeta, ChampionModule, ChampionModuleContext } from '../model/champions/types';
+import type {
+  AbilityMeta,
+  ChampionModule,
+  ChampionModuleContext,
+  ValueSource,
+} from '../model/champions/types';
+import type { GameDataStatus } from '../hooks/usePatchData';
 import { DamageChart } from './DamageChart';
 import { Panel } from './components/Panel';
 
@@ -26,6 +32,8 @@ interface Props {
   /** Abilities with names resolved from Data Dragon. */
   abilities: AbilityMeta[];
   ranks: Record<AbilitySlot, number>;
+  /** Whether Riot's own ability formulas are in use, and why not if they are not. */
+  gameDataStatus: GameDataStatus;
 }
 
 const TYPE_COLOR: Record<DamageType, string> = {
@@ -34,9 +42,33 @@ const TYPE_COLOR: Record<DamageType, string> = {
   true: 'var(--series-true)',
 };
 
-export function AnalysisPanel({ analysis, target, module, moduleCtx, abilities, ranks }: Props) {
+/** Three sources, three badges — the inspector's whole point is telling them apart. */
+const SOURCE_TAGS: Record<ValueSource, { label: string; tone: string }> = {
+  gamedata: { label: 'Spieldaten', tone: 'good' },
+  ddragon: { label: 'Data Dragon', tone: 'riot' },
+  registry: { label: 'Registry', tone: 'gold' },
+};
+
+const STATUS_TAGS: Record<GameDataStatus['state'], { label: string; tone: string }> = {
+  idle: { label: 'Spieldaten aus', tone: 'gold' },
+  loading: { label: 'Spieldaten …', tone: '' },
+  ready: { label: 'Spieldaten geprüft', tone: 'good' },
+  rejected: { label: 'Spieldaten verworfen', tone: 'danger' },
+  failed: { label: 'Spieldaten fehlen', tone: 'warn' },
+};
+
+export function AnalysisPanel({
+  analysis,
+  target,
+  module,
+  moduleCtx,
+  abilities,
+  ranks,
+  gameDataStatus,
+}: Props) {
   const [showTimeline, setShowTimeline] = useState(false);
   const [showFormulas, setShowFormulas] = useState(false);
+  const formulaRows = showFormulas ? module.describeValues(moduleCtx, ranks) : [];
 
   const startingHealth = target.maxHealth * target.currentHealthPercent;
   const kills = analysis.killTime !== null;
@@ -199,11 +231,27 @@ export function AnalysisPanel({ analysis, target, module, moduleCtx, abilities, 
         <Panel index="09" title="Formel-Inspektor">
           <p className="field-hint">
             Jeder Wert, mit dem die Simulation rechnet, und woher er stammt.{' '}
-            <strong>Data Dragon</strong> heißt: direkt von Riots CDN für den gewählten Patch.{' '}
+            <strong>Spieldaten</strong> heißt: Riots eigene Fähigkeitsformel für den gewählten
+            Patch, gelesen aus der <code>bin</code>-Datei des Spiels über CommunityDragon.{' '}
+            <strong>Data Dragon</strong> heißt: direkt von Riots CDN — dort stehen Basiswerte,
+            Item-Werte, Abklingzeiten und Kosten, aber seit Jahren kein Fähigkeitsschaden mehr.{' '}
             <strong>Registry</strong> heißt: gepflegte Konstante in{' '}
-            <code>src/model/champions/vi.ts</code>, weil Data Dragon den Wert nicht maschinenlesbar
-            ausliefert.
+            <code>src/model/champions/vi.ts</code>, verwendet nur dort, wo die beiden anderen
+            nichts liefern.
           </p>
+
+          <p className="source-status">
+            <span className={`tag ${STATUS_TAGS[gameDataStatus.state].tone}`}>
+              {STATUS_TAGS[gameDataStatus.state].label}
+            </span>{' '}
+            {gameDataStatus.patch && (
+              <>
+                <span className="mono">{gameDataStatus.patch}</span> ·{' '}
+              </>
+            )}
+            {gameDataStatus.message}
+          </p>
+
           <div className="table-scroll">
             <table className="formula-table">
               <thead>
@@ -211,11 +259,12 @@ export function AnalysisPanel({ analysis, target, module, moduleCtx, abilities, 
                   <th>Slot</th>
                   <th>Wert</th>
                   <th>Betrag</th>
+                  <th>Formel</th>
                   <th>Quelle</th>
                 </tr>
               </thead>
               <tbody>
-                {module.describeValues(moduleCtx, ranks).map((row, index) => (
+                {formulaRows.map((row, index) => (
                   <tr key={`${row.slot}-${row.label}-${index}`}>
                     <td>
                       <span className={`slot-chip slot-${row.slot.toLowerCase()}`}>{row.slot}</span>
@@ -225,9 +274,10 @@ export function AnalysisPanel({ analysis, target, module, moduleCtx, abilities, 
                       {row.note && <span className="formula-note">{row.note}</span>}
                     </td>
                     <td className="mono">{row.value}</td>
+                    <td className="mono formula-cell">{row.formula ?? '—'}</td>
                     <td>
-                      <span className={`tag ${row.source === 'ddragon' ? 'good' : 'gold'}`}>
-                        {row.source === 'ddragon' ? 'Data Dragon' : 'Registry'}
+                      <span className={`tag ${SOURCE_TAGS[row.source].tone}`}>
+                        {SOURCE_TAGS[row.source].label}
                       </span>
                     </td>
                   </tr>
@@ -235,6 +285,14 @@ export function AnalysisPanel({ analysis, target, module, moduleCtx, abilities, 
               </tbody>
             </table>
           </div>
+
+          {formulaRows.some((row) => row.source === 'registry') && (
+            <p className="field-hint">
+              Die als <strong>Registry</strong> markierten Werte sind gegen Patch{' '}
+              <span className="mono">{module.constantsReviewedPatch}</span> geprüft. Für einen
+              anderen Patch können sie abweichen — dort gilt, was in den Spieldaten steht.
+            </p>
+          )}
 
           <hr className="divider" />
           <div className="ability-notes">

@@ -369,3 +369,8 @@ input[type='range'] {
 .table-scroll {
   overflow-x: auto;
 }
+
+.tag.riot {
+  border-color: rgba(3, 151, 171, 0.45);
+  color: var(--blue-300);
+}

@@ -27,7 +27,8 @@ Modelliert sind unter anderem:
 - **Ladezeit-Skalierung** von Tresorknacker (Q), linear zwischen Minimum und Maximum
 - **Beulenschläge (W)** als Zähler auf demselben Ziel, mit %-Max-Leben-Schaden,
   Bonus-AD-Skalierung, Monster-Kappe und der 20 %-Rüstungsreduktion zum richtigen
-  Zeitpunkt
+  Zeitpunkt — inklusive Verfall des Zählers, wenn zwischen zwei Treffern mehr Zeit
+  liegt als die Markierung hält
 - **Übermäßige Gewalt (E)** als Ersetzung des Angriffsschadens (nicht als Bonus
   obendrauf), inklusive Angriffstimer-Reset und Aufladungslimit
 - **Explosionsschild (P)** mit levelabhängiger Abklingzeit
@@ -44,18 +45,60 @@ sichtbar. Jeder Wert im **Formel-Inspektor** ist mit seiner Quelle gekennzeichne
 
 | Quelle | Was | Warum |
 |---|---|---|
-| **Data Dragon** | Champion-Basiswerte und Level-Skalierung, alle Item-Statuswerte, Runenbäume, Abklingzeiten, Basisschaden pro Rang | Riots eigenes CDN, maschinenlesbar, pro Patch versioniert |
-| **Registry** | Fähigkeits-Ratios, Runenformeln, Item-Passive | Data Dragon liefert diese nicht maschinenlesbar — Riot hat Ratios vor Jahren in Tooltip-Prosa verschoben |
+| **Spieldaten** | Fähigkeitsformeln: Basisschaden, Ratios, Multiplikatoren, Aufladungen, Dauern, Kappen, Levelkurven | Riots eigene `bin`-Datei des Spiels, über CommunityDragon pro Patch als JSON |
+| **Data Dragon** | Champion-Basiswerte und Level-Skalierung, alle Item-Statuswerte, Runenbäume, Abklingzeiten, Kosten | Riots CDN, maschinenlesbar, pro Patch versioniert |
+| **Registry** | Runenformeln, Item-Passive — und Fähigkeitswerte nur dann, wenn die Spieldaten sie nicht hergeben | gepflegte Konstanten in diesem Repo |
 
-Data Dragon wird zur Laufzeit im Browser geladen (Riot liefert CORS-Header),
+Beide CDNs werden zur Laufzeit im Browser geladen (beide liefern CORS-Header),
 pro Version unveränderlich zwischengespeichert, und die Patch-Version ist in der
-Kopfzeile umschaltbar. Läuft ein Patch, ziehen Basiswerte und Item-Stats
-automatisch nach; nur die Registry-Konstanten brauchen dann noch einen Blick.
+Kopfzeile umschaltbar.
+
+### Warum es die Spieldaten braucht
+
+**Data Dragon liefert seit Jahren keinen Fähigkeitsschaden mehr.** Für Vi stehen
+dort auf Patch 16.16 in allen vier `effect`-Arrays ausschließlich Nullen, und
+Ratios gar nicht — die echten Zahlen sind in Tooltip-Platzhalter gewandert
+(`{{ totaldamage }}`), die Data Dragon nie auflöst. Ein Rechner, der sich darauf
+verlässt, rechnet mit 0 Basisschaden oder mit handgepflegten Konstanten.
+
+Maschinenlesbar sind die Zahlen trotzdem, nur woanders: die `bin`-Dateien des
+Spiels enthalten pro Fähigkeit eine Tabelle benannter Werte und die Formelbäume,
+die sie verrechnen. `src/data/bin.ts` übersetzt das in ein kanonisches Modell,
+`src/model/spellcalc.ts` wertet es gegen den Statusblock aus. Damit kommt Vis Q
+aus derselben Datei, aus der auch der Client liest.
+
+### Die Lesart wird geprüft, nicht geglaubt
+
+Riot indiziert Rang-Arrays in derselben Datei auf zwei Weisen — siebenstellige
+Arrays nach Rang (Index 0 ist der „nicht gelernt"-Wert), sechsstellige nach
+Rang − 1. Falsch geraten verschiebt das jeden Wert um einen Rang und sieht
+plausibel aus.
+
+Deshalb wird beim Laden gegengerechnet: Abklingzeiten, Kosten und Effektwerte
+werden aus der `bin`-Datei abgeleitet und gegen Data Dragon verglichen, das
+genau diese Felder verlässlich ausliefert. Auf Patch 16.16 sind das 31
+übereinstimmende Werte, auf 15.6 sogar 121. **Stimmen sie nicht, verwirft die App
+die Spieldaten** und rechnet sichtbar mit Konstanten weiter, statt still um einen
+Rang daneben zu liegen. Das Ergebnis der Prüfung steht über der Tabelle.
+
+### Alte Patches
+
+Das Format hat sich innerhalb von Saison 15 mehrfach geändert: benannte Werte
+lagen bis 15.6 in `mDataValues` statt `DataValues`, Formeln verwiesen auf
+unbenannte Effekt-Slots, und die Statuskennung für „maximales Leben" ist
+zwischen 15.6 und 15.7 von 11 auf 12 gewandert. Alle drei Varianten werden
+gelesen, die Statuskennungen patchabhängig. Getestet gegen echte Rohdaten von
+15.6 und 16.16; geprüft wurde der Parser gegen jeden Patch von 15.1 bis 16.16.
+
+Nicht geraten wird dabei nie: eine unbekannte Statuskennung oder ein unbekannter
+Formelteil macht die betroffene Formel *unlesbar* statt teilweise berechnet — der
+Wert fällt dann auf die Konstante zurück und sagt im Inspektor, warum.
 
 **Die Registry-Werte sind gepflegte Konstanten, keine Live-Daten.** Sie stehen
 gesammelt in `src/model/champions/vi.ts`, `src/model/runes.ts` und
-`src/model/itemEffects.ts` und sind zuletzt gegen Patch 26.16 geprüft. Wenn ein
-Ratio wandert, ist das die einzige Stelle, die angefasst werden muss.
+`src/model/itemEffects.ts` und sind gegen Patch 16.16 geprüft. Für Vi vergleicht
+`test/vi.test.ts` sie Zeile für Zeile mit den Spieldaten: ändert Riot eine Zahl,
+schlägt der Test fehl und nennt die betroffene Zeile.
 
 ### Was bewusst *nicht* behauptet wird
 
@@ -73,17 +116,22 @@ Ratio wandert, ist das die einzige Stelle, die angefasst werden muss.
 
 ```
 src/
-  data/        Data-Dragon-Client, Cache, Offline-Fallback
+  data/        CDN-Clients und Cache
+    http.ts      gemeinsames Laden, Timeout, Fehler
+    ddragon.ts   Data Dragon: Basiswerte, Items, Runen
+    gamedata.ts  CommunityDragon: Fähigkeitsformeln + Prüfung gegen Data Dragon
+    bin.ts       Parser für Riots bin-Format → kanonisches Formelmodell
   model/       Statusmodell, Item-Parser, Runen- und Item-Registry
-    champions/ pro Champion ein Modul (Metadaten + Laufzeitverhalten)
+    spellcalc.ts Formeln auswerten und als Text darstellen
+    champions/   pro Champion ein Modul (Metadaten + Laufzeitverhalten)
   engine/      Mitigationskette, Timeline-Simulation, Auswertung
   ui/          React-Komponenten
   state/       Build-Zustand, Persistenz
 ```
 
-Die Schichten kennen nur die jeweils tiefere. Data Dragons Eigenheiten enden in
-`data/` und `model/items.ts`; die Engine sieht nur noch das kanonische
-Statusmodell.
+Die Schichten kennen nur die jeweils tiefere. Die Eigenheiten beider CDNs enden
+in `data/` und `model/items.ts`; die Engine sieht nur noch das kanonische
+Statusmodell, und ein Champion-Modul sieht nur benannte Formeln.
 
 ### Einen Champion ergänzen
 
@@ -111,8 +159,17 @@ Rüstung, multiplikatives Stapeln von Durchdringung, Riots Level-Wachstumskurve,
 Item-Parsing, und die Simulation selbst (Ladezeit-Skalierung, E ersetzt statt
 addiert, W procct auf dem dritten Treffer, Reihenfolge ändert das Ergebnis).
 
-Die Fixtures in `test/fixtures.ts` bilden die *Form* von Data Dragon nach; ihre
-Zahlen sind erfunden und ausdrücklich keine Spieldaten.
+Zwei Arten von Fixtures, mit Absicht getrennt:
+
+- `test/fixtures.ts` bildet die *Form* von Data Dragon nach; die Zahlen darin
+  sind erfunden und ausdrücklich keine Spieldaten.
+- `.data-probe/` enthält echte Rohdaten von Riot und CommunityDragon für zwei
+  Patches. `test/gamedata.test.ts` und `test/vi.test.ts` prüfen den Parser damit
+  gegen die tatsächlichen Zahlen — jede Erwartung dort ist der Wert, den das
+  offizielle Wiki für diesen Patch nennt.
+
+`test/simulate.test.ts` läuft bewusst *ohne* Spieldaten und deckt damit den
+Rückfallpfad ab; `test/vi.test.ts` läuft mit. Beide Pfade sind so abgedeckt.
 
 ## Rechtliches
 

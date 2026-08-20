@@ -1317,3 +1317,21 @@ code {
   padding: 0 4px;
   color: var(--gold-200);
 }
+
+/* The formula inspector's source line: which of the three sources answered. */
+.source-status {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 var(--space-3);
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+.formula-table .formula-cell {
+  color: var(--text-secondary);
+  font-size: 11px;
+  max-width: 280px;
+  white-space: normal;
+}

@@ -60,8 +60,12 @@ export default function App() {
     champion.detail?.stats ?? bundle?.champions[build.championId]?.stats ?? null;
 
   const moduleCtx: ChampionModuleContext = useMemo(
-    () => ({ detail: champion.detail, spellById: champion.spellById }),
-    [champion.detail, champion.spellById],
+    () => ({
+      detail: champion.detail,
+      spellById: champion.spellById,
+      gameData: champion.gameData,
+    }),
+    [champion.detail, champion.spellById, champion.gameData],
   );
 
   const bonusStats = useMemo(() => {
@@ -201,6 +205,7 @@ export default function App() {
               moduleCtx={moduleCtx}
               abilities={abilities}
               ranks={build.ranks}
+              gameDataStatus={champion.gameDataStatus}
             />
           ) : (
             <section className="panel">
