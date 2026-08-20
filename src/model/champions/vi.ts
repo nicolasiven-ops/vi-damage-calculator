@@ -35,11 +35,18 @@ const SPELL_IDS = {
 const FALLBACK = {
   q: {
     minBase: [40, 60, 80, 100, 120],
+    /** Riot stores this as MinDamage × MaxDamageMult (2.5), not as its own row. */
     maxBase: [100, 150, 200, 250, 300],
-    minTotalAdRatio: 0.6,
-    maxTotalAdRatio: 1.5,
+    /**
+     * Bonus AD, not total. Every Vi ratio carries `mStatFormula: 2` in the game
+     * data, and that value is demonstrably "bonus": Denting Blows uses it and
+     * its own tooltip reads "per 100 bonus AD", and the ultimate's data value is
+     * literally named `RBonusADRatio`. Excessive/Relentless Force omits the
+     * field entirely — it is an empowered attack and scales off total AD.
+     */
+    minBonusAdRatio: 0.6,
+    maxBonusAdRatio: 1.5,
     maxChargeSeconds: 1.25,
-    // Confirmed against Data Dragon, patch 26.16.
     cooldown: [12, 10.5, 9, 7.5, 6],
   },
   w: {
@@ -64,18 +71,25 @@ const FALLBACK = {
     rechargeSeconds: [12, 11, 10, 9, 8],
   },
   r: {
-    base: [150, 325, 500],
+    base: [150, 250, 350],
     bonusAdRatio: 0.9,
-    // Confirmed against Data Dragon, patch 26.16.
     cooldown: [140, 115, 90],
-    knockupSeconds: 1.25,
+    knockupSeconds: 1.3,
   },
   passive: {
     /** Shield as a fraction of Vi's maximum health. */
     maxHealthPercent: 0.12,
     durationSeconds: 3,
+    /**
+     * Riot models this as a level breakpoint curve, not a straight line:
+     * 16 s at level 1, −0.5 s per level, and the per-level bonus stops at
+     * level 10 — so it sits at 11.5 s from level 10 onward.
+     */
     cooldownAtLevel1: 16,
-    cooldownAtLevel18: 8,
+    cooldownPerLevel: -0.5,
+    cooldownFloorLevel: 10,
+    /** Denting Blows' third hit refunds this much of the shield's cooldown. */
+    cooldownRefundOnDentingBlows: 4,
   },
 } as const;
 
@@ -89,7 +103,8 @@ const ABILITIES: AbilityMeta[] = [
     modelNotes: [
       `Schild über ${pct(FALLBACK.passive.maxHealthPercent)} von Vis maximalem Leben für ${FALLBACK.passive.durationSeconds} s.`,
       'Löst aus, sobald eine Fähigkeit einen Gegner trifft — Basisangriffe zählen nicht.',
-      `Abklingzeit skaliert von ${FALLBACK.passive.cooldownAtLevel1} s (Level 1) auf ${FALLBACK.passive.cooldownAtLevel18} s (Level 18).`,
+      `Abklingzeit ${FALLBACK.passive.cooldownAtLevel1} s auf Level 1, ${FALLBACK.passive.cooldownPerLevel} s pro Level, ab Level ${FALLBACK.passive.cooldownFloorLevel} konstant.`,
+      `Der 3. Treffer von Beulenschlägen verkürzt die Restabklingzeit um ${FALLBACK.passive.cooldownRefundOnDentingBlows} s.`,
     ],
   },
   {
@@ -151,11 +166,11 @@ function pct(fraction: number): string {
   return `${Math.round(fraction * 1000) / 10} %`;
 }
 
-/** Blast Shield's cooldown falls off linearly with level. */
+/** Blast Shield's cooldown: −0.5 s per level, stopping at the floor level. */
 function passiveCooldown(level: number): number {
-  const { cooldownAtLevel1, cooldownAtLevel18 } = FALLBACK.passive;
-  const t = (Math.min(18, Math.max(1, level)) - 1) / 17;
-  return cooldownAtLevel1 + (cooldownAtLevel18 - cooldownAtLevel1) * t;
+  const { cooldownAtLevel1, cooldownPerLevel, cooldownFloorLevel } = FALLBACK.passive;
+  const effective = Math.min(cooldownFloorLevel, Math.max(1, level));
+  return cooldownAtLevel1 + cooldownPerLevel * (effective - 1);
 }
 
 class ViRuntime implements ChampionRuntime {
@@ -228,10 +243,10 @@ class ViRuntime implements ChampionRuntime {
 
     const base = minBase.value + (maxBase.value - minBase.value) * ratio;
     const adRatio =
-      FALLBACK.q.minTotalAdRatio +
-      (FALLBACK.q.maxTotalAdRatio - FALLBACK.q.minTotalAdRatio) * ratio;
+      FALLBACK.q.minBonusAdRatio +
+      (FALLBACK.q.maxBonusAdRatio - FALLBACK.q.minBonusAdRatio) * ratio;
 
-    const amount = base + adRatio * ctx.stats.totalAttackDamage;
+    const amount = base + adRatio * ctx.stats.bonusAttackDamage;
 
     ctx.dealDamage({
       sourceId: 'Q',
@@ -243,7 +258,7 @@ class ViRuntime implements ChampionRuntime {
       isAbilityDamage: true,
       notes: [
         `Ladung ${(ratio * 100).toFixed(0)} % (${charge.toFixed(2)} s)`,
-        `${base.toFixed(0)} Basis + ${(adRatio * 100).toFixed(0)} % Gesamt-AD`,
+        `${base.toFixed(0)} Basis + ${(adRatio * 100).toFixed(0)} % Bonus-AD`,
       ],
     });
 
@@ -379,6 +394,18 @@ class ViRuntime implements ChampionRuntime {
       durationSeconds: FALLBACK.w.attackSpeedDurationSeconds,
       label: `Beulenschläge · +${pct(asBonus)} Angriffstempo`,
     });
+
+    // The third hit also refunds part of Blast Shield's remaining cooldown,
+    // which is what lets Vi re-shield inside a single extended fight.
+    const refund = FALLBACK.passive.cooldownRefundOnDentingBlows;
+    if (this.passiveReadyAt > ctx.time) {
+      this.passiveReadyAt = Math.max(ctx.time, this.passiveReadyAt - refund);
+      ctx.addEvent({
+        kind: 'buff',
+        label: 'Explosionsschild',
+        detail: `Abklingzeit um ${refund} s verkürzt`,
+      });
+    }
   }
 
   /** Blast Shield: any ability damage, on its own cooldown. */
@@ -424,8 +451,8 @@ export const VI_MODULE: ChampionModule = {
       },
       {
         slot: 'Q',
-        label: 'Gesamt-AD-Verhältnis',
-        value: `${pct(FALLBACK.q.minTotalAdRatio)} → ${pct(FALLBACK.q.maxTotalAdRatio)}`,
+        label: 'Bonus-AD-Verhältnis',
+        value: `${pct(FALLBACK.q.minBonusAdRatio)} → ${pct(FALLBACK.q.maxBonusAdRatio)}`,
         source: 'registry',
       },
       { slot: 'Q', label: 'Abklingzeit', value: `${qCd.value} s`, source: qCd.source, note: qCd.note },

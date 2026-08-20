@@ -80,10 +80,18 @@ describe('Vault Breaker (Q)', () => {
 
   it('reads its base damage from Data Dragon when available', () => {
     const result = run([step({ kind: 'ability', slot: 'Q' }, 0)]);
-    const stats = resolveChampionStats(FIXTURE_CHAMPION_STATS, 11, emptyStats());
-    // Fixture effect[1] at rank 5 is 120, ratio at zero charge is 0.6 total AD.
-    const expected = 120 + 0.6 * stats.totalAttackDamage;
-    expect(result.instances[0]!.raw).toBeCloseTo(expected, 6);
+    // Fixture effect[1] at rank 5 is 120; with no gear there is no bonus AD.
+    expect(result.instances[0]!.raw).toBeCloseTo(120, 6);
+  });
+
+  it('scales off bonus AD, not total AD', () => {
+    const bonusStats = { ...emptyStats(), attackDamage: 100 };
+    const result = run([step({ kind: 'ability', slot: 'Q' }, 0)], { bonusStats });
+    const stats = resolveChampionStats(FIXTURE_CHAMPION_STATS, 11, bonusStats);
+
+    expect(result.instances[0]!.raw).toBeCloseTo(120 + 0.6 * 100, 6);
+    // Guard against the regression this replaced: base AD must not count.
+    expect(result.instances[0]!.raw).toBeLessThan(120 + 0.6 * stats.totalAttackDamage);
   });
 
   it('costs its charge time on the timeline', () => {
@@ -177,6 +185,43 @@ describe('Denting Blows (W)', () => {
     // Same raw damage, more of it gets through once armor is reduced.
     expect(attacks[3]!.raw).toBeCloseTo(attacks[0]!.raw, 4);
     expect(attacks[3]!.mitigated).toBeGreaterThan(attacks[0]!.mitigated);
+  });
+});
+
+describe('Cease and Desist (R)', () => {
+  it('uses the base damage from Data Dragon and scales off bonus AD', () => {
+    const bonusStats = { ...emptyStats(), attackDamage: 100 };
+    const result = run([step({ kind: 'ability', slot: 'R' })], { bonusStats });
+    // Fixture effect[1] at rank 3 is 500; the registry ratio is 90% bonus AD.
+    expect(result.instances[0]!.raw).toBeCloseTo(500 + VI_CONSTANTS.r.bonusAdRatio * 100, 6);
+  });
+});
+
+describe('Blast Shield (P)', () => {
+  it('shields for a percentage of Vi maximum health when an ability lands', () => {
+    const result = run([step({ kind: 'ability', slot: 'Q' }, 0)]);
+    const stats = resolveChampionStats(FIXTURE_CHAMPION_STATS, 11, emptyStats());
+    expect(result.shieldGained).toBeCloseTo(
+      stats.maxHealth * VI_CONSTANTS.passive.maxHealthPercent,
+      6,
+    );
+  });
+
+  it('does not proc on basic attacks', () => {
+    const result = run([step({ kind: 'attack' }), step({ kind: 'attack' })]);
+    expect(result.shieldGained).toBe(0);
+  });
+
+  it('only procs once while on cooldown', () => {
+    const result = run([
+      step({ kind: 'ability', slot: 'Q' }, 0),
+      step({ kind: 'ability', slot: 'R' }),
+    ]);
+    const stats = resolveChampionStats(FIXTURE_CHAMPION_STATS, 11, emptyStats());
+    expect(result.shieldGained).toBeCloseTo(
+      stats.maxHealth * VI_CONSTANTS.passive.maxHealthPercent,
+      6,
+    );
   });
 });
 
