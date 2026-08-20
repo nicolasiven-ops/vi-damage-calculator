@@ -1,0 +1,87 @@
+/**
+ * Design tokens.
+ *
+ * The look follows the modern League client and the League wiki: deep navy
+ * surfaces, hextech gold hairlines, a Beaufort-ish serif for headings and a
+ * neutral sans for everything you actually have to read.
+ *
+ * This app commits to a single dark theme on purpose. The subject matter is a
+ * dark game UI, and a light variant of a hextech gold-on-navy system reads as a
+ * different product rather than the same one in another mode.
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* Surfaces, darkest to lightest */
+  --surface-void: #010a13;
+  --surface-1: #0a1428;
+  --surface-2: #0f1c30;
+  --surface-3: #16233b;
+  --surface-raised: #1e2d47;
+  --surface-input: #091423;
+
+  /* Hextech gold */
+  --gold-100: #f0e6d2;
+  --gold-200: #d9c8a0;
+  --gold-300: #c8aa6e;
+  --gold-400: #b08d47;
+  --gold-500: #785a28;
+  --gold-600: #463714;
+
+  /* Hextech blue */
+  --blue-100: #cdfafa;
+  --blue-200: #0ac8b9;
+  --blue-300: #0397ab;
+  --blue-400: #005a82;
+  --blue-500: #0a323c;
+
+  /* Ink */
+  --text-primary: #f0e6d2;
+  --text-secondary: #a09b8c;
+  --text-muted: #6b6a63;
+  --text-inverse: #010a13;
+
+  /* Lines */
+  --line-strong: #785a28;
+  --line: #1f3a52;
+  --line-soft: #17293c;
+
+  /* Status */
+  --status-good: #0ac8b9;
+  --status-warn: #d9a441;
+  --status-danger: #e04b4b;
+
+  /* Damage-type series — validated for this surface, see DamageChart.tsx */
+  --series-physical: #d95926;
+  --series-magic: #3987e5;
+  --series-true: #199e70;
+
+  /* Ability slot accents */
+  --slot-p: #a09b8c;
+  --slot-q: #4fb0e8;
+  --slot-w: #46c98d;
+  --slot-e: #d9a441;
+  --slot-r: #e05a5a;
+
+  /* Type */
+  --font-display: 'Marcellus', 'Beaufort for LOL', Georgia, serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', ui-monospace, monospace;
+
+  /* Spacing scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  --radius-sm: 2px;
+  --radius: 3px;
+  --radius-lg: 4px;
+
+  --shadow-panel: 0 2px 16px rgba(1, 10, 19, 0.6);
+  --shadow-pop: 0 8px 32px rgba(1, 10, 19, 0.85);
+}
