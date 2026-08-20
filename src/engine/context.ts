@@ -59,6 +59,14 @@ export interface SimContext {
     label: string;
   }): void;
   /**
+   * End a temporary buff early, by the label it was applied with.
+   *
+   * Some buffs run out of uses rather than time — Hail of Blades lasts three
+   * attacks, whichever comes first. Expressing that as a duration alone would
+   * either keep the attack speed past the last attack or cut it short.
+   */
+  clearTemporaryStats(label: string): void;
+  /**
    * Make the target take more damage from all sources for a while
    * (Press the Attack, Exhaust in reverse, and similar).
    */

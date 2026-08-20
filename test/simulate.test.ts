@@ -435,4 +435,45 @@ describe('stat scaling', () => {
     });
     expect(stats.totalAttackSpeed).toBe(2.5);
   });
+
+  /**
+   * Hail of Blades says it may exceed the limit, so its bonus is booked on top
+   * of the capped total rather than into it.
+   */
+  it('lets an over-cap source push past 2.5', () => {
+    const bonus = { ...emptyStats(), attackSpeed: 10, attackSpeedOverCap: 0.9 };
+    const stats = resolveChampionStats(FIXTURE_CHAMPION_STATS, 18, bonus);
+    expect(stats.totalAttackSpeed).toBeCloseTo(2.5 + stats.attackSpeedRatio * 0.9, 6);
+    expect(stats.totalAttackSpeed).toBeGreaterThan(2.5);
+  });
+
+  it('still caps everything that is not marked as over-cap', () => {
+    const stats = resolveChampionStats(FIXTURE_CHAMPION_STATS, 18, {
+      ...emptyStats(),
+      attackSpeed: 10,
+      attackSpeedOverCap: 0,
+    });
+    expect(stats.totalAttackSpeed).toBe(2.5);
+  });
+
+  /**
+   * An attack-speed buff granted by a hit has to shorten the wait for the very
+   * next attack. It used to take effect one attack later, because the timer was
+   * computed from the attack speed the attack started with.
+   */
+  it('applies attack speed gained during an attack to the next one', () => {
+    const result = run(Array.from({ length: 5 }, () => step({ kind: 'attack' })));
+    const hits = result.instances
+      .filter((entry) => entry.sourceId === 'AA')
+      .map((entry) => entry.time);
+
+    const beforeProc = hits[1]! - hits[0]!;
+    const acrossProc = hits[3]! - hits[2]!;
+    const afterProc = hits[4]! - hits[3]!;
+
+    // Denting Blows procs on the third attack. The gap right after it already
+    // runs at the buffed rate, not one attack later.
+    expect(acrossProc).toBeLessThan(beforeProc);
+    expect(acrossProc).toBeCloseTo(afterProc, 6);
+  });
 });

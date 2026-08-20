@@ -230,7 +230,16 @@ export function simulate(
       } else {
         tempStats.push({ stats, expiresAt: time + durationSeconds, label });
       }
-      addEvent({ kind: 'buff', label, detail: `${durationSeconds} s` });
+      // Only the buff going up is news. Hail of Blades refreshes its window
+      // on every attack, and a line per refresh buries the timeline.
+      if (!existing) addEvent({ kind: 'buff', label, detail: `${durationSeconds} s` });
+    },
+
+    clearTemporaryStats(label) {
+      const index = tempStats.findIndex((entry) => entry.label.split(' · ')[0] === label);
+      if (index === -1) return;
+      const [removed] = tempStats.splice(index, 1);
+      addEvent({ kind: 'buff', label: `${removed!.label} endet`, detail: 'aufgebraucht' });
     },
 
     applyTargetAmplification({ percent, durationSeconds, label }) {
@@ -354,6 +363,10 @@ export function simulate(
   /* ------------------------------------------------------------------ actions */
 
   function performAttack(): void {
+    // Before anything is measured: a keystone may still put a buff in place
+    // that changes this very attack.
+    for (const { runtime } of runes) runtime.onBeforeAttack?.(ctx);
+
     const stats = currentStats();
     const idleSince = time;
     advanceTo(Math.max(time, nextAttackReadyAt));
@@ -409,7 +422,22 @@ export function simulate(
 
     championRuntime.onBasicAttackHit?.(ctx);
 
-    nextAttackReadyAt = attackStart + 1 / Math.max(0.1, statsAtHit.totalAttackSpeed);
+    /*
+     * The attack timer runs on the attack speed the attack *left behind*, not
+     * the one it started with. Denting Blows and Hail of Blades both grant
+     * attack speed as part of the hit, and taking the pre-hit value made the
+     * very next attack come at the old rate — the buff showed up one attack
+     * late, which is most of the point of a three-attack keystone.
+     *
+     * Attack speed acts on what is still ahead: the wind-up already elapsed at
+     * the old rate, and only the rest of the cycle is rescaled. Recomputing the
+     * whole cycle at the new speed instead would hand back time that was
+     * already spent.
+     */
+    const speedBefore = Math.max(0.1, stats.totalAttackSpeed);
+    const speedAfter = Math.max(0.1, currentStats().totalAttackSpeed);
+    const remainingAtOldSpeed = Math.max(0, 1 / speedBefore - (time - attackStart));
+    nextAttackReadyAt = time + remainingAtOldSpeed * (speedBefore / speedAfter);
   }
 
   function castAbility(slot: AbilitySlot, chargeSeconds: number): void {
@@ -447,6 +475,7 @@ export function simulate(
     if (championRuntime.resetsAutoAttack?.(slot)) {
       nextAttackReadyAt = time;
       addEvent({ kind: 'info', label: 'Angriffstimer zurückgesetzt', detail: slot });
+      for (const { runtime } of runes) runtime.onAttackReset?.(ctx);
     }
 
     // An ability whose whole point is the attack it empowers carries that

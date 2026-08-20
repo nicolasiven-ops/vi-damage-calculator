@@ -34,8 +34,23 @@ export interface HitInfo {
 }
 
 export interface RuneRuntime {
+  /**
+   * Called before a basic attack winds up.
+   *
+   * This is the only place a rune can put a buff in place in time to affect
+   * the attack that triggered it — which is what an attack-speed keystone is
+   * for. Reacting to the hit instead would always be one attack late.
+   */
+  onBeforeAttack?(ctx: SimContext): void;
   /** Called after every damage instance the attacker deals. */
   onHitLanded?(ctx: SimContext, hit: HitInfo): void;
+  /**
+   * Called when an ability resets the attack timer.
+   *
+   * Hail of Blades grants an extra attack for each reset, which for Vi means
+   * her E genuinely extends the keystone.
+   */
+  onAttackReset?(ctx: SimContext): void;
 }
 
 export interface RuneDefinition {
@@ -109,6 +124,119 @@ const ELECTROCUTE: RuneDefinition = {
         });
         procced = true;
         readyAt = ctx.time + byLevel(25, 20, ctx.stats.level);
+      },
+    };
+  },
+};
+
+/**
+ * Sturm der Klingen.
+ *
+ * Numbers from Data Dragon's own rune text for the patch: 90 % attack speed for
+ * melee champions (60 % ranged), up to three attacks, no more than 3 s between
+ * them, 10 s cooldown, and 2–20 (+12 % bonus AD, +10 % AP) true damage on each
+ * of those attacks.
+ *
+ * Two rules from the same text carry real weight for Vi and are modelled:
+ *
+ *  - "Attack resets increase the attack limit by 1." Her E is an attack reset,
+ *    so an E inside the window buys a fourth empowered attack.
+ *  - "Allows you to temporarily exceed the Attack Speed limit." The bonus is
+ *    therefore booked over the 2.5 cap rather than into it.
+ *
+ * The buff ends on the third attack, not on a timer, so it is applied with the
+ * 3 s window as its duration and cleared explicitly once the attacks are spent.
+ */
+const HAIL_OF_BLADES: RuneDefinition = {
+  id: 9923,
+  name: 'Sturm der Klingen',
+  modelled: true,
+  note:
+    '90 % Angriffstempo (Nahkampf) für 3 Angriffe gegen Champions, ' +
+    'plus 1 Angriff je Angriffstimer-Reset — Vis E zählt dazu. ' +
+    'Wahrer Zusatzschaden auf jeden dieser Angriffe. Das Angriffstempo darf die Kappe von 2,5 überschreiten. ' +
+    'Die Abklingzeit von 10 s wird ab der Aktivierung gerechnet.',
+  createRuntime() {
+    const LABEL = 'Sturm der Klingen';
+    /** Melee value; the rune grants 60 % to ranged champions. */
+    const ATTACK_SPEED = 0.9;
+    const ATTACKS = 3;
+    const WINDOW_SECONDS = 3;
+    const COOLDOWN_SECONDS = 10;
+
+    let attacksLeft = 0;
+    let spent = 0;
+    let active = false;
+    let readyAt = 0;
+    let lastAttackAt = -Infinity;
+    /** Set between an attack starting and its own damage landing. */
+    let pendingHit = false;
+
+    return {
+      onBeforeAttack(ctx) {
+        // The keystone only triggers on champions.
+        if (ctx.target.unitType !== 'champion') return;
+
+        // The window is a property of the effect, not just of the stat buff:
+        // once it lapses the remaining attacks are gone, and the keystone has
+        // to come off cooldown before it empowers anything again.
+        if (active && ctx.time - lastAttackAt > WINDOW_SECONDS) {
+          active = false;
+          ctx.clearTemporaryStats(LABEL);
+        }
+
+        if (!active) {
+          if (ctx.time < readyAt) return;
+          active = true;
+          attacksLeft = ATTACKS;
+          spent = 0;
+          readyAt = ctx.time + COOLDOWN_SECONDS;
+        }
+
+        pendingHit = true;
+        lastAttackAt = ctx.time;
+        // Re-applying refreshes the window, which is what ends the effect when
+        // attacks are spaced too far apart.
+        ctx.applyTemporaryStats({
+          stats: { attackSpeedOverCap: ATTACK_SPEED },
+          durationSeconds: WINDOW_SECONDS,
+          label: LABEL,
+        });
+      },
+
+      onHitLanded(ctx, hit) {
+        // Only the attack's own instance counts — not the on-hit riders that
+        // follow it, and not the champion's own procs.
+        if (!active || !pendingHit) return;
+        if (!hit.triggersOnHit) return;
+        pendingHit = false;
+        spent += 1;
+
+        ctx.dealDamage({
+          sourceId: 'rune:9923',
+          sourceLabel: LABEL,
+          sourceKind: 'rune',
+          type: 'true',
+          amount: byLevel(2, 20, ctx.stats.level) + 0.12 * ctx.stats.bonusAttackDamage + 0.1 * ctx.stats.abilityPower,
+          // Counted against the limit as it stands: attack resets raise it, so
+          // "3 von 4" is a legitimate reading of an extended window.
+          notes: [`Angriff ${spent} von ${spent + attacksLeft - 1}`],
+        });
+
+        attacksLeft -= 1;
+        if (attacksLeft > 0) return;
+        active = false;
+        ctx.clearTemporaryStats(LABEL);
+      },
+
+      onAttackReset(ctx) {
+        if (!active) return;
+        attacksLeft += 1;
+        ctx.addEvent({
+          kind: 'buff',
+          label: LABEL,
+          detail: `Angriffstimer zurückgesetzt · ${attacksLeft} Angriffe übrig`,
+        });
       },
     };
   },
@@ -370,6 +498,7 @@ export const SHARD_DEFINITIONS: RuneDefinition[] = [
 
 const ALL: RuneDefinition[] = [
   ELECTROCUTE,
+  HAIL_OF_BLADES,
   DARK_HARVEST,
   PRESS_THE_ATTACK,
   CONQUEROR,

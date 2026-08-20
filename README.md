@@ -41,6 +41,10 @@ Modelliert sind unter anderem:
   abnehmendem Ertrag
 - **Multiplikatives Stapeln** von Rüstungs-/Magiedurchdringung und Zähigkeit
 - Runen- und Item-Procs mit eigenen Abklingzeiten, Stapeln und Auslösebedingungen
+- **Sturm der Klingen** mitsamt seiner Sonderregeln: Das Angriffstempo liegt vor
+  dem ersten Angriff an (nicht erst danach), jeder Angriffstimer-Reset erhöht die
+  Zahl der verstärkten Angriffe — Vis E zählt dazu —, und der Bonus darf die
+  Angriffstempo-Kappe von 2,5 überschreiten, wie es die Rune ausdrücklich sagt
 
 ## Woher die Zahlen kommen
 

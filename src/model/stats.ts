@@ -22,6 +22,14 @@ export interface StatBlock {
   abilityPower: number;
   /** Bonus attack speed as a fraction: 0.35 === +35%. */
   attackSpeed: number;
+  /**
+   * Bonus attack speed that ignores the 2.5 cap.
+   *
+   * Almost nothing does this. Hail of Blades says so in its own rules text —
+   * "Allows you to temporarily exceed the Attack Speed limit" — and a rune that
+   * advertises exactly that would be misrepresented by silently clamping it.
+   */
+  attackSpeedOverCap: number;
   /** 0..1 */
   critChance: number;
   /** Additional crit damage beyond the 175% base, as a fraction. */
@@ -52,6 +60,7 @@ export const STAT_KEYS = [
   'attackDamage',
   'abilityPower',
   'attackSpeed',
+  'attackSpeedOverCap',
   'critChance',
   'critDamage',
   'abilityHaste',
@@ -79,6 +88,7 @@ export const STAT_LABELS: Record<keyof StatBlock, string> = {
   attackDamage: 'Angriffsschaden',
   abilityPower: 'Fähigkeitsstärke',
   attackSpeed: 'Angriffstempo',
+  attackSpeedOverCap: 'Angriffstempo über der Kappe',
   critChance: 'Kritische Trefferchance',
   critDamage: 'Kritischer Schaden',
   abilityHaste: 'Fähigkeitstempo',
@@ -100,6 +110,7 @@ export const STAT_LABELS: Record<keyof StatBlock, string> = {
 /** Stats rendered as percentages in the UI. */
 export const PERCENT_STATS = new Set<keyof StatBlock>([
   'attackSpeed',
+  'attackSpeedOverCap',
   'critChance',
   'critDamage',
   'armorPenPercent',
@@ -121,6 +132,7 @@ export function emptyStats(): StatBlock {
     attackDamage: 0,
     abilityPower: 0,
     attackSpeed: 0,
+    attackSpeedOverCap: 0,
     critChance: 0,
     critDamage: 0,
     abilityHaste: 0,
@@ -283,10 +295,11 @@ export function resolveChampionStats(
     baseAttackSpeed: base.attackspeed,
     attackSpeedRatio,
     bonusAttackSpeed,
-    totalAttackSpeed: Math.min(
-      ATTACK_SPEED_CAP,
-      base.attackspeed + attackSpeedRatio * bonusAttackSpeed,
-    ),
+    // The cap applies to everything except the sources documented to break it,
+    // which are added on top of the capped total.
+    totalAttackSpeed:
+      Math.min(ATTACK_SPEED_CAP, base.attackspeed + attackSpeedRatio * bonusAttackSpeed) +
+      attackSpeedRatio * bonus.attackSpeedOverCap,
     critChance: clamp(statAtLevel(base.crit, base.critperlevel, lvl) / 100 + bonus.critChance, 0, 1),
     critMultiplier: BASE_CRIT_MULTIPLIER + bonus.critDamage,
     abilityHaste: bonus.abilityHaste,
