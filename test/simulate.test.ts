@@ -143,6 +143,32 @@ describe('Excessive Force (E)', () => {
     expect(result.instances.filter((entry) => entry.slot === 'E')).toHaveLength(1);
   });
 
+  /**
+   * The combo "Q, AA, E" reads as three damaging steps but is two: the charge
+   * has nothing left to empower. Worth saying out loud, because the step is
+   * visibly in the list and contributes nothing.
+   */
+  it('warns when the combo ends on an unconsumed charge', () => {
+    const trailing = run([
+      step({ kind: 'ability', slot: 'Q' }, 0),
+      step({ kind: 'attack' }),
+      step({ kind: 'ability', slot: 'E' }),
+    ]);
+    expect(trailing.instances.some((entry) => entry.slot === 'E')).toBe(false);
+    expect(trailing.warnings.join(' ')).toContain('verfällt die Aufladung ungenutzt');
+
+    // The attack itself still counts — it is a normal attack, not a lost step.
+    expect(trailing.instances.filter((entry) => entry.sourceId === 'AA')).toHaveLength(1);
+  });
+
+  it('stays quiet when the charge is consumed', () => {
+    const consumed = run([
+      step({ kind: 'ability', slot: 'E' }),
+      step({ kind: 'attack' }),
+    ]);
+    expect(consumed.warnings.join(' ')).not.toContain('verfällt');
+  });
+
   it('runs out of charges', () => {
     const result = run([
       step({ kind: 'ability', slot: 'E' }),

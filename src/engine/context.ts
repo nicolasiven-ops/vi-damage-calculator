@@ -103,6 +103,13 @@ export interface ChampionRuntime {
   modifyBasicAttack?(ctx: SimContext): BasicAttackModifier | null;
   /** Called after a basic attack has landed. */
   onBasicAttackHit?(ctx: SimContext): void;
+  /**
+   * Called once after the last combo step, before the result is reported.
+   *
+   * For pointing out what the combo left on the table — an empowerment that
+   * never got consumed, a stack count that never reached its threshold.
+   */
+  onComboEnd?(ctx: SimContext): void;
   /** Called after any ability damage has landed. */
   onAbilityDamage?(ctx: SimContext): void;
 }

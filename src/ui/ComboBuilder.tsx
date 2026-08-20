@@ -18,7 +18,6 @@ import {
 import { restrictToParentElement } from '@dnd-kit/modifiers';
 import {
   SortableContext,
-  arrayMove,
   rectSortingStrategy,
   sortableKeyboardCoordinates,
   useSortable,
@@ -27,13 +26,28 @@ import { CSS } from '@dnd-kit/utilities';
 import type { AbilitySlot, ComboStep } from '../engine/types';
 import type { AbilityMeta } from '../model/champions/types';
 import { step as makeStep } from '../state/build';
+import { reorderStep, shiftStep } from '../state/combo';
 import { Panel } from './components/Panel';
 
 interface Props {
   combo: ComboStep[];
   abilities: AbilityMeta[];
   spellIcons: Partial<Record<AbilitySlot, string>>;
-  onChange: (combo: ComboStep[]) => void;
+  /**
+   * Takes an updater, not a finished list — deliberately.
+   *
+   * Every edit here derives from the current combo (append, remove, reorder),
+   * and the `combo` prop is only as fresh as the last completed render. This app
+   * re-runs the whole simulation on every state change, so a second click can
+   * easily arrive while the first one is still rendering: both would then build
+   * their new list from the same stale prop and the earlier step would vanish.
+   * Adding Q, then AA, then E in quick succession lost the AA that way.
+   *
+   * Passing an updater moves the read to the moment the state is applied, which
+   * is the only point where "current" is actually current. The signature keeps
+   * it that way: handing over a plain array does not compile.
+   */
+  onChange: (update: (current: ComboStep[]) => ComboStep[]) => void;
   learnedRanks: Record<AbilitySlot, number>;
 }
 
@@ -101,29 +115,25 @@ export function ComboBuilder({ combo, abilities, spellIcons, onChange, learnedRa
   function handleDragEnd(event: DragEndEvent): void {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const from = combo.findIndex((entry) => entry.uid === active.id);
-    const to = combo.findIndex((entry) => entry.uid === over.id);
-    if (from === -1 || to === -1) return;
-    onChange(arrayMove(combo, from, to));
+    onChange((current) => reorderStep(current, String(active.id), String(over.id)));
   }
 
   function add(step: ComboStep): void {
-    onChange([...combo, step]);
+    onChange((current) => [...current, step]);
   }
 
   function remove(uid: string): void {
-    onChange(combo.filter((entry) => entry.uid !== uid));
+    onChange((current) => current.filter((entry) => entry.uid !== uid));
   }
 
   function update(uid: string, patch: Partial<ComboStep>): void {
-    onChange(combo.map((entry) => (entry.uid === uid ? { ...entry, ...patch } : entry)));
+    onChange((current) =>
+      current.map((entry) => (entry.uid === uid ? { ...entry, ...patch } : entry)),
+    );
   }
 
   function move(uid: string, direction: -1 | 1): void {
-    const index = combo.findIndex((entry) => entry.uid === uid);
-    const next = index + direction;
-    if (index === -1 || next < 0 || next >= combo.length) return;
-    onChange(arrayMove(combo, index, next));
+    onChange((current) => shiftStep(current, uid, direction));
   }
 
   return (
@@ -137,7 +147,7 @@ export function ComboBuilder({ combo, abilities, spellIcons, onChange, learnedRa
           </button>
           <button
             className="btn subtle danger"
-            onClick={() => onChange([])}
+            onClick={() => onChange(() => [])}
             disabled={combo.length === 0}
           >
             Leeren
@@ -152,7 +162,7 @@ export function ComboBuilder({ combo, abilities, spellIcons, onChange, learnedRa
               key={preset.name}
               className="preset-card"
               onClick={() => {
-                onChange(preset.build());
+                onChange(() => preset.build());
                 setShowPresets(false);
               }}
             >

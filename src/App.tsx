@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DEFAULT_LOCALE } from './data/ddragon';
 import { analyse } from './engine/analysis';
 import { simulate } from './engine/simulate';
-import type { AbilitySlot } from './engine/types';
+import type { AbilitySlot, ComboStep } from './engine/types';
 import { VI_MODULE } from './model/champions/vi';
 import { resolveAbilityNames, type ChampionModuleContext } from './model/champions/types';
 import { resolvePurchasableItems } from './model/items';
@@ -47,6 +47,14 @@ export default function App() {
   function patchBuild(next: Partial<BuildState>): void {
     setBuild((current) => ({ ...current, ...next }));
   }
+
+  /**
+   * Combo edits go through an updater rather than a finished list, so two
+   * quick clicks cannot both build their new combo from the same stale render.
+   */
+  const updateCombo = useCallback((update: (current: ComboStep[]) => ComboStep[]) => {
+    setBuild((current) => ({ ...current, combo: update(current.combo) }));
+  }, []);
 
   /* ------------------------------------------------------------ derived data */
 
@@ -188,7 +196,7 @@ export default function App() {
             abilities={abilities}
             spellIcons={spellIcons}
             learnedRanks={build.ranks}
-            onChange={(combo) => patchBuild({ combo })}
+            onChange={updateCombo}
           />
 
           <TargetPanel

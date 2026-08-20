@@ -496,6 +496,11 @@ export function simulate(
   const lastScheduled = scheduled.reduce((max, entry) => Math.max(max, entry.at), time);
   advanceTo(lastScheduled);
 
+  // A champion may still be holding an empowerment nothing consumed. That is a
+  // legal combo, but it is almost always a mistake in the list rather than an
+  // intention, so the champion gets a chance to say so.
+  championRuntime.onComboEnd?.(ctx);
+
   const totalRaw = instances.reduce((sum, instance) => sum + instance.raw, 0);
   const totalMitigated = instances.reduce((sum, instance) => sum + instance.mitigated, 0);
   const killer = instances.find((instance) => instance.targetHpAfter <= 0);

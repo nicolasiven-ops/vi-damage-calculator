@@ -533,6 +533,18 @@ class ViRuntime implements ChampionRuntime {
     });
   }
 
+  /**
+   * Relentless Force only pays off through the attack that follows it. Ending a
+   * combo on E means the charge was spent for nothing, which is easy to miss:
+   * the step is in the list, it just produced no damage.
+   */
+  onComboEnd(ctx: SimContext): void {
+    if (!this.empowered) return;
+    ctx.warn(
+      'Übermäßige Gewalt wurde als letzter Schritt gewirkt — sie verstärkt erst den nächsten Basisangriff. Ohne folgenden Angriff verfällt die Aufladung ungenutzt.',
+    );
+  }
+
   /** Blast Shield: any ability damage, on its own level-scaled cooldown. */
   private tryPassive(ctx: SimContext): void {
     if (ctx.time < this.passiveReadyAt) return;
