@@ -94,6 +94,16 @@ export interface ChampionRuntime {
   /** True when casting this ability resets the auto-attack timer. */
   resetsAutoAttack?(slot: AbilitySlot): boolean;
   /**
+   * True when the cast includes the basic attack it empowers.
+   *
+   * Abilities like Vi's Relentless Force do nothing on their own — they exist
+   * to be spent on the next attack. In a combo, "E" therefore means "empowered
+   * attack", and a step that quietly produced no damage until an attack was
+   * appended by hand was a worse model of the player's intent than this.
+   * A following attack step is then simply another, ordinary attack.
+   */
+  attacksOnCast?(slot: AbilitySlot): boolean;
+  /**
    * Called exactly once per basic attack, before its damage is computed.
    * Implementations may consume single-use empowerments here.
    *
@@ -103,13 +113,6 @@ export interface ChampionRuntime {
   modifyBasicAttack?(ctx: SimContext): BasicAttackModifier | null;
   /** Called after a basic attack has landed. */
   onBasicAttackHit?(ctx: SimContext): void;
-  /**
-   * Called once after the last combo step, before the result is reported.
-   *
-   * For pointing out what the combo left on the table — an empowerment that
-   * never got consumed, a stack count that never reached its threshold.
-   */
-  onComboEnd?(ctx: SimContext): void;
   /** Called after any ability damage has landed. */
   onAbilityDamage?(ctx: SimContext): void;
 }

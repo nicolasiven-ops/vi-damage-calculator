@@ -123,7 +123,7 @@ describe('Vault Breaker (Q)', () => {
 describe('Excessive Force (E)', () => {
   it('replaces the attack damage rather than adding to it', () => {
     const plain = run([step({ kind: 'attack' })]);
-    const empowered = run([step({ kind: 'ability', slot: 'E' }), step({ kind: 'attack' })]);
+    const empowered = run([step({ kind: 'ability', slot: 'E' })]);
     const stats = resolveChampionStats(FIXTURE_CHAMPION_STATS, 11, emptyStats());
 
     const expected = 90 + VI_CONSTANTS.e.totalAdRatio * stats.totalAttackDamage;
@@ -144,42 +144,38 @@ describe('Excessive Force (E)', () => {
   });
 
   /**
-   * The combo "Q, AA, E" reads as three damaging steps but is two: the charge
-   * has nothing left to empower. Worth saying out loud, because the step is
-   * visibly in the list and contributes nothing.
+   * "Q, AA, E" is three actions and has to produce three hits. The step is the
+   * empowered attack, so it needs no attack step appended to do anything — that
+   * modelling detail used to leak into the combo list.
    */
-  it('warns when the combo ends on an unconsumed charge', () => {
-    const trailing = run([
+  it('swings as part of the step, with no attack step appended', () => {
+    const result = run([
       step({ kind: 'ability', slot: 'Q' }, 0),
       step({ kind: 'attack' }),
       step({ kind: 'ability', slot: 'E' }),
     ]);
-    expect(trailing.instances.some((entry) => entry.slot === 'E')).toBe(false);
-    expect(trailing.warnings.join(' ')).toContain('verfällt die Aufladung ungenutzt');
-
-    // The attack itself still counts — it is a normal attack, not a lost step.
-    expect(trailing.instances.filter((entry) => entry.sourceId === 'AA')).toHaveLength(1);
+    expect(result.instances.filter((entry) => entry.slot === 'Q')).toHaveLength(1);
+    expect(result.instances.filter((entry) => entry.sourceId === 'AA')).toHaveLength(1);
+    expect(result.instances.filter((entry) => entry.slot === 'E')).toHaveLength(1);
+    expect(result.warnings).toEqual([]);
   });
 
-  it('stays quiet when the charge is consumed', () => {
-    const consumed = run([
-      step({ kind: 'ability', slot: 'E' }),
-      step({ kind: 'attack' }),
-    ]);
-    expect(consumed.warnings.join(' ')).not.toContain('verfällt');
+  it('treats an attack step after E as a second, ordinary attack', () => {
+    const result = run([step({ kind: 'ability', slot: 'E' }), step({ kind: 'attack' })]);
+    expect(result.instances.filter((entry) => entry.slot === 'E')).toHaveLength(1);
+    expect(result.instances.filter((entry) => entry.sourceId === 'AA')).toHaveLength(1);
   });
 
-  it('runs out of charges', () => {
+  it('swings without the empowerment once the charges are gone', () => {
     const result = run([
       step({ kind: 'ability', slot: 'E' }),
-      step({ kind: 'attack' }),
       step({ kind: 'ability', slot: 'E' }),
-      step({ kind: 'attack' }),
       step({ kind: 'ability', slot: 'E' }),
-      step({ kind: 'attack' }),
     ]);
+    // Two charges: the third step is a plain attack rather than a dropped step.
     expect(result.instances.filter((entry) => entry.slot === 'E')).toHaveLength(2);
-    expect(result.warnings.join(' ')).toContain('Aufladungen');
+    expect(result.instances.filter((entry) => entry.sourceId === 'AA')).toHaveLength(1);
+    expect(result.warnings.join(' ')).toContain('gewöhnlicher Basisangriff');
   });
 });
 

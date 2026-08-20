@@ -182,7 +182,7 @@ describe('simulation against real game data', () => {
   });
 
   it('computes E from total AD, because it replaces the attack', () => {
-    const result = run([step({ kind: 'ability', slot: 'E' }), step({ kind: 'attack' })], 100);
+    const result = run([step({ kind: 'ability', slot: 'E' })], 100);
     const stats = resolveChampionStats(FIXTURE_CHAMPION_STATS, 11, {
       ...emptyStats(),
       attackDamage: 100,

@@ -29,8 +29,10 @@ Modelliert sind unter anderem:
   Bonus-AD-Skalierung, Monster-Kappe und der 20 %-Rüstungsreduktion zum richtigen
   Zeitpunkt — inklusive Verfall des Zählers, wenn zwischen zwei Treffern mehr Zeit
   liegt als die Markierung hält
-- **Übermäßige Gewalt (E)** als Ersetzung des Angriffsschadens (nicht als Bonus
-  obendrauf), inklusive Angriffstimer-Reset und Aufladungslimit
+- **Übermäßige Gewalt (E)** als ein Schritt, der den verstärkten Angriff enthält:
+  In der Combo heißt „E" das, was Spieler damit meinen — draufhauen. Der Schaden
+  ersetzt den Angriffsschaden (statt obendrauf zu kommen), mit Angriffstimer-Reset
+  und Aufladungslimit; ohne Aufladung bleibt ein gewöhnlicher Angriff übrig
 - **Explosionsschild (P)** mit levelabhängiger Abklingzeit
 - **Mitigationskette** in der richtigen Reihenfolge: flache Reduktion → prozentuale
   Reduktion → prozentuale Durchdringung → Letalität, mit negativer Rüstung und

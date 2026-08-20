@@ -197,10 +197,10 @@ const ABILITIES: AbilityMeta[] = [
     maxRank: 5,
     castable: true,
     modelNotes: [
-      'Ersetzt den Schaden des nächsten Basisangriffs — der reguläre AA-Schaden kommt nicht zusätzlich dazu.',
+      'Der Schritt ist der verstärkte Angriff selbst — ein zusätzlicher Angriffsschritt danach ist ein weiterer, gewöhnlicher Angriff.',
+      'Ersetzt den Schaden des Angriffs, statt obendrauf zu kommen — deshalb Gesamt-AD: der Angriffsschaden ist darin enthalten.',
       'Setzt den Angriffstimer zurück und wendet Treffereffekte an.',
-      'Skaliert mit Gesamt-AD, weil der Angriffsschaden darin enthalten ist.',
-      `${FALLBACK.e.charges} Aufladungen.`,
+      `${FALLBACK.e.charges} Aufladungen; ohne Aufladung wird der Schritt als gewöhnlicher Angriff gerechnet.`,
       'Zählt für Beulenschläge als Basisangriff.',
     ],
   },
@@ -235,6 +235,17 @@ class ViRuntime implements ChampionRuntime {
   constructor(private readonly ctx: ChampionModuleContext) {}
 
   resetsAutoAttack(slot: AbilitySlot): boolean {
+    return slot === 'E';
+  }
+
+  /**
+   * An E step is the empowered attack, not a self-buff waiting for one.
+   *
+   * The ability does nothing until an attack spends it, so "E" in a combo means
+   * what a player means by it: hit them with it. Adding an attack step after E
+   * is then a second, ordinary attack rather than the one E paid for.
+   */
+  attacksOnCast(slot: AbilitySlot): boolean {
     return slot === 'E';
   }
 
@@ -337,8 +348,10 @@ class ViRuntime implements ChampionRuntime {
 
     const charges = spellTiming(this.ctx, SPELL_IDS.E, 'maxAmmo', rank, FALLBACK.e.charges).value;
     if (this.eChargesUsed >= charges) {
+      // The step still swings: without a charge it is simply a normal attack,
+      // which is what happens in the game when the ability is not up.
       ctx.warn(
-        `Übermäßige Gewalt hat nur ${charges} Aufladungen — weitere Anwendungen in dieser Combo sind nicht verfügbar.`,
+        `Übermäßige Gewalt hat nur ${charges} Aufladungen — dieser Schritt wird als gewöhnlicher Basisangriff gerechnet.`,
       );
       return;
     }
@@ -531,18 +544,6 @@ class ViRuntime implements ChampionRuntime {
       label: 'Explosionsschild',
       detail: `Abklingzeit um ${num(refund)} s verkürzt · wieder bereit in ${num(Math.max(0, this.passiveReadyAt - ctx.time))} s`,
     });
-  }
-
-  /**
-   * Relentless Force only pays off through the attack that follows it. Ending a
-   * combo on E means the charge was spent for nothing, which is easy to miss:
-   * the step is in the list, it just produced no damage.
-   */
-  onComboEnd(ctx: SimContext): void {
-    if (!this.empowered) return;
-    ctx.warn(
-      'Übermäßige Gewalt wurde als letzter Schritt gewirkt — sie verstärkt erst den nächsten Basisangriff. Ohne folgenden Angriff verfällt die Aufladung ungenutzt.',
-    );
   }
 
   /** Blast Shield: any ability damage, on its own level-scaled cooldown. */
