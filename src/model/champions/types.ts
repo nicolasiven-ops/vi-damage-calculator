@@ -67,6 +67,26 @@ export interface ChampionModule {
   }[];
 }
 
+/**
+ * Ability names, taken from Data Dragon when it has them.
+ *
+ * Riot renames abilities on rework — Vi's E went from "Excessive Force" to
+ * "Relentless Force" — and a name baked into a champion module goes stale
+ * silently. Data Dragon does ship names reliably, in the requested locale, so
+ * the module's name is only a fallback for when the CDN is unreachable.
+ */
+export function resolveAbilityNames(
+  abilities: AbilityMeta[],
+  ctx: ChampionModuleContext,
+): AbilityMeta[] {
+  return abilities.map((ability) => {
+    const live = ability.ddragonId
+      ? ctx.spellById[ability.ddragonId]?.name
+      : ctx.detail?.passive?.name;
+    return live ? { ...ability, name: live } : ability;
+  });
+}
+
 /* ------------------------------------------------ Data Dragon value helpers */
 
 const ZERO_NOTE =

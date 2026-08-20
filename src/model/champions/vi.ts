@@ -39,7 +39,8 @@ const FALLBACK = {
     minTotalAdRatio: 0.6,
     maxTotalAdRatio: 1.5,
     maxChargeSeconds: 1.25,
-    cooldown: [14, 12.5, 11, 9.5, 8],
+    // Confirmed against Data Dragon, patch 26.16.
+    cooldown: [12, 10.5, 9, 7.5, 6],
   },
   w: {
     /** Fraction of the target's maximum health, per rank. */
@@ -59,12 +60,14 @@ const FALLBACK = {
     totalAdRatio: 1.1,
     apRatio: 1.0,
     charges: 2,
-    rechargeSeconds: [14, 12.5, 11, 9.5, 8],
+    // Confirmed against Community Dragon's `ammo.ammoRechargeTime`.
+    rechargeSeconds: [12, 11, 10, 9, 8],
   },
   r: {
     base: [150, 325, 500],
     bonusAdRatio: 0.9,
-    cooldown: [120, 100, 80],
+    // Confirmed against Data Dragon, patch 26.16.
+    cooldown: [140, 115, 90],
     knockupSeconds: 1.25,
   },
   passive: {

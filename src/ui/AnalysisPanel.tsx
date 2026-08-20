@@ -14,7 +14,7 @@ import { useState } from 'react';
 import type { ComboAnalysis } from '../engine/analysis';
 import { DAMAGE_TYPE_LABELS, type DamageType, type TargetConfig } from '../engine/types';
 import type { AbilitySlot } from '../engine/types';
-import type { ChampionModule, ChampionModuleContext } from '../model/champions/types';
+import type { AbilityMeta, ChampionModule, ChampionModuleContext } from '../model/champions/types';
 import { DamageChart } from './DamageChart';
 import { Panel } from './components/Panel';
 
@@ -23,6 +23,8 @@ interface Props {
   target: TargetConfig;
   module: ChampionModule;
   moduleCtx: ChampionModuleContext;
+  /** Abilities with names resolved from Data Dragon. */
+  abilities: AbilityMeta[];
   ranks: Record<AbilitySlot, number>;
 }
 
@@ -32,7 +34,7 @@ const TYPE_COLOR: Record<DamageType, string> = {
   true: 'var(--series-true)',
 };
 
-export function AnalysisPanel({ analysis, target, module, moduleCtx, ranks }: Props) {
+export function AnalysisPanel({ analysis, target, module, moduleCtx, abilities, ranks }: Props) {
   const [showTimeline, setShowTimeline] = useState(false);
   const [showFormulas, setShowFormulas] = useState(false);
 
@@ -236,7 +238,7 @@ export function AnalysisPanel({ analysis, target, module, moduleCtx, ranks }: Pr
 
           <hr className="divider" />
           <div className="ability-notes">
-            {module.abilities.map((ability) => (
+            {abilities.map((ability) => (
               <div className="ability-note" key={ability.slot}>
                 <span className={`slot-chip slot-${ability.slot.toLowerCase()}`}>{ability.slot}</span>
                 <div>

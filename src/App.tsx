@@ -4,7 +4,7 @@ import { analyse } from './engine/analysis';
 import { simulate } from './engine/simulate';
 import type { AbilitySlot } from './engine/types';
 import { VI_MODULE } from './model/champions/vi';
-import type { ChampionModuleContext } from './model/champions/types';
+import { resolveAbilityNames, type ChampionModuleContext } from './model/champions/types';
 import { resolvePurchasableItems } from './model/items';
 import { runeStats } from './model/runes';
 import { emptyStats, resolveChampionStats, sumStats } from './model/stats';
@@ -113,6 +113,11 @@ export default function App() {
     return analyse(result, build.target, stats);
   }, [baseStats, stats, bonusStats, build, moduleCtx]);
 
+  const abilities = useMemo(
+    () => resolveAbilityNames(VI_MODULE.abilities, moduleCtx),
+    [moduleCtx],
+  );
+
   const spellIcons = useMemo(() => {
     const icons: Partial<Record<AbilitySlot, string>> = {};
     if (!champion.detail || !bundle) return icons;
@@ -148,7 +153,7 @@ export default function App() {
               championName={VI_MODULE.displayName}
               level={build.level}
               ranks={build.ranks}
-              abilities={VI_MODULE.abilities}
+              abilities={abilities}
               stats={stats}
               onLevelChange={(level) => patchBuild({ level })}
               onRankChange={(slot, rank) =>
@@ -176,7 +181,7 @@ export default function App() {
         <div className="column">
           <ComboBuilder
             combo={build.combo}
-            abilities={VI_MODULE.abilities}
+            abilities={abilities}
             spellIcons={spellIcons}
             learnedRanks={build.ranks}
             onChange={(combo) => patchBuild({ combo })}
@@ -194,6 +199,7 @@ export default function App() {
               target={build.target}
               module={VI_MODULE}
               moduleCtx={moduleCtx}
+              abilities={abilities}
               ranks={build.ranks}
             />
           ) : (
