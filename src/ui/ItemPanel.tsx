@@ -9,7 +9,7 @@
 
 import { useMemo, useState } from 'react';
 import { imageUrls } from '../data/ddragon';
-import { hasModelledEffect, getItemEffect } from '../model/itemEffects';
+import { hasModelledEffect } from '../model/itemEffects';
 import {
   ITEM_CLASS_LABELS,
   hasNoUsefulStats,
@@ -175,60 +175,16 @@ export function ItemPanel({ items, itemIds, version, offline, onChange }: Props)
         </div>
       )}
 
-      <SelectedItemNotes items={itemIds.map((id) => byId.get(id)).filter(Boolean) as ResolvedItem[]} />
+      {/*
+       * No footnotes here.
+       *
+       * What an item does and does not do is one kind of information, and it now
+       * lives in one place: the notes panel at the bottom of this sidebar. Two
+       * copies of it meant reading the same sentence twice, and a panel that
+       * grew with the build — which is exactly what pushed the two sidebars out
+       * of step.
+       */}
     </Panel>
-  );
-}
-
-function SelectedItemNotes({ items }: { items: ResolvedItem[] }) {
-  const modelled = items.filter((item) => hasModelledEffect(item.id));
-  const unmodelled = items.filter(
-    (item) => !hasModelledEffect(item.id) && item.descriptionText.trim().length > 0,
-  );
-  const unparsed = items.filter((item) => item.unparsedStatLines.length > 0);
-
-  if (items.length === 0) return null;
-
-  return (
-    <div className="item-notes">
-      {modelled.length > 0 && (
-        <div className="item-note">
-          <span className="tag good">simulated</span>
-          <ul>
-            {modelled.map((item) => (
-              <li key={item.id}>
-                <strong>{item.name}</strong> — {getItemEffect(item.id)?.note}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {unmodelled.length > 0 && (
-        <div className="item-note">
-          <span className="tag warn">stats only</span>
-          <ul>
-            {unmodelled.map((item) => (
-              <li key={item.id}>
-                <strong>{item.name}</strong> — stats count in full, the passive is not modelled.
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {unparsed.length > 0 && (
-        <div className="item-note">
-          <span className="tag danger">unread</span>
-          <ul>
-            {unparsed.map((item) => (
-              <li key={item.id}>
-                <strong>{item.name}</strong> — stat line could not be mapped:{' '}
-                {item.unparsedStatLines.join(', ')}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
   );
 }
 

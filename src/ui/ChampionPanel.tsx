@@ -12,6 +12,7 @@ import type { AbilitySlot } from '../engine/types';
 import type { AbilityMeta } from '../model/champions/types';
 import type { ChampionStats } from '../model/stats';
 import { Panel } from './components/Panel';
+import { StatSheet, type LiveStats, type StatComparison } from './StatSheet';
 
 interface Props {
   detail: DDragonChampionDetail | null;
@@ -21,6 +22,14 @@ interface Props {
   ranks: Record<AbilitySlot, number>;
   abilities: AbilityMeta[];
   stats: ChampionStats;
+  /** Simulation-owned values for the focused moment (shield, current health). */
+  live?: LiveStats;
+  /** What moment the sheet shows, e.g. "after step 3". */
+  focusLabel?: string | null;
+  /** The moment the sheet's arrows are measured against. */
+  previous?: StatComparison | null;
+  /** Timed effects on this side of the fight, right now. */
+  active?: { label: string; detail: string }[];
   onLevelChange: (level: number) => void;
   onRankChange: (slot: AbilitySlot, rank: number) => void;
 }
@@ -33,6 +42,10 @@ export function ChampionPanel({
   ranks,
   abilities,
   stats,
+  live,
+  focusLabel,
+  previous,
+  active,
   onLevelChange,
   onRankChange,
 }: Props) {
@@ -100,7 +113,13 @@ export function ChampionPanel({
 
       <hr className="divider" />
 
-      <StatSheet stats={stats} />
+      <StatSheet
+        stats={stats}
+        live={live}
+        previous={previous}
+        focusLabel={focusLabel}
+        active={active}
+      />
     </Panel>
   );
 }
@@ -118,51 +137,4 @@ function spellIcon(
   }
   const spell = detail.spells?.find((entry) => entry.id === ability.ddragonId);
   return spell ? imageUrls.spell(version, spell.image.full) : null;
-}
-
-export function StatSheet({ stats }: { stats: ChampionStats }) {
-  const rows: { label: string; value: string; detail?: string }[] = [
-    {
-      label: 'Attack Damage',
-      value: stats.totalAttackDamage.toFixed(0),
-      detail: `${stats.baseAttackDamage.toFixed(0)} base + ${stats.bonusAttackDamage.toFixed(0)} bonus`,
-    },
-    {
-      label: 'Health',
-      value: stats.maxHealth.toFixed(0),
-      detail: `${stats.baseHealth.toFixed(0)} base + ${stats.bonusHealth.toFixed(0)} bonus`,
-    },
-    {
-      label: 'Attack Speed',
-      value: stats.totalAttackSpeed.toFixed(3),
-      detail: `+${(stats.bonusAttackSpeed * 100).toFixed(0)}% bonus`,
-    },
-    { label: 'Ability Haste', value: stats.abilityHaste.toFixed(0) },
-    {
-      label: 'Armor Penetration',
-      value: `${(stats.armorPenPercent * 100).toFixed(0)}%`,
-      detail: `${stats.lethality.toFixed(0)} lethality`,
-    },
-    { label: 'Ability Power', value: stats.abilityPower.toFixed(0) },
-    { label: 'Armor', value: stats.armor.toFixed(0) },
-    { label: 'Magic Resistance', value: stats.magicResist.toFixed(0) },
-    {
-      label: 'Critical Strike',
-      value: `${(stats.critChance * 100).toFixed(0)}%`,
-      detail: `×${stats.critMultiplier.toFixed(2)} damage`,
-    },
-    { label: 'Mana', value: stats.maxMana.toFixed(0) },
-  ];
-
-  return (
-    <div className="stat-sheet">
-      {rows.map((row) => (
-        <div className="stat-row" key={row.label}>
-          <span className="stat-label">{row.label}</span>
-          <span className="stat-value mono">{row.value}</span>
-          {row.detail && <span className="stat-detail">{row.detail}</span>}
-        </div>
-      ))}
-    </div>
-  );
 }

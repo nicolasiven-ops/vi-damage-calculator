@@ -29,9 +29,8 @@ import type {
 } from '../model/champions/types';
 import type { GameDataStatus } from '../hooks/usePatchData';
 import { ComboTimeline } from './ComboTimeline';
-import { StatsView } from './StatsView';
-import type { ChampionStats } from '../model/stats';
 import { CombatantBars } from './CombatantBars';
+import type { FightMoment } from './moment';
 import { DamageChart } from './DamageChart';
 import { Panel } from './components/Panel';
 
@@ -40,7 +39,6 @@ interface Props {
   target: TargetConfig;
   /** The attacker, for the bars that face the target. */
   attackerName: string;
-  attackerStats: ChampionStats;
   module: ChampionModule;
   moduleCtx: ChampionModuleContext;
   /** Abilities with names resolved from Data Dragon. */
@@ -57,6 +55,14 @@ interface Props {
    * caused it, and hovering a card lights every row it produced. A timeline is
    * only readable if you can see which press each line belongs to.
    */
+  /**
+   * The focused moment, derived once in the app.
+   *
+   * The two sidebars show the same moment in their stat sheets, so it cannot be
+   * a private detail of this panel — three derivations of one thing is three
+   * chances to disagree about which step is in focus.
+   */
+  moment: FightMoment;
   linkedStepUid?: string | null;
   /** The step pinned by clicking, which outlives the cursor. */
   pinnedStepUid?: string | null;
@@ -120,13 +126,13 @@ export function AnalysisPanel({
   analysis,
   target,
   attackerName,
-  attackerStats,
   module,
   moduleCtx,
   abilities,
   ranks,
   combo,
   gameDataStatus,
+  moment,
   linkedStepUid,
   pinnedStepUid,
   onHoverStep,
@@ -156,33 +162,61 @@ export function AnalysisPanel({
   const startingHealth = target.maxHealth * target.currentHealthPercent;
 
   /**
-   * The state of the fight at the step in focus, or at the end of the combo.
+   * The tiles at the moment in focus, not at the end.
    *
-   * The simulation records one of these per step, which is what makes the bars
-   * a picture of a moment rather than of the final total: hover or click a step
-   * and they show the health, the shield and the stats as they were then. They
-   * used to read the finished numbers, so they never moved.
+   * With a step focused, "total damage" means the damage up to that step and
+   * "target dies" means dead by then — otherwise the bars above the tiles would
+   * be showing one moment while the numbers under them showed another. Nothing
+   * is focused most of the time, and then these are the combo's own figures.
+   *
+   * Both totals are re-summed from the instances rather than one coming from the
+   * snapshot and the other from here, so the percentage below them is a ratio of
+   * two numbers measured the same way.
    */
-  const moment = useMemo(() => {
-    const list = analysis.snapshots;
-    const focused = linkedStepUid
-      ? list.find((entry) => entry.stepUid === linkedStepUid)
-      : undefined;
-    const source = focused ?? list[list.length - 1];
-    if (source) {
-      return {
-        attacker: source.attacker,
-        shieldGained: source.shieldGained,
-        target: source.target,
-      };
-    }
-    // No snapshots at all — an empty combo. Fall back to the finished figures.
-    return {
-      attacker: attackerStats,
-      shieldGained: analysis.shieldGained,
-      target: { currentHealth: analysis.targetHpRemaining, maxHealth: startingHealth },
+  const figures = useMemo(() => {
+    const whole = {
+      raw: analysis.totalRaw,
+      mitigated: analysis.totalMitigated,
+      absorbed: analysis.absorbed,
+      throughput: analysis.throughput,
+      dps: analysis.dps,
+      window: analysis.duration,
+      remaining: analysis.targetHpRemaining,
+      killed: analysis.killTime !== null,
+      killTime: analysis.killTime,
+      overkill: analysis.overkill,
+      missing: analysis.missingDamage,
+      partial: false,
     };
-  }, [analysis, linkedStepUid, attackerStats, startingHealth]);
+    if (!moment.stepUid) return whole;
+
+    let raw = 0;
+    let mitigated = 0;
+    for (const point of analysis.curve) {
+      // The step's own hits land at its timestamp, so the window includes it.
+      if (point.instance.time <= moment.time + 0.0005) {
+        raw += point.instance.raw;
+        mitigated += point.instance.mitigated;
+      }
+    }
+    const remaining = moment.target.currentHealth;
+    const killed = remaining <= 0;
+    const window = Math.max(0, moment.time - analysis.timeToFirstDamage);
+    return {
+      raw,
+      mitigated,
+      absorbed: raw - mitigated,
+      throughput: raw > 0 ? mitigated / raw : 0,
+      dps: window > 0.01 ? mitigated / window : 0,
+      window: moment.time,
+      remaining: Math.max(0, remaining),
+      killed,
+      killTime: killed ? analysis.killTime : null,
+      overkill: Math.max(0, -remaining),
+      missing: Math.max(0, remaining),
+      partial: true,
+    };
+  }, [analysis, moment]);
 
   return (
     <div className="analysis">
@@ -208,6 +242,7 @@ export function AnalysisPanel({
             name={target.name}
             side="enemy"
             health={{ current: moment.target.currentHealth, max: moment.target.maxHealth }}
+            lost={moment.targetLostNow}
             resource={null}
           />
         </div>
@@ -228,39 +263,41 @@ export function AnalysisPanel({
            * this is it as a sentence you can read in one glance.
            */}
           <Tile
-            className={analysis.killTime !== null ? 'verdict-kill' : 'verdict-survive'}
-            label={analysis.killTime !== null ? 'Target dies' : 'Target survives'}
+            className={figures.killed ? 'verdict-kill' : 'verdict-survive'}
+            label={figures.killed ? 'Target dies' : 'Target survives'}
             value={
-              analysis.killTime !== null
-                ? `${analysis.killTime.toFixed(2)} s`
-                : `${Math.round(analysis.targetHpRemaining).toLocaleString('en-US')} HP`
+              figures.killed && figures.killTime !== null
+                ? `${figures.killTime.toFixed(2)} s`
+                : `${Math.round(figures.remaining).toLocaleString('en-US')} HP`
             }
             detail={
-              analysis.killTime !== null
-                ? `${Math.round(analysis.overkill).toLocaleString('en-US')} overkill — room to spare`
-                : `${Math.round(analysis.missingDamage).toLocaleString('en-US')} damage short`
+              figures.killed
+                ? `${Math.round(figures.overkill).toLocaleString('en-US')} overkill — room to spare`
+                : `${Math.round(figures.missing).toLocaleString('en-US')} damage short${
+                    figures.partial ? ' at this point' : ''
+                  }`
             }
           />
           <Tile
-            label="Total damage"
-            value={Math.round(analysis.totalMitigated).toLocaleString('en-US')}
-            detail={`${Math.round(analysis.totalRaw).toLocaleString('en-US')} pre-mitigation`}
+            label={figures.partial ? 'Damage so far' : 'Total damage'}
+            value={Math.round(figures.mitigated).toLocaleString('en-US')}
+            detail={`${Math.round(figures.raw).toLocaleString('en-US')} pre-mitigation`}
             hero
           />
           <Tile
             label="Damage per second"
-            value={Math.round(analysis.dps).toLocaleString('en-US')}
-            detail={`over ${analysis.duration.toFixed(2)} s · ${analysis.timeToFirstDamage.toFixed(2)} s run-up`}
+            value={Math.round(figures.dps).toLocaleString('en-US')}
+            detail={`over ${figures.window.toFixed(2)} s · ${analysis.timeToFirstDamage.toFixed(2)} s run-up`}
           />
           <Tile
             label="Post-mitigation"
-            value={`${(analysis.throughput * 100).toFixed(0)}%`}
-            detail={`${Math.round(analysis.totalMitigated).toLocaleString('en-US')} of ${Math.round(analysis.totalRaw).toLocaleString('en-US')} got through`}
+            value={`${(figures.throughput * 100).toFixed(0)}%`}
+            detail={`${Math.round(figures.mitigated).toLocaleString('en-US')} of ${Math.round(figures.raw).toLocaleString('en-US')} got through`}
           />
           <Tile
             label="Mitigated"
-            value={Math.round(analysis.absorbed).toLocaleString('en-US')}
-            detail={`${((1 - analysis.throughput) * 100).toFixed(0)}% stopped by resistances`}
+            value={Math.round(figures.absorbed).toLocaleString('en-US')}
+            detail={`${((1 - figures.throughput) * 100).toFixed(0)}% stopped by resistances`}
           />
         </div>
 
@@ -428,29 +465,16 @@ export function AnalysisPanel({
       </Panel>
 
       {/*
-       * The lower window: the state at a moment, or where the damage came from.
+       * No stats window here any more.
        *
-       * Stats leads because it is the one that answers a question about *this*
-       * run — what the numbers were when that hit landed. The source breakdown is
-       * a summary of the whole combo and does not change while you explore it.
+       * It showed the focused moment's numbers in the middle column while the
+       * two stat sheets in the sidebars showed the build — so the same question
+       * had two answers on one screen, and the fuller one was the one in the
+       * corner. The sheets now read the focused moment themselves, with the
+       * change from the step before on every row, which is what this window was
+       * for. What is left in the middle is what only the middle can hold: where
+       * the damage came from, over the whole combo.
        */}
-      {/*
-       * Two windows rather than two tabs in one.
-       *
-       * They answer different questions and get read together: the stats say
-       * what the numbers were at a moment, the sources say where the damage came
-       * from over the whole combo. Making them share a window meant one was
-       * always hidden behind the other.
-       */}
-      <Panel className="analysis-stats" title="Stats">
-        <StatsView
-          analysis={analysis}
-          combo={combo}
-          abilities={abilities}
-          pinnedStepUid={pinnedStepUid}
-        />
-      </Panel>
-
       <Panel className="analysis-sources" title="Damage sources">
         <SourceBars analysis={analysis} />
         <hr className="divider" />

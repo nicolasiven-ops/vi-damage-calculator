@@ -260,6 +260,18 @@ export interface ChampionStats {
   moveSpeed: number;
   attackRange: number;
   healShieldPower: number;
+  /** Per 5 seconds, the way the game displays it. */
+  healthRegen: number;
+  manaRegen: number;
+  /**
+   * Summed, not multiplied.
+   *
+   * The game stacks tenacity multiplicatively, so two 30% sources give 51%, not
+   * 60%. Nothing here consumes the number — no crowd control is simulated — so
+   * it is shown as the sum of what the build provides and labelled as such
+   * rather than being quietly wrong in a formula.
+   */
+  tenacity: number;
 }
 
 export function resolveChampionStats(
@@ -314,6 +326,9 @@ export function resolveChampionStats(
     moveSpeed: (base.movespeed + bonus.moveSpeedFlat) * (1 + bonus.moveSpeedPercent),
     attackRange: base.attackrange,
     healShieldPower: bonus.healShieldPower,
+    healthRegen: statAtLevel(base.hpregen, base.hpregenperlevel, lvl) + bonus.healthRegen,
+    manaRegen: statAtLevel(base.mpregen, base.mpregenperlevel, lvl) + bonus.manaRegen,
+    tenacity: bonus.tenacity,
   };
 }
 

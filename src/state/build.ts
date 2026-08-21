@@ -42,15 +42,31 @@ export interface LoadoutState {
 const DOMINATION = 8100;
 const PRECISION = 8000;
 
-export function emptyLoadout(): LoadoutState {
+/**
+ * The rune fields of an empty loadout: no runes picked, both paths still chosen.
+ *
+ * Reset means "clear my picks", not "leave the panel without a page to show" —
+ * a pathless rune panel is half the height of a filled one, which is exactly the
+ * state the pre-selected trees exist to prevent.
+ */
+export function emptyRunes(): Pick<
+  LoadoutState,
+  'keystoneId' | 'primaryTreeId' | 'primaryRuneIds' | 'secondaryTreeId' | 'secondaryRuneIds' | 'shardIds'
+> {
   return {
-    itemIds: ['', '', '', '', '', ''],
     keystoneId: null,
     primaryTreeId: DOMINATION,
     primaryRuneIds: [null, null, null],
     secondaryTreeId: PRECISION,
     secondaryRuneIds: [null, null],
     shardIds: [null, null, null],
+  };
+}
+
+export function emptyLoadout(): LoadoutState {
+  return {
+    itemIds: ['', '', '', '', '', ''],
+    ...emptyRunes(),
     summonerIds: [null, null],
   };
 }

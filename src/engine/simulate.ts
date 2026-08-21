@@ -226,6 +226,13 @@ export function simulate(
         currentHealth: targetCurrentHealth,
         maxHealth: targetMaxHealth,
         baseArmor: input.target.armor,
+        currentArmor: effectiveResistance({
+          base: input.target.armor,
+          flatReduction: shred.flat,
+          percentReduction: shred.percent,
+          percentPenetration: 0,
+          flatPenetration: 0,
+        }),
         effectiveArmor: effectiveResistance({
           base: input.target.armor,
           flatReduction: shred.flat,
@@ -244,6 +251,7 @@ export function simulate(
       },
       active: [
         ...shreds.map((entry) => ({
+          side: 'target' as const,
           label: entry.label,
           detail:
             entry.percent > 0
@@ -251,10 +259,12 @@ export function simulate(
               : `−${entry.flat.toFixed(0)} armor · ${seconds(Math.max(0, entry.expiresAt - time))} s left`,
         })),
         ...tempStats.map((entry) => ({
+          side: 'attacker' as const,
           label: entry.label,
           detail: `${seconds(Math.max(0, entry.expiresAt - time))} s left`,
         })),
         ...targetAmps.map((entry) => ({
+          side: 'target' as const,
           label: entry.label,
           detail: `+${(entry.percent * 100).toFixed(0)}% damage taken · ${seconds(Math.max(0, entry.expiresAt - time))} s left`,
         })),

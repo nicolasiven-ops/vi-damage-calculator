@@ -1,20 +1,22 @@
 /**
- * Summoner spell selection — the same two slots the client gives you.
+ * Summoner spells — the two slots, the way the client shows them.
  *
- * It sits between runes and simulation because that is where it sits in a
- * build: after what you scale with, before how you press it. The picked spells
- * are what the combo bar offers, so this panel decides that strip's contents
- * rather than the strip guessing.
+ * Two large icons and nothing else, because that is all a chosen spell needs to
+ * say. Clicking one opens the nine legal spells underneath it; picking closes
+ * it again. A dropdown per slot said the same thing in three times the height,
+ * with the name spelled out for a choice nobody reads by name.
  *
- * Both slots always render, even empty, so the panel's height never moves — the
- * two sidebars are cast from one mould and a collapsing panel breaks the pair.
+ * It sits between runes and simulation because that is where it sits in a build:
+ * after what you scale with, before how you press it. The picked spells are what
+ * the combo bar offers, so this panel decides that strip's contents rather than
+ * the strip guessing.
  */
 
+import { useState } from 'react';
 import { imageUrls } from '../data/ddragon';
 import type { DDragonSummonerSpell } from '../data/types';
 import { isSummonerSimulated } from '../model/summoners';
 import { Panel } from './components/Panel';
-import { SelectMenu, type SelectOption } from './components/SelectMenu';
 import type { LoadoutState } from '../state/build';
 
 interface Props {
@@ -25,9 +27,8 @@ interface Props {
   onChange: (patch: Partial<LoadoutState>) => void;
 }
 
-const EMPTY = '__none__';
-
 export function SummonerPanel({ summoners, version, offline, loadout, onChange }: Props) {
+  const [open, setOpen] = useState<number | null>(null);
   const all = Object.values(summoners).sort((a, b) => a.name.localeCompare(b.name));
 
   if (offline || all.length === 0) {
@@ -40,26 +41,16 @@ export function SummonerPanel({ summoners, version, offline, loadout, onChange }
     );
   }
 
-  function pick(slot: number, id: string): void {
+  function pick(slot: number, id: string | null): void {
     const next = [...loadout.summonerIds];
-    next[slot] = id === EMPTY ? null : id;
-    // Two Flashes is not a build. Taking a spell the other slot holds swaps
-    // them, which is what dragging one onto the other does in the client.
+    const previous = next[slot] ?? null;
+    next[slot] = id;
+    // Two Flashes is not a build. Taking a spell the other slot holds swaps the
+    // two, which is what dragging one onto the other does in the client.
     const other = slot === 0 ? 1 : 0;
-    if (id !== EMPTY && loadout.summonerIds[other] === id) next[other] = loadout.summonerIds[slot] ?? null;
+    if (id !== null && next[other] === id) next[other] = previous;
     onChange({ summonerIds: next });
-  }
-
-  function optionsFor(): SelectOption[] {
-    return [
-      { id: EMPTY, label: 'Kein Spell' },
-      ...all.map((spell) => ({
-        id: spell.id,
-        label: spell.name,
-        detail: `${spell.cooldownBurn} s${isSummonerSimulated(spell.id) ? ' · simuliert' : ''}`,
-        iconUrl: imageUrls.summoner(version, spell.image.full),
-      })),
-    ];
+    setOpen(null);
   }
 
   return (
@@ -68,37 +59,47 @@ export function SummonerPanel({ summoners, version, offline, loadout, onChange }
         {[0, 1].map((slot) => {
           const id = loadout.summonerIds[slot] ?? null;
           const spell = id ? summoners[id] : undefined;
+          const key = slot === 0 ? 'D' : 'F';
           return (
-            <div className="summoner-slot" key={slot}>
-              <div className={`summoner-icon${spell ? '' : ' empty'}`} aria-hidden="true">
-                {spell ? (
-                  <img src={imageUrls.summoner(version, spell.image.full)} alt="" />
-                ) : (
-                  <span>{slot === 0 ? 'D' : 'F'}</span>
-                )}
-              </div>
-              <div className="summoner-choice">
-                <SelectMenu
-                  value={id ?? EMPTY}
-                  options={optionsFor()}
-                  onChange={(next) => pick(slot, next)}
-                  ariaLabel={`Summoner spell ${slot === 0 ? 'D' : 'F'}`}
-                  placeholder="Kein Spell"
-                  searchable
-                  searchPlaceholder="Spell suchen …"
-                />
-                <p className="summoner-hint">
-                  {spell
-                    ? isSummonerSimulated(spell.id)
-                      ? `${spell.cooldownBurn} s — wird simuliert`
-                      : `${spell.cooldownBurn} s — nur Auswahl`
-                    : 'Leer'}
-                </p>
-              </div>
-            </div>
+            <button
+              key={slot}
+              className={`summoner-slot${open === slot ? ' open' : ''}`}
+              onClick={() => setOpen((current) => (current === slot ? null : slot))}
+              aria-expanded={open === slot}
+              title={spell ? spell.name : `Slot ${key} — nothing picked`}
+            >
+              {spell ? (
+                <img src={imageUrls.summoner(version, spell.image.full)} alt={spell.name} />
+              ) : (
+                <span className="summoner-empty">{key}</span>
+              )}
+              <span className="summoner-key">{key}</span>
+            </button>
           );
         })}
       </div>
+
+      {open !== null && (
+        <div className="summoner-picker">
+          {all.map((spell) => {
+            const chosen = loadout.summonerIds[open] === spell.id;
+            return (
+              <button
+                key={spell.id}
+                className={`summoner-option${chosen ? ' selected' : ''}`}
+                onClick={() => pick(open, chosen ? null : spell.id)}
+                title={`${spell.name} — ${spell.cooldownBurn} s${
+                  isSummonerSimulated(spell.id) ? ' · wird simuliert' : ' · nur Auswahl'
+                }`}
+              >
+                <img src={imageUrls.summoner(version, spell.image.full)} alt={spell.name} />
+                {/* A dot for the two the engine resolves, as on the runes. */}
+                {isSummonerSimulated(spell.id) && <span className="summoner-dot" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </Panel>
   );
 }

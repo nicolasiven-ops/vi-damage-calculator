@@ -459,7 +459,14 @@
 .combo-strip {
   list-style: none;
   margin: 0;
-  padding: 0 0 var(--space-1);
+  /*
+   * The top padding is the lane the charge control slides out into.
+   *
+   * The strip scrolls sideways, which means it clips whatever leaves its box —
+   * so the room above the cards has to be inside it. It costs 22 px once,
+   * instead of the slider sitting on top of the icon it belongs to.
+   */
+  padding: 22px 0 var(--space-1);
   display: flex;
   gap: var(--space-2);
   flex: 1;
@@ -527,34 +534,36 @@
 }
 
 /*
- * The charge slider appears on hover, laid over the card rather than added to it.
+ * The charge slider rides out of the top of the card on hover.
  *
- * In the flow it made the one chargeable step taller than every other card, and
- * revealing it on hover would then have pushed the whole analysis down under the
- * cursor. As an overlay the card keeps one height, and the row below it never
- * moves.
+ * It used to lie over the card, which put a slider across the icon that says
+ * which step you are looking at — the one thing on the card that must never
+ * change. Above the card it covers nothing: the cards keep one height, the row
+ * below them never moves, and the icon stays the icon.
  */
 .combo-strip .combo-charge {
   position: absolute;
-  left: 5px;
-  right: 5px;
-  bottom: 4px;
+  left: -1px;
+  right: -1px;
+  bottom: calc(100% + 3px);
   flex-direction: row;
   align-items: center;
   gap: var(--space-2);
   padding: 2px 4px;
   border-radius: 2px;
   background: var(--surface-raised);
-  box-shadow: 0 0 0 1px var(--line);
+  box-shadow: 0 0 0 1px var(--line), var(--shadow-pop);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 90ms ease;
+  transform: translateY(7px);
+  transition: opacity 90ms ease, transform 120ms ease;
 }
 
 .combo-strip .combo-card:hover .combo-charge,
 .combo-strip .combo-card:focus-within .combo-charge {
   opacity: 1;
   pointer-events: auto;
+  transform: translateY(0);
 }
 
 .combo-strip .combo-charge input[type='range'] {
@@ -845,24 +854,174 @@
   border-color: var(--gold-200);
 }
 
+/*
+ * The stat pages, as the game has them: one visible page, the others a click
+ * away. A min-height keeps the panel from jumping between pages of unequal
+ * length — the two sidebars are one mould, and a sheet that resizes on a tab
+ * click makes the pair look broken.
+ */
+.stat-pages {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.stat-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.stat-tab {
+  padding: 4px 2px;
+  border: 0;
+  border-radius: calc(var(--radius) - 2px);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.stat-tab:hover {
+  color: var(--text-primary);
+  background: var(--surface-raised);
+}
+
+.stat-tab.active {
+  color: var(--gold-100);
+  background: linear-gradient(180deg, var(--surface-raised), var(--surface-3));
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.stat-focus {
+  margin: 0;
+  font-size: 10.5px;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+/*
+ * All four pages in one cell, only one of them visible.
+ *
+ * The stack is therefore as tall as its tallest page and stays there — clicking
+ * through the tabs never moves the panels below it, and no hard-coded height has
+ * to be kept in step with the rows.
+ */
+.stat-stack {
+  display: grid;
+}
+
+.stat-stack > .stat-sheet {
+  grid-area: 1 / 1;
+}
+
+.stat-sheet[aria-hidden='true'] {
+  visibility: hidden;
+}
+
+/*
+ * The separators are drawn by the rows, not by gaps in a coloured background.
+ *
+ * A page with six rows in a stack sized for nine leaves space at the bottom, and
+ * that space has to read as part of the panel rather than as a slab of divider
+ * colour.
+ */
 .stat-sheet {
+  align-content: start;
   display: grid;
   grid-template-columns: 1fr;
-  gap: 1px;
-  background: var(--line-soft);
+  background: var(--surface-1);
   border: 1px solid var(--line-soft);
   border-radius: var(--radius);
   overflow: hidden;
 }
 
+/*
+ * One height per row, detail line or not.
+ *
+ * Otherwise a sheet's height depends on how many of its rows happen to carry a
+ * second line — which differs between the two sidebars and between the four
+ * pages, and made the same eight stats a different-sized block on each side.
+ */
 .stat-row {
   display: grid;
-  grid-template-columns: 1fr auto;
-  grid-template-areas: 'label value' 'detail value';
+  grid-template-columns: 1fr auto auto;
+  grid-template-areas: 'label delta value' 'detail delta value';
   gap: 0 var(--space-3);
   padding: 6px var(--space-3);
+  min-height: 44px;
   background: var(--surface-1);
   align-items: center;
+  align-content: center;
+  box-shadow: inset 0 -1px 0 var(--line-soft);
+}
+
+.stat-row:last-child {
+  box-shadow: none;
+}
+
+/*
+ * What this step did to the number, left of the number.
+ *
+ * The value answers "where am I", the arrow answers "what just happened" — and
+ * the second question is the one a stat sheet in the middle of a combo is being
+ * asked. Colour follows direction, not judgement: this sheet does not know
+ * whether more armour on the target is good news for you.
+ */
+.stat-delta {
+  grid-area: delta;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.stat-delta.up {
+  color: var(--status-good);
+}
+
+.stat-delta.down {
+  color: var(--status-bad);
+}
+
+.stat-row.is-changed {
+  background: linear-gradient(90deg, var(--surface-2), var(--surface-1));
+}
+
+.stat-focus-vs {
+  color: var(--text-muted);
+}
+
+/* What is ticking right now, under the sheet it explains. */
+.stat-active {
+  display: grid;
+  gap: 4px;
+}
+
+.stat-active ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 3px;
+}
+
+.stat-active li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: 11px;
+  color: var(--text-secondary);
+  padding: 3px 6px;
+  border-left: 2px solid var(--gold-500);
+  background: var(--surface-2);
+}
+
+.stat-active li strong {
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 .stat-label {
@@ -1062,28 +1221,38 @@
 
 /* ===================================================================== runes */
 
+/*
+ * The caption sits over the middle of the row it names, not off to one side, and
+ * takes a little air before the icons — the icons are the choice, the caption is
+ * only saying which choice it is.
+ */
+.rune-path > .field-label {
+  text-align: center;
+  padding-bottom: var(--space-2);
+}
+
+/* One row, never wrapping: five paths, and both sidebars the same height. */
 .rune-tree-row {
   display: flex;
   gap: var(--space-2);
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  justify-content: center;
 }
 
 .rune-tree {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 9px 4px 4px;
+  display: grid;
+  place-items: center;
+  padding: 3px;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--surface-input);
-  font-size: 11.5px;
   color: var(--text-secondary);
   transition: border-color 120ms, color 120ms;
 }
 
 .rune-tree img {
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
 }
 
 .rune-tree:hover {
@@ -1118,10 +1287,14 @@
 
 /* One line, always. A keystone row that wraps reads as two groups of choices
    when it is one, so the icons give way instead of the line breaking. */
+/* Centred, not left-packed: a row of three in a column sized for five looks
+   like it lost two, and the shard grid reads as a grid only when it sits under
+   its own middle. */
 .rune-row-items {
   display: flex;
   gap: 6px;
   flex-wrap: nowrap;
+  justify-content: center;
 }
 
 .rune-row-items > .rune {
@@ -1214,53 +1387,115 @@
 
 /* ================================================================= summoners */
 
+/*
+ * Two slots, centred, sized like the client's. Nothing else: a chosen spell is
+ * recognised by its icon, and a name spelled out next to it was three times the
+ * height for the same information. The nine choices only appear while you are
+ * choosing.
+ */
 .summoner-slots {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--space-2);
+  display: flex;
+  justify-content: center;
+  gap: var(--space-3);
 }
 
 .summoner-slot {
-  display: grid;
-  grid-template-columns: 40px 1fr;
-  gap: var(--space-2);
-  align-items: center;
-}
-
-/* Square like the client's slots, so the two read as D and F at a glance. */
-.summoner-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 4px;
+  position: relative;
+  width: 52px;
+  height: 52px;
+  padding: 0;
   border: 1px solid var(--line);
+  border-radius: 4px;
   background: var(--surface-input);
   overflow: hidden;
   display: grid;
   place-items: center;
+  cursor: pointer;
+  transition: border-color 120ms, box-shadow 120ms;
 }
 
-.summoner-icon img {
+.summoner-slot:hover {
+  border-color: var(--gold-500);
+}
+
+.summoner-slot.open {
+  border-color: var(--gold-300);
+  box-shadow: 0 0 10px rgba(200, 170, 110, 0.3);
+}
+
+.summoner-slot img {
   width: 100%;
   height: 100%;
   display: block;
 }
 
-.summoner-icon.empty span {
-  font-size: 13px;
+.summoner-empty {
+  font-size: 17px;
   font-weight: 600;
   color: var(--text-muted);
 }
 
-.summoner-choice {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
+/* The key it sits on, in the corner the client puts it. */
+.summoner-key {
+  position: absolute;
+  right: 2px;
+  bottom: 1px;
+  font-size: 9px;
+  line-height: 1;
+  padding: 1px 2px;
+  border-radius: 2px;
+  background: rgba(4, 8, 16, 0.72);
+  color: var(--gold-200);
 }
 
-.summoner-hint {
-  margin: 0;
-  font-size: 10.5px;
-  color: var(--text-secondary);
+.summoner-picker {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  padding-top: var(--space-2);
+}
+
+.summoner-option {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface-input);
+  overflow: hidden;
+  cursor: pointer;
+  filter: grayscale(0.6) brightness(0.85);
+  transition: filter 120ms, border-color 120ms;
+}
+
+.summoner-option img {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.summoner-option:hover {
+  filter: none;
+  border-color: var(--gold-500);
+}
+
+.summoner-option.selected {
+  filter: none;
+  border-color: var(--gold-300);
+}
+
+/* Marks the two the engine actually resolves, as the rune dots do. */
+.summoner-dot {
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--status-good);
+  border: 1.5px solid var(--surface-1);
 }
 
 /* ==================================================================== target */
@@ -2006,174 +2241,6 @@ code {
   stroke: var(--line);
 }
 
-/* ============================================================ stats view */
-
-.stats-view {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.stats-head {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-5);
-  flex-wrap: wrap;
-  padding-bottom: var(--space-3);
-  border-bottom: 1px solid var(--line-soft);
-  font-size: 13px;
-  color: var(--text-primary);
-}
-
-.stats-head strong {
-  color: var(--gold-100);
-  font-weight: 500;
-}
-
-.stats-head-label {
-  display: block;
-  font-size: 9.5px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  margin-bottom: 2px;
-}
-
-.stats-head-time {
-  margin-left: var(--space-2);
-  color: var(--gold-300);
-  font-size: 12px;
-}
-
-.stats-head-compare {
-  color: var(--text-secondary);
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: var(--space-4);
-  align-items: start;
-}
-
-.stats-block-title {
-  margin: 0 0 var(--space-2);
-  font-family: var(--font-display);
-  font-size: 13px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--gold-300);
-  font-weight: 400;
-}
-
-.stats-block-title + .stats-table {
-  margin-bottom: var(--space-4);
-}
-
-.stats-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12.5px;
-}
-
-.stats-table th {
-  text-align: left;
-  font-weight: 400;
-  color: var(--text-secondary);
-  padding: 4px var(--space-2) 4px 0;
-  border-bottom: 1px solid var(--line-soft);
-}
-
-.stats-table td {
-  text-align: right;
-  padding: 4px 0;
-  border-bottom: 1px solid var(--line-soft);
-  color: var(--text-primary);
-  white-space: nowrap;
-}
-
-/* A row that moved since the compared step: the whole point of the view. */
-.stats-table tr.is-changed th,
-.stats-table tr.is-changed td {
-  background: rgba(200, 170, 110, 0.07);
-  color: var(--gold-100);
-}
-
-.stats-delta {
-  width: 78px;
-  font-size: 11.5px;
-}
-
-.stats-delta .up {
-  color: var(--status-good);
-}
-
-.stats-delta .down {
-  color: var(--status-danger);
-}
-
-.stats-active {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.stats-active li {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--space-3);
-  font-size: 12px;
-  padding: 4px 8px;
-  border-left: 2px solid var(--blue-300);
-  background: var(--surface-2);
-  border-radius: 0 var(--radius) var(--radius) 0;
-}
-
-.stats-active strong {
-  color: var(--text-primary);
-  font-weight: 500;
-}
-
-.stats-active span {
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 11px;
-}
-
-/*
- * Effect colours in the legend, matching what the bars use.
- *
- * Teal is a buff that adds damage, green a buff that only keeps you alive,
- * orange a debuff sitting on the target.
- */
-.gantt-legend .swatch.buff-offense {
-  background: rgba(10, 200, 185, 0.34);
-  border: 1px solid var(--effect-offense);
-}
-
-.gantt-legend .swatch.buff-defense {
-  background: rgba(79, 209, 139, 0.28);
-  border: 1px solid var(--effect-defense);
-}
-
-.gantt-legend .swatch.debuff {
-  background: rgba(224, 104, 95, 0.3);
-  border: 1px solid var(--effect-debuff);
-}
-
-/* ==================================================== target health bar */
-
-/*
- * The verdict as a picture, in the space the verdict text leaves free.
- *
- * Segments are hits in the order they land, as wide as their damage. Focusing a
- * combo step lifts its segments and dims everything that lands later — at that
- * moment those had not happened yet.
- */
-
 /* ===================================================== select menu (dropdown)
 
    Two shapes, one behaviour. The `title` variant has to pass for a panel
@@ -2409,12 +2476,29 @@ code {
   transition: width 140ms ease;
 }
 
-.side-ally .bar-fill.health {
+/*
+ * Green on both sides. Red is how the map tells teams apart; here the two bars
+ * stand next to each other and the only question either answers is how much
+ * health is left, so they answer it the same way.
+ */
+.bar-fill.health {
   background: linear-gradient(180deg, var(--bar-health-ally), var(--bar-health-ally-dim));
 }
 
-.side-enemy .bar-fill.health {
-  background: linear-gradient(180deg, var(--bar-health-enemy), var(--bar-health-enemy-dim));
+/*
+ * Health the focused step took off, left standing as a translucent stub past the
+ * fill — the client's way of showing damage just taken. Translucent rather than
+ * a flat colour so the track still reads through it as empty space.
+ */
+.bar-fill.lost {
+  inset: 0 auto 0 auto;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--bar-health-enemy) 55%, transparent),
+    color-mix(in srgb, var(--bar-health-enemy-dim) 40%, transparent)
+  );
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.25);
+  transition: left 140ms ease, width 140ms ease;
 }
 
 .bar-fill.resource {
@@ -2423,6 +2507,7 @@ code {
 
 /* Shield rides on top of health, the way the client stacks it. */
 .bar-fill.shield {
+  inset: 0 auto 0 auto;
   background: repeating-linear-gradient(
     135deg,
     rgba(223, 230, 234, 0.85) 0 4px,

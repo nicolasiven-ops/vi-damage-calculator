@@ -11,6 +11,7 @@ import { imageUrls } from '../data/ddragon';
 import type { DDragonRune, DDragonRuneTree } from '../data/types';
 import { SHARD_DEFINITIONS, getRuneDefinition, isRuneModelled } from '../model/runes';
 import { Panel } from './components/Panel';
+import { emptyRunes } from '../state/build';
 import type { LoadoutState } from '../state/build';
 
 interface Props {
@@ -63,6 +64,7 @@ export function RunePanel({ trees, loadout, offline, onChange }: Props) {
   }
 
   function selectPrimaryTree(treeId: number): void {
+    if (loadout.primaryTreeId === treeId) return;
     onChange({
       primaryTreeId: treeId,
       keystoneId: null,
@@ -72,6 +74,9 @@ export function RunePanel({ trees, loadout, offline, onChange }: Props) {
   }
 
   function selectSecondaryTree(treeId: number): void {
+    // Clicking the path you are already on does nothing: there is no state
+    // without a secondary path, so a second click has nothing to mean.
+    if (loadout.secondaryTreeId === treeId) return;
     onChange({ secondaryTreeId: treeId, secondaryRuneIds: [null, null] });
   }
 
@@ -123,23 +128,14 @@ export function RunePanel({ trees, loadout, offline, onChange }: Props) {
         <div className="rune-header-actions">
           <button
             className="btn subtle"
-            onClick={() =>
-              onChange({
-                keystoneId: null,
-                primaryTreeId: null,
-                primaryRuneIds: [null, null, null],
-                secondaryTreeId: null,
-                secondaryRuneIds: [null, null],
-                shardIds: [null, null, null],
-              })
-            }
+            onClick={() => onChange(emptyRunes())}
           >
             Reset
           </button>
         </div>
       }
     >
-      <div className="field">
+      <div className="field rune-path">
         <span className="field-label">Primary path</span>
         <div className="rune-tree-row">
           {trees.map((tree) => (
@@ -149,8 +145,9 @@ export function RunePanel({ trees, loadout, offline, onChange }: Props) {
               onClick={() => selectPrimaryTree(tree.id)}
               title={tree.name}
             >
-              <img src={imageUrls.rune(tree.icon)} alt="" />
-              <span>{tree.name}</span>
+              {/* The icon alone. Five paths named in full wrapped to three
+                  lines for a choice every player already makes by shape. */}
+              <img src={imageUrls.rune(tree.icon)} alt={tree.name} />
             </button>
           ))}
         </div>
@@ -181,7 +178,7 @@ export function RunePanel({ trees, loadout, offline, onChange }: Props) {
 
       <hr className="divider" />
 
-      <div className="field">
+      <div className="field rune-path">
         <span className="field-label">Secondary path</span>
         <div className="rune-tree-row">
           {trees
@@ -193,8 +190,7 @@ export function RunePanel({ trees, loadout, offline, onChange }: Props) {
                 onClick={() => selectSecondaryTree(tree.id)}
                 title={tree.name}
               >
-                <img src={imageUrls.rune(tree.icon)} alt="" />
-                <span>{tree.name}</span>
+                <img src={imageUrls.rune(tree.icon)} alt={tree.name} />
               </button>
             ))}
         </div>
@@ -211,13 +207,12 @@ export function RunePanel({ trees, loadout, offline, onChange }: Props) {
               onPick={(rune) => pickSecondary(rowIndex, rune.id, secondaryRowById)}
             />
           ))}
-          <p className="field-hint">Two runes from two different rows.</p>
         </div>
       )}
 
       <hr className="divider" />
 
-      <div className="field">
+      <div className="field rune-path">
         <span className="field-label">Stat shards</span>
         <div className="rune-rows">
           {SHARD_ROWS.map((row, rowIndex) => (

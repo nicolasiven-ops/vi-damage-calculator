@@ -29,6 +29,8 @@ import { RunePanel } from './ui/RunePanel';
 import { SummonerPanel } from './ui/SummonerPanel';
 import { SettingsPanel } from './ui/SettingsPanel';
 import { LoadoutNotes } from './ui/LoadoutNotes';
+import { fightMoment } from './ui/moment';
+import { unknownStats } from './ui/StatSheet';
 import { TargetPanel } from './ui/TargetPanel';
 import { imageUrls } from './data/ddragon';
 
@@ -288,6 +290,44 @@ export default function App() {
   }, [champion.detail, bundle]);
 
   /**
+   * The state of the fight at the focused step, derived once for everyone.
+   *
+   * The bars in the middle and the two stat sheets in the sidebars are three
+   * views of the same moment; deriving it three times is how they end up
+   * disagreeing about which moment that is.
+   */
+  const moment = useMemo(
+    () =>
+      fightMoment(analysis, linkedStepUid, {
+        // No champion resolved yet: unknown, not zero.
+        attacker: stats ?? unknownStats({}),
+        target: {
+          currentHealth: effectiveTarget.maxHealth * effectiveTarget.currentHealthPercent,
+          maxHealth: effectiveTarget.maxHealth,
+          baseArmor: effectiveTarget.armor,
+          currentArmor: effectiveTarget.armor,
+          effectiveArmor: effectiveTarget.armor,
+          baseMagicResist: effectiveTarget.magicResist,
+          effectiveMagicResist: effectiveTarget.magicResist,
+        },
+      }),
+    [analysis, linkedStepUid, stats, effectiveTarget],
+  );
+
+  /**
+   * Names the moment for the stat sheets.
+   *
+   * "Attack speed 2.14" on its own looks like a bug; "after step 4" makes it a
+   * measurement.
+   */
+  const focusLabel =
+    build.combo.length === 0
+      ? null
+      : moment.stepNumber !== null
+        ? `after step ${moment.stepNumber} · ${moment.time.toFixed(2)} s`
+        : `end of combo · ${moment.time.toFixed(2)} s`;
+
+  /**
    * The attacker's summoner spells, in slot order, for the combo strip.
    *
    * Names and icons come from Data Dragon rather than being hardcoded, so a
@@ -431,7 +471,15 @@ export default function App() {
               level={build.level}
               ranks={build.ranks}
               abilities={abilities}
-              stats={stats}
+              stats={moment.attacker}
+              live={{ shield: moment.shieldGained }}
+              previous={
+                moment.previous
+                  ? { stats: moment.previous.attacker, label: moment.previous.label }
+                  : null
+              }
+              focusLabel={focusLabel}
+              active={moment.active.filter((entry) => entry.side === 'attacker')}
               onLevelChange={(level) => patchBuild({ level })}
               onRankChange={(slot, rank) =>
                 patchBuild({ ranks: { ...build.ranks, [slot]: Math.max(0, rank) } })
@@ -484,6 +532,7 @@ export default function App() {
               loadout={build}
               items={items}
               summoners={bundle?.summoners ?? {}}
+              runeTrees={bundle?.runeTrees ?? []}
               title="Vi notes"
             />
           </div>
@@ -495,8 +544,8 @@ export default function App() {
           <AnalysisPanel
             analysis={analysis}
             target={effectiveTarget}
+            moment={moment}
             attackerName={VI_MODULE.displayName}
-            attackerStats={stats}
             module={VI_MODULE}
             moduleCtx={moduleCtx}
             abilities={abilities}
@@ -535,6 +584,30 @@ export default function App() {
             <TargetPanel
               state={build}
               stats={targetStats}
+              live={{
+                currentHealth: moment.target.currentHealth,
+                armor: moment.target.currentArmor,
+                magicResist: moment.target.baseMagicResist,
+                armorAsMet: moment.target.effectiveArmor,
+                magicResistAsMet: moment.target.effectiveMagicResist,
+              }}
+              previous={
+                moment.previous
+                  ? {
+                      // A typed target has no champion behind it, so the
+                      // comparison carries the same unknowns the sheet does.
+                      stats: targetStats ?? unknownStats({}),
+                      live: {
+                        currentHealth: moment.previous.target.currentHealth,
+                        armor: moment.previous.target.currentArmor,
+                        magicResist: moment.previous.target.baseMagicResist,
+                      },
+                      label: moment.previous.label,
+                    }
+                  : null
+              }
+              focusLabel={focusLabel}
+              active={moment.active.filter((entry) => entry.side === 'target')}
               champions={bundle?.champions ?? {}}
               profile={targetProfile.profile}
               version={bundle?.version ?? ''}
@@ -591,6 +664,7 @@ export default function App() {
               loadout={build.targetLoadout}
               items={items}
               summoners={bundle?.summoners ?? {}}
+              runeTrees={bundle?.runeTrees ?? []}
               title="Target notes"
             />
           </div>

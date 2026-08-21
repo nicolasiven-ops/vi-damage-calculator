@@ -11,10 +11,10 @@
  * worth reading too.
  */
 
-import type { DDragonSummonerSpell } from '../data/types';
+import type { DDragonRuneTree, DDragonSummonerSpell } from '../data/types';
 import type { ResolvedItem } from '../model/items';
 import { getItemEffect } from '../model/itemEffects';
-import { getRuneDefinition, isRuneModelled } from '../model/runes';
+import { SHARD_DEFINITIONS, getRuneDefinition, isRuneModelled } from '../model/runes';
 import { summonerGap } from '../model/summoners';
 import type { LoadoutState } from '../state/build';
 import { activeItemIds, activeRuneIds, activeShardIds, activeSummonerIds } from '../state/build';
@@ -25,24 +25,50 @@ interface Props {
   items: ResolvedItem[];
   /** Data Dragon's spell table, for naming what the picks refer to. */
   summoners: Record<string, DDragonSummonerSpell>;
+  /**
+   * The rune trees, purely to name the runes.
+   *
+   * The maintained registry only knows the runes the engine models, so an
+   * unmodelled one had no name here — and "Rune 8137" is the one thing a note
+   * about it must not say, since the whole point is telling you which pick is
+   * missing from the result.
+   */
+  runeTrees: DDragonRuneTree[];
   /** Names the side, so the two panels never look interchangeable. */
   title: string;
 }
 
-export function LoadoutNotes({ loadout, items, summoners, title }: Props) {
+export function LoadoutNotes({ loadout, items, summoners, runeTrees, title }: Props) {
   const byId = new Map(items.map((item) => [item.id, item]));
   const picked = activeItemIds(loadout)
     .map((id) => byId.get(id))
     .filter((item): item is ResolvedItem => Boolean(item));
 
   const simulated = picked.filter((item) => getItemEffect(item.id));
-  const statsOnly = picked.filter((item) => !getItemEffect(item.id));
+  /*
+   * Only items that have something to leave out.
+   *
+   * A Cloth Armor has no passive, so "the passive is not modelled" is not a
+   * footnote about it — it is a line of noise about an item that is fully
+   * accounted for.
+   */
+  const statsOnly = picked.filter(
+    (item) => !getItemEffect(item.id) && item.descriptionText.trim().length > 0,
+  );
   const unparsed = picked.filter((item) => item.unparsedStatLines.length > 0);
+
+  const runeNames = new Map<number, string>();
+  for (const tree of runeTrees) {
+    for (const slot of tree.slots) {
+      for (const rune of slot.runes) runeNames.set(rune.id, rune.name);
+    }
+  }
+  for (const shard of SHARD_DEFINITIONS) runeNames.set(shard.id, shard.name);
 
   const runeIds = [...activeRuneIds(loadout), ...activeShardIds(loadout)];
   const runesNotModelled = runeIds
     .filter((id) => !isRuneModelled(id))
-    .map((id) => getRuneDefinition(id)?.name ?? `Rune ${id}`);
+    .map((id) => runeNames.get(id) ?? getRuneDefinition(id)?.name ?? `Rune ${id}`);
 
   /*
    * Summoner spells are worth their own lines rather than one blanket sentence:

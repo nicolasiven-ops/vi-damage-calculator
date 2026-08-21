@@ -2,10 +2,14 @@
  * A combatant's health and resource, drawn the way the game draws them.
  *
  * Both sides get the same frame: name, the two numbers, a health track and a
- * resource track under it. Colour carries the side the way League does — green
- * for the champion you are playing, red for the one you are hitting, blue for
- * the resource — because that mapping needs no legend for anyone who has played
- * the game.
+ * resource track under it. Health is green on both sides and the resource is
+ * blue, as in the client — the enemy's bar is red on the map, but in the panel
+ * that shows the two side by side, red would read as "already hurt" rather than
+ * as "the other team".
+ *
+ * Damage from the step in focus stays on the bar as a translucent chunk past the
+ * end of the fill, which is how the client shows health just lost: the bar says
+ * both where the target is and what this hit took off it.
  *
  * Both bars empty towards the left: the fill is anchored at the left edge and
  * shrinks, so the empty part grows in from the right. That is what a health bar
@@ -25,6 +29,8 @@ interface Props {
   health: BarValue;
   /** Shield sits past the end of health, as an overlay, the way it does in game. */
   shield?: number;
+  /** Health lost in the focused step, drawn translucent past the fill. */
+  lost?: number;
   /** Mana, energy, fury — null for the resourceless. */
   resource?: (BarValue & { label: string }) | null;
   /** Shown on the right of the name row instead of the health numbers. */
@@ -40,9 +46,14 @@ export function CombatantBars({
   side,
   health,
   shield = 0,
+  lost = 0,
   resource,
   note,
 }: Props) {
+  const healthShare = share(health);
+  // Cannot run past the rail: a hit bigger than the health that was there is
+  // drawn as the part of the bar it actually emptied.
+  const lostShare = Math.max(0, Math.min(100 - healthShare, (lost / Math.max(1, health.max)) * 100));
   return (
     <div className={`combatant side-${side}`}>
       <div className="combatant-head">
@@ -52,11 +63,28 @@ export function CombatantBars({
 
       {/* The numbers ride on the bar, the way the HUD puts them. */}
       <div className="bar-track health">
-        <div className="bar-fill health" style={{ width: `${share(health)}%` }} />
+        <div className="bar-fill health" style={{ width: `${healthShare}%` }} />
+        {lostShare > 0 && (
+          <div
+            className="bar-fill lost"
+            style={{ left: `${healthShare}%`, width: `${lostShare}%` }}
+            title={`${int(lost)} damage in this step`}
+          />
+        )}
         {shield > 0 && (
+          /*
+           * Past the end of health, not over the front of it.
+           *
+           * A shield in the client extends the bar to the right — it is health
+           * you have on top of what is left, and drawn from the left edge it read
+           * as the first 190 points of health being special.
+           */
           <div
             className="bar-fill shield"
-            style={{ width: `${Math.min(100, (shield / Math.max(1, health.max)) * 100)}%` }}
+            style={{
+              left: `${healthShare}%`,
+              width: `${Math.min(100 - healthShare, (shield / Math.max(1, health.max)) * 100)}%`,
+            }}
           />
         )}
         <span className="bar-caption mono">

@@ -45,7 +45,6 @@ export function SettingsPanel({ side, critMode, timings, target, onChange }: Pro
   if (side === 'target') {
     return (
       <Panel title="Simulation" tight>
-        <span className="field-label">Target situation</span>
         <TargetSituation target={target} onChange={onChange} />
       </Panel>
     );
@@ -67,8 +66,8 @@ export function SettingsPanel({ side, critMode, timings, target, onChange }: Pro
           ))}
         </div>
         <span className="field-hint">
-          The expected value weights every attack by critical strike chance — that is the number you
-          compare builds with. “Always” and “never” show the two extremes.
+          Expected value weights every attack by crit chance — the number you compare builds with.
+          The other two show the extremes.
         </span>
       </div>
 
@@ -76,10 +75,6 @@ export function SettingsPanel({ side, critMode, timings, target, onChange }: Pro
 
       <div className="field">
         <span className="field-label">Timing constants</span>
-        <span className="field-hint">
-          Riot does not publish animation timings in machine-readable form. These values are
-          assumptions and only shift the timeline, not the damage totals.
-        </span>
       </div>
 
       <div className="field-row">
@@ -128,9 +123,19 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 /**
- * How hurt the target already is, and what soaks damage on top of resistances.
+ * The target's half of the simulation panel.
  *
- * Its own component because it is the target side of a panel both sides share.
+ * Built from the same four blocks as the attacker's — a segmented choice, a
+ * divider, a labelled explanation, a row of numbers, a reset — because the two
+ * sidebars are one mould and a panel that is a different shape on each side
+ * pushes everything below it out of step. The blocks carry the target's own
+ * questions: what kind of unit it is, how hurt it already is, and what soaks
+ * damage on top of its resistances.
+ *
+ * Unit type used to live in the target panel's custom definition, where a
+ * champion-mode target could not reach it at all — and it is a simulation rule
+ * (it decides caps such as the 300 damage cap on Denting Blows), not part of who
+ * the target is.
  */
 function TargetSituation({
   target,
@@ -139,70 +144,89 @@ function TargetSituation({
   target: TargetConfig;
   onChange: Props['onChange'];
 }) {
+  const patch = (fields: Partial<TargetConfig>): void =>
+    onChange({ target: { ...target, ...fields } });
+
   return (
     <>
-
-    <label className="field">
-      <span className="field-hint">Current health</span>
-      <div className="input-with-suffix">
-        <input
-          type="number"
-          min={1}
-          max={100}
-          value={Math.round(target.currentHealthPercent * 100)}
-          onChange={(event) =>
-            onChange({
-              target: {
-                ...target,
-                currentHealthPercent: clamp(Number(event.target.value) / 100, 0.01, 1),
-              },
-            })
-          }
-        />
-        <span className="input-suffix">%</span>
+      <div className="field">
+        <span className="field-label">Unit type</span>
+        <div className="segmented">
+          {(['champion', 'minion', 'monster'] as const).map((type) => (
+            <button
+              key={type}
+              aria-pressed={target.unitType === type}
+              onClick={() => patch({ unitType: type })}
+            >
+              {type === 'champion' ? 'Champ' : type === 'minion' ? 'Minion' : 'Monster'}
+            </button>
+          ))}
+        </div>
+        <span className="field-hint">
+          Decides the rules that only apply to some units: Denting Blows is capped at 300 damage
+          against monsters, and Smite refuses to touch a champion at all.
+        </span>
       </div>
-    </label>
 
-    <div className="field-row">
-      <label className="field">
-        <span className="field-hint">Damage reduction</span>
-        <div className="input-with-suffix">
+      <hr className="divider" />
+
+      <div className="field">
+        <span className="field-label">Target situation</span>
+
+      </div>
+
+      <div className="field-row three">
+        <label className="field">
+          <span className="field-hint">Current health</span>
+          <div className="input-with-suffix">
+            <input
+              type="number"
+              min={1}
+              max={100}
+              value={Math.round(target.currentHealthPercent * 100)}
+              onChange={(event) =>
+                patch({ currentHealthPercent: clamp(Number(event.target.value) / 100, 0.01, 1) })
+              }
+            />
+            <span className="input-suffix">%</span>
+          </div>
+        </label>
+        <label className="field">
+          <span className="field-hint">Reduction</span>
+          <div className="input-with-suffix">
+            <input
+              type="number"
+              min={0}
+              max={90}
+              value={Math.round(target.percentDamageReduction * 100)}
+              onChange={(event) =>
+                patch({ percentDamageReduction: clamp(Number(event.target.value) / 100, 0, 0.9) })
+              }
+            />
+            <span className="input-suffix">%</span>
+          </div>
+        </label>
+        <label className="field">
+          <span className="field-hint">Flat</span>
           <input
             type="number"
             min={0}
-            max={90}
-            value={Math.round(target.percentDamageReduction * 100)}
+            value={Math.round(target.flatDamageReduction * 10) / 10}
             onChange={(event) =>
-              onChange({
-                target: {
-                  ...target,
-                  percentDamageReduction: clamp(Number(event.target.value) / 100, 0, 0.9),
-                },
-              })
+              patch({ flatDamageReduction: Math.max(0, Number(event.target.value)) })
             }
           />
-          <span className="input-suffix">%</span>
-        </div>
-        <span className="field-hint">Exhaust, Randuin’s Omen …</span>
-      </label>
-      <label className="field">
-        <span className="field-hint">Flat reduction</span>
-        <input
-          type="number"
-          min={0}
-          value={Math.round(target.flatDamageReduction * 10) / 10}
-          onChange={(event) =>
-            onChange({
-              target: {
-                ...target,
-                flatDamageReduction: Math.max(0, Number(event.target.value)),
-              },
-            })
-          }
-        />
-        <span className="field-hint">Doran’s Shield, Bone Plating …</span>
-      </label>
-    </div>
+        </label>
+      </div>
+
+      <button
+        className="btn subtle"
+        onClick={() =>
+          patch({ currentHealthPercent: 1, percentDamageReduction: 0, flatDamageReduction: 0 })
+        }
+      >
+        Reset situation
+      </button>
     </>
   );
 }

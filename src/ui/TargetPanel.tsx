@@ -28,7 +28,7 @@ import type { DDragonChampionDetail, DDragonChampionSummary } from '../data/type
 import type { TargetConfig } from '../engine/types';
 import type { TargetMode, TargetState } from '../state/build';
 import type { ChampionStats } from '../model/stats';
-import { StatSheet } from './ChampionPanel';
+import { StatSheet, unknownStats, type LiveStats, type StatComparison } from './StatSheet';
 import { Panel } from './components/Panel';
 import { SelectMenu, type SelectOption } from './components/SelectMenu';
 
@@ -41,6 +41,11 @@ interface Props {
    * stat pipeline, so neither can drift from the other.
    */
   stats: ChampionStats | null;
+  /** Health and armour as the simulation has them at the focused moment. */
+  live?: LiveStats;
+  focusLabel?: string | null;
+  previous?: StatComparison | null;
+  active?: { label: string; detail: string }[];
   champions: Record<string, DDragonChampionSummary>;
   /** Full detail for the selected champion, once it has loaded. */
   profile: DDragonChampionDetail | null;
@@ -90,7 +95,18 @@ const PRESETS: { id: string; name: string; target: Partial<TargetConfig> }[] = [
 /** The five slots a champion's abilities occupy, in the order the client shows. */
 const ABILITY_SLOTS = ['P', 'Q', 'W', 'E', 'R'] as const;
 
-export function TargetPanel({ state, stats, champions, profile, version, onChange }: Props) {
+export function TargetPanel({
+  state,
+  stats,
+  live,
+  focusLabel,
+  previous,
+  active,
+  champions,
+  profile,
+  version,
+  onChange,
+}: Props) {
   const { target, targetMode: mode, targetChampionId, customPresetId } = state;
 
   const championList = useMemo(
@@ -259,7 +275,15 @@ export function TargetPanel({ state, stats, champions, profile, version, onChang
 
           <hr className="divider" />
 
-          {stats && <StatSheet stats={stats} />}
+          {stats && (
+            <StatSheet
+              stats={stats}
+              live={live}
+              previous={previous}
+              focusLabel={focusLabel}
+              active={active}
+            />
+          )}
 
           <span className="field-hint">
             At level {target.level}, with the items and runes below. Of these, health and the two
@@ -302,44 +326,45 @@ export function TargetPanel({ state, stats, champions, profile, version, onChang
                 onChange={(event) => patchTarget({ magicResist: Number(event.target.value) })}
               />
             </label>
-            <div className="field">
-              <span className="field-label">Unit type</span>
-              <div className="segmented">
-                {(['champion', 'minion', 'monster'] as const).map((type) => (
-                  <button
-                    key={type}
-                    aria-pressed={target.unitType === type}
-                    onClick={() => patchTarget({ unitType: type })}
-                  >
-                    {type === 'champion' ? 'Champ' : type === 'minion' ? 'Minion' : 'Monster'}
-                  </button>
-                ))}
-              </div>
-              <span className="field-hint">
-                Decides caps such as the 300 damage cap on Denting Blows.
-              </span>
-            </div>
           </div>
 
           <hr className="divider" />
 
           {/*
-           * The same sheet the other side shows, filled with what is known. A
-           * typed target has no champion behind it, so the rows that would come
-           * from one say so instead of inventing a number.
+           * The same sheet, the same tabs, the same rows — filled with what a
+           * typed target actually has. The fields a champion would supply are
+           * unknown rather than zero, so they print as dashes instead of
+           * inventing numbers, and the two sidebars still line up row for row.
            */}
-          <div className="stat-sheet">
-            <StatRow label="Attack Damage" value="—" detail="no champion behind a typed target" />
-            <StatRow label="Health" value={Math.round(target.maxHealth).toLocaleString('en-US')} />
-            <StatRow label="Attack Speed" value="—" />
-            <StatRow label="Ability Haste" value="—" />
-            <StatRow label="Armor Penetration" value="—" />
-            <StatRow label="Ability Power" value="—" />
-            <StatRow label="Armor" value={round1(target.armor).toString()} />
-            <StatRow label="Magic Resistance" value={round1(target.magicResist).toString()} />
-            <StatRow label="Critical Strike" value="—" />
-            <StatRow label="Mana" value="—" />
-          </div>
+          <StatSheet
+            stats={unknownStats({
+              maxHealth: target.maxHealth,
+              armor: target.armor,
+              magicResist: target.magicResist,
+            })}
+            live={live}
+            /*
+             * The comparison has to be the same kind of thing as the current
+             * moment, or the arrows would measure a champion's armour against a
+             * typed number. Only the live values differ between the two moments,
+             * which is exactly what a typed target can change mid-combo.
+             */
+            previous={
+              previous
+                ? {
+                    stats: unknownStats({
+                      maxHealth: target.maxHealth,
+                      armor: target.armor,
+                      magicResist: target.magicResist,
+                    }),
+                    live: previous.live,
+                    label: previous.label,
+                  }
+                : null
+            }
+            focusLabel={focusLabel}
+            active={active}
+          />
         </>
       )}
     </Panel>
@@ -370,15 +395,4 @@ function abilityOf(
 
 function round1(value: number): number {
   return Math.round(value * 10) / 10;
-}
-
-/** One row of the shared stat sheet, for values that are not derived. */
-function StatRow({ label, value, detail }: { label: string; value: string; detail?: string }) {
-  return (
-    <div className="stat-row">
-      <span className="stat-label">{label}</span>
-      <span className="stat-value mono">{value}</span>
-      {detail && <span className="stat-detail">{detail}</span>}
-    </div>
-  );
 }
