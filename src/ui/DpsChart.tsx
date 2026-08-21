@@ -287,12 +287,18 @@ export function DpsChart({ analysis, playhead, linkedStepUid, pinnedStepUid, onP
     return out;
   }, [analysis.curve]);
 
+  const biggestHit = useMemo(
+    () => instants.reduce((most, entry) => Math.max(most, entry.damage), 0),
+    [instants],
+  );
+
   const peak = useMemo(
     () => samples.reduce((best, entry) => (entry.rate > best.rate ? entry : best), { time: 0, rate: 0 }),
     [samples],
   );
 
-  const maxRate = Math.max(1, peak.rate) * 1.12;
+  // Just enough headroom that the peak's own label is not clipped by the top.
+  const maxRate = Math.max(1, peak.rate) * 1.06;
   const y = (rate: number) => plotBottom - (rate / maxRate) * (plotBottom - plotTop);
 
   const rateAt = (time: number): number => {
@@ -303,14 +309,22 @@ export function DpsChart({ analysis, playhead, linkedStepUid, pinnedStepUid, onP
     return closest?.rate ?? 0;
   };
 
+  /**
+   * The scale's own top value is the peak.
+   *
+   * A label on the curve saying "2,368 dps" sat where the step names go and had
+   * to dodge them; the axis already had a free slot at exactly that height. So
+   * the topmost tick is the maximum rate the combo reaches, and the ticks below
+   * it are round numbers.
+   */
   const yTicks = useMemo(() => {
-    const raw = maxRate / 3;
+    const raw = maxRate / 4;
     const magnitude = 10 ** Math.floor(Math.log10(Math.max(1, raw)));
     const step = Math.max(magnitude, Math.round(raw / magnitude) * magnitude);
     const out: number[] = [];
-    for (let value = step; value < maxRate; value += step) out.push(value);
-    return out;
-  }, [maxRate]);
+    for (let value = step; value < peak.rate * 0.94; value += step) out.push(value);
+    return [...out, peak.rate];
+  }, [maxRate, peak.rate]);
 
   if (analysis.curve.length === 0) {
     return <p className="empty-note">No damage yet — the combo has no step that deals any.</p>;
@@ -348,20 +362,27 @@ export function DpsChart({ analysis, playhead, linkedStepUid, pinnedStepUid, onP
           onClick={() => onPinStep?.(null)}
         >
           {/* value grid */}
-          {yTicks.map((tick) => (
-            <g key={`y${tick}`}>
-              <line
-                x1={AXIS_LEFT}
-                x2={width - AXIS_RIGHT}
-                y1={y(tick)}
-                y2={y(tick)}
-                className="chart-grid"
-              />
-              <text x={AXIS_LEFT - 10} y={y(tick) + 4} className="chart-tick end">
-                {Math.round(tick).toLocaleString('en-US')}
-              </text>
-            </g>
-          ))}
+          {yTicks.map((tick, index) => {
+            const isPeak = index === yTicks.length - 1;
+            return (
+              <g key={`y${tick}`}>
+                <line
+                  x1={AXIS_LEFT}
+                  x2={width - AXIS_RIGHT}
+                  y1={y(tick)}
+                  y2={y(tick)}
+                  className={isPeak ? 'chart-grid is-peak' : 'chart-grid'}
+                />
+                <text
+                  x={AXIS_LEFT - 10}
+                  y={y(tick) + 4}
+                  className={isPeak ? 'chart-tick end is-peak' : 'chart-tick end'}
+                >
+                  {Math.round(tick).toLocaleString('en-US')}
+                </text>
+              </g>
+            );
+          })}
 
           {/* the rate itself, one fill per stretch */}
           {segments.map((segment, index) => {
@@ -427,6 +448,19 @@ export function DpsChart({ analysis, playhead, linkedStepUid, pinnedStepUid, onP
           {instants.map((instant) => {
             const linked = !!instant.stepUid && instant.stepUid === linkedStepUid;
             const pinned = !!instant.stepUid && instant.stepUid === pinnedStepUid;
+            /*
+             * The dot's size is the hit's size.
+             *
+             * A 20-damage tick and a 400-damage ability used to get the same
+             * circle, and since the tick's own hill is a few pixels tall, its dot
+             * appeared to float on the slope of its neighbour — a point with no
+             * visible cause, which is worse than no point at all. Now the circle
+             * is proportional, so a small hit looks like a small hit, and the
+             * ones too small to see at all are left to the list views.
+             */
+            const share = instant.damage / Math.max(1, biggestHit);
+            if (instant.damage < analysis.totalMitigated * 0.005) return null;
+            const radius = linked || pinned ? 6 : 2.5 + share * 2.5;
             return (
               <g
                 key={instant.id}
@@ -444,7 +478,7 @@ export function DpsChart({ analysis, playhead, linkedStepUid, pinnedStepUid, onP
                 <circle
                   cx={x(instant.time)}
                   cy={y(rateAt(instant.time))}
-                  r={linked || pinned ? 6 : 4}
+                  r={radius}
                   fill="var(--surface-1)"
                   stroke={linked || pinned ? 'var(--gold-300)' : instant.color}
                   strokeWidth={linked || pinned ? 3 : 2}
@@ -452,12 +486,6 @@ export function DpsChart({ analysis, playhead, linkedStepUid, pinnedStepUid, onP
               </g>
             );
           })}
-
-          {/* the peak, named */}
-          <circle cx={x(peak.time)} cy={y(peak.rate)} r={4} className="dps-peak" />
-          <text x={x(peak.time) + 8} y={y(peak.rate) - 6} className="dps-peak-label mono">
-            {Math.round(peak.rate).toLocaleString('en-US')} dps
-          </text>
 
           {playhead !== null && playhead !== undefined && (
             <line

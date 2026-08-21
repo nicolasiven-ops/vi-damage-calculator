@@ -3251,3 +3251,14 @@ code {
 .dps-hit.is-clickable {
   cursor: pointer;
 }
+
+/* the burst graph's top tick is the peak rate itself */
+.chart-grid.is-peak {
+  stroke: var(--gold-300);
+  opacity: 0.4;
+  stroke-dasharray: 3 4;
+}
+.chart-tick.is-peak {
+  fill: var(--gold-200);
+  font-weight: 600;
+}
