@@ -13,6 +13,7 @@ import type { AbilityMeta } from '../model/champions/types';
 import type { ChampionStats } from '../model/stats';
 import { Panel } from './components/Panel';
 import { StatSheet, type LiveStats, type StatComparison } from './StatSheet';
+import { AbilityStrip } from './AbilityStrip';
 
 interface Props {
   detail: DDragonChampionDetail | null;
@@ -70,40 +71,16 @@ export function ChampionPanel({
         </div>
       </div>
 
-      <div className="ability-ranks">
-        {abilities.map((ability) => {
-          const isPassive = ability.maxRank <= 1;
-          const icon = spellIcon(detail, ability, version);
-          return (
-            <div className="ability-rank" key={ability.slot}>
-              <div className={`ability-badge slot-${ability.slot.toLowerCase()}`}>
-                {icon ? <img src={icon} alt="" /> : <span>{ability.slot}</span>}
-                <span className="ability-key">{ability.slot}</span>
-              </div>
-              <div className="ability-rank-body">
-                <span className="ability-name">{ability.name}</span>
-                {isPassive ? (
-                  <span className="field-hint">Passive</span>
-                ) : (
-                  <div className="rank-pips">
-                    {Array.from({ length: ability.maxRank }, (_, index) => index + 1).map((rank) => (
-                      <button
-                        key={rank}
-                        className={`rank-pip${ranks[ability.slot] >= rank ? ' filled' : ''}`}
-                        onClick={() =>
-                          onRankChange(ability.slot, ranks[ability.slot] === rank ? rank - 1 : rank)
-                        }
-                        aria-label={`${ability.name} rank ${rank}`}
-                        title={`Rank ${rank}`}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      <AbilityStrip
+        tiles={abilities.map((ability) => ({
+          slot: ability.slot,
+          name: ability.name,
+          icon: spellIcon(detail, ability, version),
+          maxRank: ability.maxRank,
+          rank: ranks[ability.slot] ?? 0,
+        }))}
+        onRankChange={(slot, rank) => onRankChange(slot as AbilitySlot, rank)}
+      />
 
       <hr className="divider" />
 

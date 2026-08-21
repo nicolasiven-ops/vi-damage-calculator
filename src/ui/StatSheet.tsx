@@ -232,9 +232,11 @@ function buildRows(page: PageId, now: Reading, previous: StatComparison | null):
   const mrPick: Pick = (r) => r.live.magicResist ?? r.stats.magicResist;
 
   const attackDamage = row('Attack Damage', (r) => r.stats.totalAttackDamage, int, {
+    // The base is the champion's, the same at every level for everyone playing
+    // them; what the build did is the bonus.
     detail:
-      known(stats.baseAttackDamage) && known(stats.bonusAttackDamage)
-        ? `${int(stats.baseAttackDamage)} base + ${int(stats.bonusAttackDamage)} bonus`
+      known(stats.bonusAttackDamage) && stats.bonusAttackDamage > 0
+        ? `+${int(stats.bonusAttackDamage)} bonus`
         : undefined,
   });
   const abilityPower = row('Ability Power', (r) => r.stats.abilityPower);
@@ -242,20 +244,24 @@ function buildRows(page: PageId, now: Reading, previous: StatComparison | null):
   // right now, the arrow says it moved, and the timeline says what moved it.
   const armor = row('Armor', armorPick, flex);
   const magicResist = row('Magic Resistance', mrPick, flex);
-  const attackSpeed = row('Attack Speed', (r) => r.stats.totalAttackSpeed, three, {
-    detail: known(stats.bonusAttackSpeed) ? `+${pct(stats.bonusAttackSpeed)} bonus` : undefined,
-  });
+  const attackSpeed = row('Attack Speed', (r) => r.stats.totalAttackSpeed, three);
   const abilityHaste = row('Ability Haste', (r) => r.stats.abilityHaste);
+  /*
+   * Both halves in the value, in the order they are bought: how often, then how
+   * hard. A multiplier on its own line read as a footnote to the chance, when it
+   * is the other half of the same stat.
+   */
   const crit = row('Critical Strike', (r) => r.stats.critChance, pct, {
-    detail: known(stats.critMultiplier) ? `×${stats.critMultiplier.toFixed(2)} damage` : undefined,
+    display: (value) =>
+      known(stats.critMultiplier) ? `${pct(value)} / ×${stats.critMultiplier.toFixed(2)}` : pct(value),
   });
   const moveSpeed = row('Move Speed', (r) => r.stats.moveSpeed);
   const health = row('Health', (r) => r.live.currentHealth ?? r.stats.maxHealth, int, {
     display: (value) =>
       live.currentHealth !== undefined ? `${int(value)} / ${int(stats.maxHealth)}` : int(value),
     detail:
-      known(stats.baseHealth) && known(stats.bonusHealth)
-        ? `${int(stats.baseHealth)} base + ${int(stats.bonusHealth)} bonus`
+      known(stats.bonusHealth) && stats.bonusHealth > 0
+        ? `+${int(stats.bonusHealth)} bonus`
         : undefined,
   });
 
@@ -272,61 +278,49 @@ function buildRows(page: PageId, now: Reading, previous: StatComparison | null):
         moveSpeed,
       ];
 
+    /*
+     * Offense does not repeat Overview.
+     *
+     * Attack damage, ability power, attack speed, crit and haste are on the page
+     * that is open by default; a tab that shows them again for the sake of
+     * looking complete is a tab you never need to open.
+     */
     case 'offense':
       return [
-        attackDamage,
-        abilityPower,
-        attackSpeed,
-        crit,
-        row('Lethality', (r) => r.stats.lethality, int, {
-          detail:
-            known(stats.lethality) && stats.lethality > 0
-              ? `${int(stats.flatArmorPen)} flat armor pen`
-              : undefined,
+        // Flat then percent, in one value: 18 lethality and a Last Whisper is
+        // "18 / 35%", which is how penetration is read and bought.
+        row('Armor Penetration', (r) => r.stats.lethality, int, {
+          display: (value) => `${int(value)} / ${pct(stats.armorPenPercent)}`,
         }),
-        row('Armor Penetration', (r) => r.stats.armorPenPercent, pct),
         row('Magic Penetration', (r) => r.stats.magicPenFlat, int, {
-          detail: known(stats.magicPenPercent) ? `${pct(stats.magicPenPercent)} percent` : undefined,
+          display: (value) => `${int(value)} / ${pct(stats.magicPenPercent)}`,
         }),
-        row('Life Steal', (r) => r.stats.lifesteal, pct, {
-          detail:
-            (known(stats.omnivamp) && stats.omnivamp > 0) ||
-            (known(stats.physicalVamp) && stats.physicalVamp > 0)
-              ? `${pct(stats.omnivamp)} omnivamp · ${pct(stats.physicalVamp)} physical vamp`
-              : undefined,
-        }),
-        abilityHaste,
+        row('Life Steal', (r) => r.stats.lifesteal, pct),
+        row('Omnivamp', (r) => r.stats.omnivamp, pct),
+        row('Physical Vamp', (r) => r.stats.physicalVamp, pct),
       ];
 
     case 'defense':
       return [
         health,
-        armor,
-        magicResist,
         row('Health Regeneration', (r) => r.stats.healthRegen, one, {
           detail: known(stats.healthRegen) ? 'per 5 seconds' : undefined,
         }),
-        row('Tenacity', (r) => r.stats.tenacity, pct, {
-          detail: known(stats.tenacity) ? 'summed — no crowd control is simulated' : undefined,
-        }),
-        ...(live.shield !== undefined
-          ? [row('Shield', (r) => r.live.shield ?? 0, int, { detail: 'active right now' })]
-          : []),
+        row('Tenacity', (r) => r.stats.tenacity, pct),
+        ...(live.shield !== undefined ? [row('Shield', (r) => r.live.shield ?? 0, int)] : []),
       ];
 
     case 'utility':
       return [
-        moveSpeed,
         row('Mana', (r) => r.stats.maxMana, int, {
           detail:
-            known(stats.baseMana) && known(stats.bonusMana)
-              ? `${int(stats.baseMana)} base + ${int(stats.bonusMana)} bonus`
+            known(stats.bonusMana) && stats.bonusMana > 0
+              ? `+${int(stats.bonusMana)} bonus`
               : undefined,
         }),
         row('Mana Regeneration', (r) => r.stats.manaRegen, one, {
           detail: known(stats.manaRegen) ? 'per 5 seconds' : undefined,
         }),
-        abilityHaste,
         row('Heal & Shield Power', (r) => r.stats.healShieldPower, pct),
         row('Attack Range', (r) => r.stats.attackRange),
       ];

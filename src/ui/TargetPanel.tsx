@@ -29,6 +29,7 @@ import type { TargetConfig } from '../engine/types';
 import type { TargetMode, TargetState } from '../state/build';
 import type { ChampionStats } from '../model/stats';
 import { StatSheet, unknownStats, type LiveStats, type StatComparison } from './StatSheet';
+import { AbilityStrip } from './AbilityStrip';
 import { Panel } from './components/Panel';
 import { SelectMenu, type SelectOption } from './components/SelectMenu';
 
@@ -251,35 +252,27 @@ export function TargetPanel({
 
       {mode === 'champion' ? (
         <>
-          <div className="ability-ranks">
-            {ABILITY_SLOTS.map((slot) => {
+          {/*
+           * The same strip the attacker has, read-only: it says who you are
+           * fighting, and nothing it does is simulated, so there is nothing to
+           * set. Identical shape means identical height on both sides.
+           */}
+          <AbilityStrip
+            tiles={ABILITY_SLOTS.map((slot) => {
               const ability = abilityOf(profile, slot, version);
-              return (
-                <div className="ability-rank" key={slot}>
-                  <div className={`ability-badge slot-${slot.toLowerCase()}`}>
-                    {ability?.icon ? <img src={ability.icon} alt="" /> : <span>{slot}</span>}
-                    <span className="ability-key">{slot}</span>
-                  </div>
-                  <div className="ability-rank-body">
-                    <span className="ability-name">{ability?.name ?? '—'}</span>
-                    <span className="field-hint">{slot === 'P' ? 'Passive' : 'Not simulated'}</span>
-                  </div>
-                </div>
-              );
+              return {
+                slot,
+                name: ability?.name ?? '—',
+                icon: ability?.icon ?? null,
+                maxRank: slot === 'P' ? 1 : slot === 'R' ? 3 : 5,
+                rank: 0,
+              };
             })}
-          </div>
+          />
 
           <hr className="divider" />
 
-          {stats && (
-            <StatSheet stats={stats} live={live} previous={previous} />
-          )}
-
-          <span className="field-hint">
-            At level {target.level}, with the items and runes below. Of these, health and the two
-            resistances are what the simulation uses: on a target, gear counts for its stats
-            only — nothing it <em>does</em> is simulated, the target never acts.
-          </span>
+          {stats && <StatSheet stats={stats} live={live} previous={previous} />}
         </>
       ) : (
         /*
@@ -288,9 +281,9 @@ export function TargetPanel({
          * abilities would be, then the same stat sheet showing the result.
          */
         <>
-          <div className="target-definition">
+          <div className="target-definition field-row three">
             <label className="field">
-              <span className="field-label">Maximum health</span>
+              <span className="field-hint">Health</span>
               <input
                 type="number"
                 min={1}
@@ -301,7 +294,7 @@ export function TargetPanel({
               />
             </label>
             <label className="field">
-              <span className="field-label">Armor</span>
+              <span className="field-hint">Armor</span>
               <input
                 type="number"
                 value={round1(target.armor)}
@@ -309,7 +302,7 @@ export function TargetPanel({
               />
             </label>
             <label className="field">
-              <span className="field-label">Magic resistance</span>
+              <span className="field-hint">Magic resist</span>
               <input
                 type="number"
                 value={round1(target.magicResist)}

@@ -771,16 +771,70 @@
   font-size: 13px;
 }
 
-.ability-ranks {
-  display: flex;
-  flex-direction: column;
+/*
+ * One row of five, points under each icon — the client's skill bar.
+ *
+ * The tiles share the row equally, so the strip fills the panel at any sidebar
+ * width and both sidebars are the same shape whatever they hold.
+ */
+.ability-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: var(--space-2);
 }
 
-.ability-rank {
-  display: flex;
-  gap: var(--space-3);
-  align-items: center;
+.ability-tile {
+  display: grid;
+  gap: 5px;
+  /*
+   * Capped and centred, so the strip's height is the same at any sidebar width:
+   * a square icon that grows with the column would make the block that both
+   * sidebars are held to depend on how wide the window is.
+   */
+  width: 100%;
+  max-width: 44px;
+  margin: 0 auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.ability-tile:disabled {
+  cursor: default;
+}
+
+.ability-tile.readonly .ability-badge {
+  filter: grayscale(0.35) brightness(0.9);
+}
+
+.ability-tile:not(.readonly):hover .ability-badge {
+  border-color: var(--gold-300);
+  box-shadow: 0 0 8px rgba(200, 170, 110, 0.35);
+}
+
+.ability-strip .ability-badge {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+}
+
+.ability-pips {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 2px;
+}
+
+/* The passive has no points; its rail is held open so the row stays level. */
+.ability-pips.none {
+  visibility: hidden;
+}
+
+.ability-pips .rank-pip {
+  width: auto;
+  max-width: none;
+  height: 5px;
 }
 
 .ability-badge {
@@ -817,23 +871,6 @@
   border-radius: 2px;
 }
 
-.ability-rank-body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.ability-name {
-  font-size: 12.5px;
-  color: var(--text-primary);
-}
-
-.rank-pips {
-  display: flex;
-  gap: 3px;
-}
 
 .rank-pip {
   width: 100%;
@@ -905,6 +942,18 @@
  * through the tabs never moves the panels below it, and no hard-coded height has
  * to be kept in step with the rows.
  */
+/*
+ * Both sidebars reserve the same block for what defines their side.
+ *
+ * The attacker's is five ability rows; the target's is three typed fields, or
+ * five ability rows of its own in champion mode. Pinning the block rather than
+ * letting each side size itself is what keeps every panel below it level.
+ */
+.ability-strip,
+.target-definition {
+  min-height: var(--defining-block);
+}
+
 .stat-stack {
   display: grid;
 }
@@ -947,7 +996,9 @@
   grid-template-areas: 'label delta value' 'detail delta value';
   gap: 0 var(--space-3);
   padding: 6px var(--space-3);
-  min-height: 44px;
+  /* 46 px is a row with a detail line under its label; without one it would be
+     44, and two px per row is how the two sheets ended up 7 px apart. */
+  min-height: 46px;
   background: var(--surface-1);
   align-items: center;
   align-content: center;
@@ -1003,6 +1054,15 @@
   grid-area: detail;
   font-size: 10.5px;
   color: var(--text-muted);
+  /*
+   * One line, always. A detail that wraps makes its row taller than the same
+   * row on the other side, and the two sheets then disagree by exactly that
+   * line — which is how a whole sidebar ends up out of step.
+   */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 /* ===================================================================== items */
@@ -1345,6 +1405,19 @@
   margin: 0;
   font-size: 11.5px;
   color: var(--text-secondary);
+}
+
+/*
+ * One box on both sides, whatever each has to say.
+ *
+ * The notes are the only panel whose content is not mirrored — one side can have
+ * three footnotes and the other none — so it is given a fixed body that scrolls
+ * instead of a height that follows the build.
+ */
+.loadout-notes .panel-body {
+  min-height: 132px;
+  max-height: 132px;
+  overflow-y: auto;
 }
 
 /* ================================================================= summoners */
@@ -2529,8 +2602,14 @@ code {
 
 /* Sits where the champion mode shows abilities, so both modes keep the same
    three sections and the two columns stay level. */
+/*
+ * The typed numbers stand where the ability strip stands on the other side, so
+ * they are one row like it — a stacked column of three fields was three times
+ * its height and pushed every panel below it out of step.
+ *
+ * The layout itself comes from `field-row three`; this rule only stops the older
+ * column layout from winning by being later in the file.
+ */
 .target-definition {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
+  align-items: end;
 }

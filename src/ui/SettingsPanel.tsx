@@ -35,10 +35,15 @@ interface Props {
   }) => void;
 }
 
+/*
+ * Three short words, so the row is one line — the target's side has "Champ /
+ * Minion / Monster" in the same place, and a wrapping control on one side alone
+ * makes the two panels different heights.
+ */
 const CRIT_LABELS: Record<CritMode, string> = {
-  expected: 'Expected value',
-  always: 'Always crit',
-  never: 'Never crit',
+  expected: 'Expected',
+  always: 'Always',
+  never: 'Never',
 };
 
 export function SettingsPanel({ side, critMode, timings, target, onChange }: Props) {
@@ -65,10 +70,6 @@ export function SettingsPanel({ side, critMode, timings, target, onChange }: Pro
             </button>
           ))}
         </div>
-        <span className="field-hint">
-          Expected value weights every attack by crit chance — the number you compare builds with.
-          The other two show the extremes.
-        </span>
       </div>
 
       <hr className="divider" />
@@ -162,10 +163,6 @@ function TargetSituation({
             </button>
           ))}
         </div>
-        <span className="field-hint">
-          Decides the rules that only apply to some units: Denting Blows is capped at 300 damage
-          against monsters, and Smite refuses to touch a champion at all.
-        </span>
       </div>
 
       <hr className="divider" />

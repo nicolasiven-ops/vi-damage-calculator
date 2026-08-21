@@ -104,6 +104,13 @@
   --space-6: 32px;
   --space-7: 48px;
 
+  /*
+   * The block each sidebar reserves for what defines its side: the ability strip
+   * on one, the target's typed numbers on the other. A 44 px icon, a 5 px gap and
+   * a 5 px pip rail is 54 px; the typed row needs a couple more, and both sides
+   * are held to the larger so every panel below them stays level.
+   */
+  --defining-block: 58px;
   --radius-sm: 2px;
   --radius: 3px;
   --radius-lg: 4px;
