@@ -83,6 +83,26 @@
   --effect-defense: #4fd18b;
   --effect-debuff: #e0685f;
 
+  /*
+   * Lane accents: who did it, as opposed to what kind of damage it was.
+   *
+   * One scheme across every chart — see ui/palette.ts, which is the only place
+   * that maps a lane to a colour. Two views disagreeing about the colour of a
+   * basic attack is the bug these tokens exist to prevent.
+   *
+   * Kept off the damage-type series on purpose: an auto attack drawn in the
+   * physical-damage orange reads as "physical", which is a different statement
+   * from "this was an auto".
+   */
+  --lane-attack: #c8aa6e;
+  --lane-summoner: #a184d8;
+  --lane-proc: #e8c46a;
+  --lane-debuff: #d4649a;
+  --lane-cc: #e05a5a;
+  --lane-sustain: #4fd18b;
+  --lane-buff: #0ac8b9;
+  --lane-idle: #55606e;
+
   /* Ability slot accents */
   --slot-p: #a09b8c;
   --slot-q: #4fb0e8;

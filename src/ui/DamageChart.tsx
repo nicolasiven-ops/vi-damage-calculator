@@ -45,11 +45,7 @@ const MIN_WIDTH = 560;
 const PADDING = { top: 18, right: AXIS_RIGHT, bottom: 40, left: AXIS_LEFT };
 
 const SERIES_ORDER: DamageType[] = ['physical', 'magic', 'true'];
-const SERIES_COLOR: Record<DamageType, string> = {
-  physical: 'var(--series-physical)',
-  magic: 'var(--series-magic)',
-  true: 'var(--series-true)',
-};
+import { TYPE_COLOR as SERIES_COLOR } from './palette';
 
 interface Props {
   analysis: ComboAnalysis;

@@ -19,7 +19,8 @@
 
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { ComboAnalysis } from '../engine/analysis';
-import type { DamageType, TimelineLane, TimelineSpan } from '../engine/types';
+import type { TimelineLane, TimelineSpan } from '../engine/types';
+import { TYPE_COLOR, laneColor } from './palette';
 import {
   AXIS_LEFT,
   AXIS_RIGHT,
@@ -74,45 +75,6 @@ const PADDING = { top: 18, bottom: 34 };
 const SIGMA = 0.09;
 /** Beyond three sigma a hit contributes less than a thousandth. */
 const KERNEL_REACH = SIGMA * 3;
-
-/** Damage types keep the colours the rest of the app gives them. */
-const TYPE_COLOR: Record<DamageType, string> = {
-  physical: 'var(--series-physical)',
-  magic: 'var(--series-magic)',
-  true: 'var(--series-true)',
-};
-
-/** What each stretch is drawn in — the same colours the Gantt uses. */
-function laneColor(lane: TimelineLane): string {
-  switch (lane) {
-    case 'proc':
-      return 'var(--gold-300)';
-    case 'cc':
-      return 'var(--status-bad)';
-    case 'sustain':
-      return 'var(--status-good)';
-    case 'debuff':
-      return 'var(--series-physical)';
-    case 'buff':
-      return 'var(--blue-200)';
-    case 'P':
-      return 'var(--slot-p)';
-    case 'Q':
-      return 'var(--slot-q)';
-    case 'W':
-      return 'var(--slot-w)';
-    case 'E':
-      return 'var(--slot-e)';
-    case 'R':
-      return 'var(--slot-r)';
-    case 'AA':
-      return 'var(--series-physical)';
-    case 'summoner':
-      return 'var(--gold-300)';
-    default:
-      return 'var(--text-dim)';
-  }
-}
 
 /**
  * The combo, as stretches of time.

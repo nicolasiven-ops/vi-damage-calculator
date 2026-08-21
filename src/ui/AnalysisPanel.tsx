@@ -15,7 +15,6 @@ import type { ComboAnalysis } from '../engine/analysis';
 import {
   DAMAGE_TYPE_LABELS,
   type DamageInstance,
-  type DamageType,
   type TargetConfig,
   type ComboStep,
   type TimelineEvent,
@@ -35,6 +34,7 @@ import type { FightMoment } from './moment';
 import { DamageChart } from './DamageChart';
 import { DpsChart } from './DpsChart';
 import { ItemValuePanel } from './ItemValuePanel';
+import { TYPE_COLOR } from './palette';
 import type { ItemValueRow } from '../model/itemValue';
 import { Panel } from './components/Panel';
 
@@ -96,11 +96,7 @@ interface Props {
   onPinStep?: (uid: string | null) => void;
 }
 
-const TYPE_COLOR: Record<DamageType, string> = {
-  physical: 'var(--series-physical)',
-  magic: 'var(--series-magic)',
-  true: 'var(--series-true)',
-};
+
 
 /** Three sources, three badges — the inspector's whole point is telling them apart. */
 const SOURCE_TAGS: Record<ValueSource, { label: string; tone: string }> = {

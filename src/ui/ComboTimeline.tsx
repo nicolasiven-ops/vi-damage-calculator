@@ -27,14 +27,13 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import type { ComboAnalysis } from '../engine/analysis';
 import {
   DAMAGE_TYPE_LABELS,
-  type AbilitySlot,
   type ComboStep,
   type DamageInstance,
-  type DamageType,
   type TimelineLane,
   type TimelineSpan,
 } from '../engine/types';
 import type { AbilityMeta } from '../model/champions/types';
+import { LANE_COLOR, SLOT_COLOR, TYPE_COLOR, laneColor } from './palette';
 import {
   AXIS_LEFT,
   axisTicks,
@@ -97,19 +96,6 @@ function isTimer(kind: string): boolean {
   return kind === 'cooldown' || kind === 'recharge' || kind === 'attack-timer';
 }
 
-const SLOT_COLOR: Record<AbilitySlot, string> = {
-  P: 'var(--slot-p)',
-  Q: 'var(--slot-q)',
-  W: 'var(--slot-w)',
-  E: 'var(--slot-e)',
-  R: 'var(--slot-r)',
-};
-
-const TYPE_COLOR: Record<DamageType, string> = {
-  physical: 'var(--series-physical)',
-  magic: 'var(--series-magic)',
-  true: 'var(--series-true)',
-};
 
 const GROUP_LANES: { title: string; lane: TimelineLane; label: string }[] = [
   { title: 'Procs', lane: 'proc', label: 'Item & rune damage' },
@@ -121,13 +107,7 @@ const GROUP_LANES: { title: string; lane: TimelineLane; label: string }[] = [
   { title: 'Sustain', lane: 'sustain', label: 'Health going back up' },
 ];
 
-function groupLaneColor(lane: TimelineLane): string {
-  if (lane === 'proc') return 'var(--gold-300)';
-  if (lane === 'cc') return 'var(--status-bad)';
-  if (lane === 'sustain') return 'var(--status-good)';
-  if (lane === 'debuff') return 'var(--series-physical)';
-  return 'var(--blue-200)';
-}
+
 
 /**
  * The colour of one effect, by what it does.
@@ -163,13 +143,13 @@ function describeStep(
       return { label: `${slot} · ${name}`, color: SLOT_COLOR[slot] };
     }
     case 'attack':
-      return { label: 'Basic attack', color: 'var(--gold-300)' };
+      return { label: 'Basic attack', color: LANE_COLOR.AA };
     case 'wait':
       return { label: `Wait ${step.action.seconds} s`, color: 'var(--status-warn)' };
     case 'summoner':
       return {
         label: step.action.summonerId === 'SummonerDot' ? 'Ignite' : 'Smite',
-        color: 'var(--series-true)',
+        color: LANE_COLOR.summoner,
       };
     case 'item':
       return { label: 'Item active', color: 'var(--text-secondary)' };
@@ -398,7 +378,7 @@ export function ComboTimeline({
       push(
         key,
         group.label,
-        groupLaneColor(group.lane),
+        laneColor(group.lane),
         group.title,
         which !== 'groups' || out.length > 0,
         true,
