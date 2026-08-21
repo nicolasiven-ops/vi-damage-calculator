@@ -4,3 +4,7 @@ dist/
 .DS_Store
 .vite/
 coverage/
+# Scratch files written by research agents: measurement tools, not tests.
+test/*bench*.test.ts
+test/_*.tmp.test.ts
+test/*probe*.test.ts

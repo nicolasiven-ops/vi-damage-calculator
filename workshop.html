@@ -26,11 +26,6 @@
         <span class="lab-nav-sub">Where a feature is argued out</span>
         <ol>
           <li><a href="#close">What I would build first</a></li>
-          <li><a href="#patchdiff">What the patch did</a></li>
-          <li><a href="#trust">How much is assumed</a></li>
-          <li><a href="#waste">What was wasted</a></li>
-          <li><a href="#execute">From what health</a></li>
-          <li><a href="#rotation">Ten seconds</a></li>
           <li><a href="#pin">Hold a build</a></li>
           <li><a href="#ehp">The target shape</a></li>
           <li><a href="#react">What the target does</a></li>
@@ -60,229 +55,7 @@
           </p>
         </header>
 
-                                                                                                                                                                                                                                <!-- =============================================== 28 Patch diff -->
-        <section class="lab-section" id="patchdiff">
-          <div class="lab-section-head">
-            <span class="lab-num">28</span>
-            <h2>What the patch did to your build</h2>
-            <div class="lab-cost"><span class="lab-pill ready">data available</span></div>
-          </div>
-          <p class="lab-why">
-            This is the one thing this tool can do that almost nothing else can. It
-            reads Riot's own spell formulas per patch and it can hold two patches at
-            once. So it can answer the question every patch day raises — not "what
-            did the notes say", but "what happened to <em>my</em> build" — and it can
-            answer it for patches the notes forgot to mention.
-          </p>
-          <div class="lab-stage plain">
-            <div class="pdiff">
-              <div class="pdiff-head">
-                <span class="mono">16.15</span><span class="pdiff-arrow">→</span><span class="mono">16.16</span>
-                <span class="pdiff-total mono pos">+43 total</span>
-              </div>
-              <div class="pdiff-row">
-                <span class="pdiff-what"><i class="q">Q</i>Vault Breaker base</span>
-                <span class="mono">100 → 120</span>
-                <span class="pdiff-delta mono pos">+20</span>
-              </div>
-              <div class="pdiff-row">
-                <span class="pdiff-what"><i class="w">W</i>Denting Blows per 100 AD</span>
-                <span class="mono">3.0% → 3.5%</span>
-                <span class="pdiff-delta mono pos">+18</span>
-              </div>
-              <div class="pdiff-row">
-                <span class="pdiff-what"><i class="r">R</i>Cease and Desist ratio</span>
-                <span class="mono">90% → 90%</span>
-                <span class="pdiff-delta mono">0</span>
-              </div>
-              <div class="pdiff-row is-item">
-                <span class="pdiff-what"><i class="it"></i>Umbral Glaive lethality</span>
-                <span class="mono">18 → 15</span>
-                <span class="pdiff-delta mono neg">−5</span>
-              </div>
-            </div>
-          </div>
-          <p class="lab-caption">
-            Numbers invented for the mockup; the mechanism is not. The parser already
-            reads any patch from 15.1 onwards and validates its reading against Data
-            Dragon, so this is two loads and a diff of the resolved formulas.
-            <strong>Implementation:</strong> fetch both patches' game data, resolve
-            every value the champion module asks for, diff, then run the combo twice
-            to price each change.
-          </p>
-        </section>
-
-        <!-- ========================================== 29 How much is assumed -->
-        <section class="lab-section" id="trust">
-          <div class="lab-section-head">
-            <span class="lab-num">29</span>
-            <h2>How much of this number is assumed</h2>
-            <div class="lab-cost"><span class="lab-pill ready">data available</span></div>
-          </div>
-          <p class="lab-why">
-            The app already labels every value with its source. What it does not do
-            is add that up. A result that rests entirely on Riot's own formulas
-            deserves more confidence than one where a third of the damage comes from
-            hand-maintained constants — and the user cannot tell which they are
-            looking at without opening the inspector and reading twenty rows.
-          </p>
-          <div class="lab-stage plain">
-            <div class="trust">
-              <div class="trust-bar">
-                <span class="trust-seg game" style="width: 82%"><em>82%</em></span>
-                <span class="trust-seg dd" style="width: 11%"></span>
-                <span class="trust-seg reg" style="width: 7%"><em>7%</em></span>
-              </div>
-              <div class="trust-legend">
-                <span><i class="game"></i>game data <b class="mono">1,543</b></span>
-                <span><i class="dd"></i>Data Dragon <b class="mono">207</b></span>
-                <span><i class="reg"></i>maintained constant <b class="mono">132</b></span>
-              </div>
-              <p class="trust-note">
-                The 132 is Hail of Blades' on-hit damage — the only number in this
-                combo that no CDN publishes in machine-readable form.
-              </p>
-            </div>
-          </div>
-          <p class="lab-caption">
-            One bar, and it turns the inspector's honesty into something you can read
-            in a glance. <strong>Implementation:</strong> tag each damage instance
-            with the source of the formula that produced it — the champion module
-            already knows, it just discards it after computing.
-          </p>
-        </section>
-
-        <!-- =============================================== 30 Waste meter -->
-        <section class="lab-section" id="waste">
-          <div class="lab-section-head">
-            <span class="lab-num">30</span>
-            <h2>What was wasted</h2>
-            <div class="lab-cost"><span class="lab-pill ready">data available</span></div>
-          </div>
-          <p class="lab-why">
-            Overkill is the most actionable number in a burst combo and it is
-            currently a footnote on one tile. 487 damage of overkill means a step
-            could have been left out, or spent on someone else. Broken down by step
-            it becomes a decision: the last auto contributed nothing but its
-            animation.
-          </p>
-          <div class="lab-stage plain">
-            <div class="waste">
-              <div class="waste-bar">
-                <span class="waste-used" style="width: 74%"><em>used 1,395</em></span>
-                <span class="waste-over" style="width: 26%"><em>overkill 487</em></span>
-              </div>
-              <div class="lab-kv">
-                <div class="lab-kv-row">
-                  <span><i class="dot r"></i>Cease and Desist (R)</span>
-                  <span class="mono">341 of 440 wasted</span>
-                </div>
-                <div class="lab-kv-row">
-                  <span><i class="dot aa"></i>Basic attack #3</span>
-                  <span class="mono">146 of 146 wasted</span>
-                </div>
-                <div class="lab-kv-row is-total">
-                  <span>Combo without the last two steps</span>
-                  <span class="mono pos">still kills · 0.62 s sooner</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <p class="lab-caption">
-            The bottom row is the payoff: the tool proposing a shorter combo that
-            still kills. <strong>Implementation:</strong> walk the curve backwards,
-            drop trailing instances while the target still reaches zero, then report
-            the shortest prefix that kills.
-          </p>
-        </section>
-
-        <!-- ============================================= 31 Execute range -->
-        <section class="lab-section" id="execute">
-          <div class="lab-section-head">
-            <span class="lab-num">31</span>
-            <h2>From what health does this kill</h2>
-            <div class="lab-cost"><span class="lab-pill ready">data available</span></div>
-          </div>
-          <p class="lab-why">
-            In a game you never meet a full-health target. What you need is a
-            threshold you can read off an enemy health bar mid-fight: below this
-            much, the combo kills. And the same for the shorter versions of it —
-            because "R plus one auto" has its own threshold, and that is the one you
-            use when you are out of everything else.
-          </p>
-          <div class="lab-stage plain">
-            <div class="exec">
-              <div class="exec-row">
-                <span class="exec-name">Full combo</span>
-                <span class="exec-track"><span class="exec-fill" style="width: 90%"></span><i style="left: 90%"></i></span>
-                <span class="exec-value mono">≤ 90%</span>
-              </div>
-              <div class="exec-row">
-                <span class="exec-name">Q → E → AA</span>
-                <span class="exec-track"><span class="exec-fill" style="width: 54%"></span><i style="left: 54%"></i></span>
-                <span class="exec-value mono">≤ 54%</span>
-              </div>
-              <div class="exec-row">
-                <span class="exec-name">R → AA</span>
-                <span class="exec-track"><span class="exec-fill" style="width: 31%"></span><i style="left: 31%"></i></span>
-                <span class="exec-value mono">≤ 31%</span>
-              </div>
-              <div class="exec-row">
-                <span class="exec-name">One auto</span>
-                <span class="exec-track"><span class="exec-fill" style="width: 9%"></span><i style="left: 9%"></i></span>
-                <span class="exec-value mono">≤ 9%</span>
-              </div>
-            </div>
-          </div>
-          <p class="lab-caption">
-            Deliberately expressed in percent of maximum health, because that is what
-            an enemy health bar shows. <strong>Implementation:</strong> bisect on
-            <code>target.currentHealthPercent</code> for each prefix of the combo —
-            the same solver as the breakpoint finder, pointed at a different field.
-          </p>
-        </section>
-
-        <!-- ======================================== 32 The sustained rotation -->
-        <section class="lab-section" id="rotation">
-          <div class="lab-section-head">
-            <span class="lab-num">32</span>
-            <h2>Ten seconds, not one combo</h2>
-            <div class="lab-cost"><span class="lab-pill ready">data available</span></div>
-          </div>
-          <p class="lab-why">
-            A burst combo is one question; a drawn-out fight is another, and the
-            answer flips. Over ten seconds cooldowns start to matter, ability haste
-            stops being worthless, and the auto-attack filler between abilities
-            becomes most of the damage. Let the tool loop the combo instead of
-            playing it once.
-          </p>
-          <div class="lab-stage plain">
-            <div class="rot">
-              <div class="rot-chart">
-                <span class="rot-band" style="left: 0%; width: 32%"><em>combo 1</em></span>
-                <span class="rot-band filler" style="left: 32%; width: 24%"><em>autos</em></span>
-                <span class="rot-band" style="left: 56%; width: 30%"><em>combo 2</em></span>
-                <span class="rot-band filler" style="left: 86%; width: 14%"></span>
-              </div>
-              <div class="lab-kv">
-                <div class="lab-kv-row"><span>Burst DPS (one combo)</span><span class="mono">578</span></div>
-                <div class="lab-kv-row"><span>Sustained DPS (10 s)</span><span class="mono">412</span></div>
-                <div class="lab-kv-row is-total">
-                  <span>+10 ability haste over 10 s</span><span class="mono pos">+38 DPS</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <p class="lab-caption">
-            And there is the answer to the haste row that scored zero in section 16 —
-            it was zero for a three-second burst, not for a fight.
-            <strong>Implementation:</strong> a repeat mode for the combo that fills
-            gaps with autos while cooldowns run, capped by a duration instead of by
-            a step count.
-          </p>
-        </section>
-
-        <!-- =========================================== 33 Two builds, one pin -->
+                                                                                                                                                                                                                                                                        <!-- =========================================== 33 Two builds, one pin -->
         <section class="lab-section" id="pin">
           <div class="lab-section-head">
             <span class="lab-num">33</span>
@@ -671,6 +444,44 @@
           </p>
           <div class="lab-stage plain">
             <ul class="lab-scrap">
+              <li>
+                <b>How much of this number is assumed (29)</b>
+                <span>A confidence readout: what share of the damage came from Riot's own
+                formulas, what from maintained constants, and what from an unmodelled
+                passive that is missing entirely — a trust score for the total.</span>
+                <em>Out. The provenance is already on every value that has it — the source
+                badge on each hit card, the notes panel per pick — and rolling that up into
+                one score turns an audit trail into a vague number. Watch for it coming back
+                as a confidence percentage, a data-quality meter, or "how sure are we".</em>
+              </li>
+              <li>
+                <b>What was wasted (30)</b>
+                <span>Count the damage that went nowhere: overkill past the kill, a shield
+                nothing spent, an empowerment consumed on a minion, attacks that missed the
+                window they were meant for.</span>
+                <em>Out. Overkill is already on the verdict tile and the combo now stops at
+                the kill, so the rest is a list of ways to feel bad about a plan. Watch for
+                it coming back as "waste", "efficiency", or a tally of unused effects.</em>
+              </li>
+              <li>
+                <b>From what health does this kill (31)</b>
+                <span>An execute-range readout: the target health percentage below which the
+                combo is lethal, found by bisecting the target's health.</span>
+                <em>Out. It is the verdict tile read backwards, and the health slider
+                already lets you find it by hand in two drags. Watch for it coming back as
+                "execute threshold", "kill range", or a health bar with a lethal zone
+                painted on it.</em>
+              </li>
+              <li>
+                <b>Ten seconds, not one combo (32)</b>
+                <span>Extend the simulation past the combo into a sustained fight: repeat the
+                rotation as cooldowns allow and report damage over ten seconds rather than
+                over one sequence.</span>
+                <em>Out. A ten-second fight nobody is fighting back in is not a fight, and
+                the number it produces reads like a DPS figure while being nothing of the
+                sort. Watch for it coming back as "sustained DPS", "extended fight", or a
+                rotation that loops.</em>
+              </li>
               <li>
                 <b>Damage inside a window you choose (26)</b>
                 <span>A draggable window over the timeline that totals the damage inside it,

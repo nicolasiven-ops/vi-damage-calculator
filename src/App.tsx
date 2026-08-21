@@ -130,6 +130,34 @@ export default function App() {
     bundle?.offline ?? true,
   );
 
+  /**
+   * The patch to compare against, once someone asks for one.
+   *
+   * Null until then: a comparison costs a second champion file and a second bin
+   * file, and nobody should pay for that on every load. The hook takes null and
+   * fetches nothing, which is what makes "lazy" a two-line feature here.
+   */
+  const [comparePatch, setComparePatch] = useState<string | null>(null);
+  /**
+   * The patches worth comparing against: everything older than the current one.
+   *
+   * Capped at a couple of seasons' worth — the list is hundreds long, and a
+   * comparison against a patch from three years ago is a different question than
+   * this control is for.
+   */
+  const comparableVersions = useMemo(() => {
+    const index = patch.versions.indexOf(bundle?.version ?? '');
+    if (index < 0) return [];
+    return patch.versions.slice(index + 1, index + 41);
+  }, [patch.versions, bundle?.version]);
+
+  const before = useChampionDetail(
+    comparePatch,
+    bundle?.locale ?? DEFAULT_LOCALE,
+    build.championId,
+    false,
+  );
+
   /* Portrait and ability names for the target, when it follows a champion. */
   const targetProfile = useChampionProfile(
     bundle?.version ?? null,
@@ -419,6 +447,88 @@ export default function App() {
     // depends on whether playback is running rather than on where it has got to.
   }, [playhead !== null, analysis]);
 
+  /**
+   * The same combo, on the other patch's numbers.
+   *
+   * Nothing about the build changes: same items, same runes, same ranks, same
+   * steps. Only the champion's own values come from the older files — base
+   * stats, ability formulas, cooldowns — which is exactly the question "what did
+   * the patch do to *my* build" asks.
+   */
+  const patchComparison = useMemo(() => {
+    if (!comparePatch || !before.detail || !analysis || !baseStats) return null;
+    const beforeStats = resolveChampionStats(before.detail.stats, build.level, bonusStats);
+    const beforeCtx: ChampionModuleContext = {
+      detail: before.detail,
+      spellById: before.spellById,
+      gameData: before.gameData,
+    };
+    const result = simulate(
+      {
+        attacker: {
+          championId: build.championId,
+          level: build.level,
+          ranks: build.ranks,
+          itemIds: activeItemIds(build),
+          runeIds: activeRuneIds(build),
+          shardIds: activeShardIds(build),
+          summonerIds: activeSummonerIds(build),
+          manualStats: build.manualStats,
+        },
+        championBaseStats: before.detail.stats,
+        attackerStats: beforeStats,
+        bonusStats,
+        target: effectiveTarget,
+        combo: build.combo,
+        timings: build.timings,
+        critMode: build.critMode,
+      },
+      VI_MODULE,
+      beforeCtx,
+    );
+    const then = analyse(result, effectiveTarget, beforeStats);
+    /*
+     * Which of the champion's own values moved. The module can describe its
+     * numbers per patch, so the diff is a comparison of two descriptions rather
+     * than a guess about what Riot touched.
+     */
+    const nowValues = VI_MODULE.describeValues?.(moduleCtx, build.ranks) ?? [];
+    const thenValues = VI_MODULE.describeValues?.(beforeCtx, build.ranks) ?? [];
+    const changes = nowValues
+      .map((entry) => {
+        const older = thenValues.find(
+          (candidate) => candidate.slot === entry.slot && candidate.label === entry.label,
+        );
+        // The module formats its own values, so the comparison is of what it
+        // would have printed then against what it prints now.
+        if (!older || older.value === entry.value) return null;
+        return { slot: entry.slot, label: entry.label, from: older.value, to: entry.value };
+      })
+      .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+
+    return {
+      patch: comparePatch,
+      damageThen: then.totalMitigated,
+      damageNow: analysis.totalMitigated,
+      killedThen: then.killTime !== null,
+      killedNow: analysis.killTime !== null,
+      changes,
+      loading: before.loading,
+    };
+  }, [
+    comparePatch,
+    before.detail,
+    before.spellById,
+    before.gameData,
+    before.loading,
+    analysis,
+    baseStats,
+    bonusStats,
+    build,
+    effectiveTarget,
+    moduleCtx,
+  ]);
+
   /** Spell names by id, for the notes panels. */
   const summonerNames = useMemo(
     () => Object.fromEntries(summonerOptions.map((option) => [option.id, option.name])),
@@ -482,6 +592,9 @@ export default function App() {
           loading={patch.loading}
           error={patch.error}
           onVersionChange={patch.setVersion}
+          comparableVersions={comparableVersions}
+          comparison={patchComparison}
+          onCompare={setComparePatch}
           onReload={patch.reload}
           onReset={() => setBuild(defaultBuild())}
           tabs={

@@ -2939,3 +2939,93 @@ code {
   opacity: 0.45;
   cursor: default;
 }
+
+/* ============================================================ patch compare
+
+   What the patch did to this build, hanging off the patch selector it compares
+   against. A popover rather than a panel: it is a question you ask once. */
+
+.patch-diff {
+  position: relative;
+}
+
+.patch-diff .btn.active {
+  border-color: var(--gold-400);
+  color: var(--gold-100);
+}
+
+.patch-diff-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 50;
+  width: 300px;
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  box-shadow: var(--shadow-pop);
+}
+
+.patch-diff-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.patch-diff-head .strong {
+  font-size: 16px;
+  color: var(--text-primary);
+}
+
+.patch-delta {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.patch-delta.up {
+  color: var(--status-good);
+}
+
+.patch-delta.down {
+  color: var(--status-bad);
+}
+
+.patch-verdict {
+  margin: 0;
+  font-size: 11.5px;
+}
+
+.patch-verdict.good {
+  color: var(--status-good);
+}
+
+.patch-verdict.bad {
+  color: var(--status-bad);
+}
+
+.patch-changes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 3px;
+  font-size: 11px;
+}
+
+.patch-changes li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+}
+
+.patch-changes b {
+  color: var(--text-primary);
+  font-weight: 600;
+}
