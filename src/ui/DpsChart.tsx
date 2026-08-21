@@ -3,25 +3,23 @@
  *
  * The running total says how much has landed; it cannot say how *fast*, because
  * every combo's total curve rises and a steep rise looks much like a long one.
- * This is the derivative: at any moment, the damage inside a one-second window
- * around it. The peak is the burst, the valleys are the waiting, and the width of
- * the hump is how long the burst actually lasted.
+ * This is the derivative: at any moment, the rate damage is arriving at. Each
+ * hit is a hill of its own, so the picture is the combo's rhythm — where the
+ * burst is, how long it lasts, and how deep the gaps between presses are.
  *
- * The window is centred rather than trailing. A trailing window puts the peak
- * half a second *after* the hits that caused it and draws a plateau where nothing
- * happened, which reads as damage continuing; centred, the hump sits on the
- * moment it belongs to. It does mean the curve starts rising slightly before the
- * first hit — the honest cost of asking "how fast, around here".
+ * Two things carry meaning besides the shape. The line is coloured by the combo
+ * step that owns each stretch, from one press to the next, which makes the graph
+ * its own timeline: the hill under "3 · Relentless Force" is what E did. And
+ * every damage instant carries a dot, the same as on the running total, so a
+ * bump can be pointed at and clicked.
  *
- * The coloured stretches behind the curve are what was happening: casts, buffs,
- * shreds, crowd control, sustain. That is the second half of the point — the
- * graph is its own timeline, so a dent in the rate can be read against the thing
- * that caused it without looking anywhere else.
+ * Nothing is filled in beneath the line on purpose: the area is not a quantity
+ * anyone reads here, and a coloured wash under a spiky curve buried the spikes.
  */
 
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { ComboAnalysis } from '../engine/analysis';
-import type { TimelineLane, TimelineSpan } from '../engine/types';
+import type { DamageType, TimelineLane, TimelineSpan } from '../engine/types';
 import {
   AXIS_LEFT,
   AXIS_RIGHT,
@@ -47,18 +45,42 @@ interface Props {
 const HEIGHT = 300;
 const MIN_WIDTH = 520;
 const PADDING = { top: 18, bottom: 34 };
-/** The band strip above the plot: one line per overlapping stretch. */
-const BAND_HEIGHT = 15;
-const BAND_GAP = 3;
-const MAX_BAND_LINES = 4;
 
 /**
- * The averaging window, in seconds.
+ * The width of the bell each hit is spread over, in seconds.
  *
- * One second, because "damage per second" is the unit everyone already reads and
- * a shorter window turns single hits into spikes so narrow they carry no shape.
+ * A hit is an instant — a rate at an instant is either zero or infinite — so any
+ * "damage per second at this moment" has to spread each hit over some window.
+ * A box window (damage inside ±0.5 s) gives the right numbers and a staircase:
+ * the curve jumps the moment a hit enters or leaves the box, so the shape is
+ * made of the window's edges rather than the fight's.
+ *
+ * A Gaussian bell spreads the same damage smoothly, so the curve is smooth
+ * everywhere and every bump belongs to a hit rather than to an edge. The area
+ * under the curve is still the total damage — the smoothing moves damage in
+ * time, it never invents or loses any.
+ *
+ * 0.09 s is deliberately narrow. A wider bell (0.3 s was tried) merged hits that
+ * are 0.2 s apart into one broad hump, which looked like a smooth ramp the fight
+ * never had — the shape was the smoothing's, not the combo's. At 0.09 s every
+ * damage instance keeps its own hill and only truly simultaneous hits — an
+ * ability and its on-hit riders — share one, which is right: they *are* one
+ * moment.
+ *
+ * The peaks are correspondingly high, and that is not an exaggeration: 400
+ * damage landing in an instant really is a rate of thousands per second for that
+ * instant. The area under each hill is still exactly that hit's damage.
  */
-const WINDOW_SECONDS = 1;
+const SIGMA = 0.09;
+/** Beyond three sigma a hit contributes less than a thousandth. */
+const KERNEL_REACH = SIGMA * 3;
+
+/** Damage types keep the colours the rest of the app gives them. */
+const TYPE_COLOR: Record<DamageType, string> = {
+  physical: 'var(--series-physical)',
+  magic: 'var(--series-magic)',
+  true: 'var(--series-true)',
+};
 
 /** What each stretch is drawn in — the same colours the Gantt uses. */
 function laneColor(lane: TimelineLane): string {
@@ -83,22 +105,63 @@ function laneColor(lane: TimelineLane): string {
       return 'var(--slot-e)';
     case 'R':
       return 'var(--slot-r)';
+    case 'AA':
+      return 'var(--series-physical)';
+    case 'summoner':
+      return 'var(--gold-300)';
     default:
       return 'var(--text-dim)';
   }
 }
 
 /**
- * Which stretches are "something happening".
+ * The combo, as stretches of time.
  *
- * Cooldowns and attack timers are the opposite — they are the waiting — and
- * drawing them here would colour the whole graph and say nothing.
+ * One stretch per step, from the moment it was pressed until the next one was —
+ * which is what makes the graph readable as a timeline: the hump under "3 · E"
+ * is what E did, and the dip after it is the wait before the next press. Effect
+ * spans were tried here first and were the wrong choice: a four-second buff and
+ * a shield that lasts the whole fight colour everything and explain nothing,
+ * while the thing you actually want to attribute a bump to is the button.
  */
-function isHappening(span: TimelineSpan): boolean {
-  if (span.kind === 'cooldown' || span.kind === 'recharge' || span.kind === 'attack-timer') {
-    return false;
+function comboStretches(
+  spans: TimelineSpan[],
+  window: { start: number; end: number },
+): { stepUid: string; label: string; lane: TimelineLane; from: number; to: number }[] {
+  /*
+   * A step can produce two cast spans: the input gap ("Q cast") and the cast
+   * itself ("Vault Breaker (Q)"). The stretch starts at the earlier one, because
+   * that is when the button went down, but it is *named* after the longer one —
+   * the gap's label is a mechanism, the cast's label is the move.
+   */
+  const firstCast = new Map<string, { start: number; label: string; span: number; lane: TimelineLane }>();
+  for (const span of spans) {
+    if (span.kind !== 'cast' || !span.stepUid) continue;
+    const seen = firstCast.get(span.stepUid);
+    const length = span.end - span.start;
+    firstCast.set(span.stepUid, {
+      start: seen ? Math.min(seen.start, span.start) : span.start,
+      label: !seen || length > seen.span ? span.label : seen.label,
+      span: seen ? Math.max(seen.span, length) : length,
+      lane: span.lane,
+    });
   }
-  return span.lane !== 'idle';
+
+  const ordered = [...firstCast.entries()]
+    .map(([stepUid, entry]) => ({ stepUid, ...entry }))
+    .sort((a, b) => a.start - b.start);
+
+  return ordered
+    .map((entry, index) => ({
+      stepUid: entry.stepUid,
+      label: `${index + 1} · ${entry.label}`,
+      lane: entry.lane,
+      from: entry.start,
+      // A step owns the time until the next one was pressed, and the last one
+      // owns the rest of the fight.
+      to: ordered[index + 1]?.start ?? window.end,
+    }))
+    .filter((entry) => entry.to > window.start && entry.from < window.end);
 }
 
 export function DpsChart({ analysis, playhead, linkedStepUid, pinnedStepUid, onPinStep }: Props) {
@@ -143,41 +206,12 @@ export function DpsChart({ analysis, playhead, linkedStepUid, pinnedStepUid, onP
   const x = (time: number) => timeToX(time, width, window);
   const ticks = useMemo(() => axisTicks(window, width), [window, width]);
 
-  /**
-   * The stretches, packed into lines so two at once are two bars.
-   *
-   * Anything past the fourth line is dropped rather than squeezed — and the
-   * footer says how many, because a silently shortened list reads as a complete
-   * one.
+  /*
+   * No strip of bars above the plot any more: the stretches are the graph's own
+   * colours, and a second copy of them as Gantt bars was the same information
+   * twice — once where it means something and once where it just took height.
    */
-  const bands = useMemo(() => {
-    const spans = analysis.spans
-      .filter(isHappening)
-      .filter((span) => span.end > window.start && span.start < window.end)
-      .sort((a, b) => a.start - b.start || b.end - a.end);
-
-    const lineEnds: number[] = [];
-    const placed: { span: TimelineSpan; line: number }[] = [];
-    let dropped = 0;
-
-    for (const span of spans) {
-      let line = lineEnds.findIndex((freeFrom) => span.start >= freeFrom - 0.0005);
-      if (line === -1) {
-        if (lineEnds.length >= MAX_BAND_LINES) {
-          dropped += 1;
-          continue;
-        }
-        line = lineEnds.length;
-        lineEnds.push(0);
-      }
-      lineEnds[line] = span.end;
-      placed.push({ span, line });
-    }
-    return { placed, dropped, lines: lineEnds.length };
-  }, [analysis.spans, window]);
-
-  const bandsHeight = bands.lines * (BAND_HEIGHT + BAND_GAP);
-  const plotTop = PADDING.top + bandsHeight;
+  const plotTop = PADDING.top;
   const plotBottom = HEIGHT - PADDING.bottom;
 
   /**
@@ -188,21 +222,108 @@ export function DpsChart({ analysis, playhead, linkedStepUid, pinnedStepUid, onP
    * line is thick.
    */
   const samples = useMemo(() => {
-    const instances = analysis.curve.map((point) => point.instance);
-    const steps = Math.max(2, Math.round(plotWidth / 2));
-    const half = WINDOW_SECONDS / 2;
+    const hits = analysis.curve.map((point) => point.instance);
+    // One sample per pixel: a hill this narrow is a few pixels wide, and
+    // sampling coarser than the line is thick would clip its top off.
+    const steps = Math.max(2, Math.round(plotWidth));
+    const scale = 1 / (SIGMA * Math.sqrt(2 * Math.PI));
     const out: { time: number; rate: number }[] = [];
 
     for (let index = 0; index <= steps; index += 1) {
       const time = window.start + (windowSpan(window) * index) / steps;
-      let sum = 0;
-      for (const instance of instances) {
-        if (instance.time > time - half && instance.time <= time + half) sum += instance.mitigated;
+      let rate = 0;
+      for (const hit of hits) {
+        const gap = hit.time - time;
+        if (gap > KERNEL_REACH) break; // hits are in time order
+        if (gap < -KERNEL_REACH) continue;
+        rate += hit.mitigated * scale * Math.exp(-(gap * gap) / (2 * SIGMA * SIGMA));
       }
-      out.push({ time, rate: sum / WINDOW_SECONDS });
+      out.push({ time, rate });
     }
     return out;
   }, [analysis.curve, window, plotWidth]);
+
+  /**
+   * The curve, cut at every press and coloured by the step that owns it.
+   *
+   * Neighbouring stretches share a sample so the fills touch instead of leaving
+   * a hairline of background between them.
+   */
+  const segments = useMemo(() => {
+    const stretches = comboStretches(analysis.spans, window);
+
+    const ownerAt = (time: number) =>
+      stretches.find((entry) => time >= entry.from - 0.0005 && time < entry.to - 0.0005) ??
+      (stretches.length > 0 && time >= (stretches[stretches.length - 1]?.from ?? 0)
+        ? stretches[stretches.length - 1]
+        : null);
+
+    type Segment = {
+      color: string;
+      label: string;
+      stepUid?: string;
+      points: { time: number; rate: number }[];
+    };
+    const out: Segment[] = [];
+    let current: Segment | null = null;
+
+    for (const sample of samples) {
+      const owner = ownerAt(sample.time);
+      const color = owner ? laneColor(owner.lane) : 'var(--text-dim)';
+      const label = owner?.label ?? 'Before the first press';
+      if (!current || current.label !== label) {
+        if (current) {
+          current.points.push(sample);
+          out.push(current);
+        }
+        current = {
+          color,
+          label,
+          ...(owner?.stepUid ? { stepUid: owner.stepUid } : {}),
+          points: [sample],
+        };
+      } else {
+        current.points.push(sample);
+      }
+    }
+    if (current) out.push(current);
+    return out;
+  }, [analysis.spans, samples, window]);
+
+  /**
+   * The hits, folded to one entry per instant.
+   *
+   * Same rule as the running total's markers: what lands together is one point,
+   * because two circles on the same pixel are one circle with a lie in it.
+   */
+  const instants = useMemo(() => {
+    const out: {
+      id: string;
+      time: number;
+      damage: number;
+      label: string;
+      color: string;
+      stepUid?: string;
+    }[] = [];
+    for (const point of analysis.curve) {
+      const hit = point.instance;
+      const last = out[out.length - 1];
+      if (last && Math.abs(hit.time - last.time) < 0.005) {
+        last.damage += hit.mitigated;
+        last.label = `${last.label}, ${hit.sourceLabel}`;
+        continue;
+      }
+      out.push({
+        id: hit.id,
+        time: hit.time,
+        damage: hit.mitigated,
+        label: hit.sourceLabel,
+        color: TYPE_COLOR[hit.type],
+        ...(hit.stepUid ? { stepUid: hit.stepUid } : {}),
+      });
+    }
+    return out;
+  }, [analysis.curve]);
 
   const peak = useMemo(
     () => samples.reduce((best, entry) => (entry.rate > best.rate ? entry : best), { time: 0, rate: 0 }),
@@ -219,15 +340,6 @@ export function DpsChart({ analysis, playhead, linkedStepUid, pinnedStepUid, onP
     }
     return closest?.rate ?? 0;
   };
-
-  const area = useMemo(() => {
-    if (samples.length === 0) return '';
-    const line = samples.map((entry) => `${x(entry.time)} ${y(entry.rate)}`).join(' L ');
-    const first = samples[0]!;
-    const last = samples[samples.length - 1]!;
-    return `M ${x(first.time)} ${plotBottom} L ${line} L ${x(last.time)} ${plotBottom} Z`;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [samples, maxRate, plotTop, plotBottom, width]);
 
   const yTicks = useMemo(() => {
     const raw = maxRate / 3;
@@ -289,69 +401,95 @@ export function DpsChart({ analysis, playhead, linkedStepUid, pinnedStepUid, onP
             </g>
           ))}
 
-          {/* the stretches where something was happening */}
-          {bands.placed.map(({ span, line }) => {
-            const left = x(Math.max(span.start, window.start));
-            const right = x(Math.min(span.end, window.end));
-            const barWidth = Math.max(2, right - left);
-            const top = PADDING.top + line * (BAND_HEIGHT + BAND_GAP);
-            const color = laneColor(span.lane);
-            const linked = !!span.stepUid && span.stepUid === linkedStepUid;
+          {/* the rate itself, one fill per stretch */}
+          {segments.map((segment, index) => {
+            const first = segment.points[0]!;
+            const last = segment.points[segment.points.length - 1]!;
+            const line = segment.points
+              .map((entry) => `${x(entry.time)} ${y(entry.rate)}`)
+              .join(' L ');
+            const linked = !!segment.stepUid && segment.stepUid === linkedStepUid;
             return (
               <g
-                key={span.id}
-                className={`dps-band${linked ? ' is-linked' : ''}`}
+                key={`${segment.label}-${index}`}
                 onClick={(event) => {
+                  if (!segment.stepUid) return;
                   event.stopPropagation();
-                  if (span.stepUid) onPinStep?.(span.stepUid);
+                  onPinStep?.(segment.stepUid);
                 }}
+                className={segment.stepUid ? 'dps-segment is-clickable' : 'dps-segment'}
               >
-                <title>
-                  {span.label}
-                  {span.detail ? ` · ${span.detail}` : ''} · {formatSeconds(span.start)}–
-                  {formatSeconds(span.end)} s
-                </title>
-                {/* the stretch, projected down over the curve */}
-                <rect
-                  x={left}
-                  y={top}
-                  width={barWidth}
-                  height={plotBottom - top}
-                  fill={color}
-                  opacity={linked ? 0.14 : 0.07}
+                <title>{segment.label}</title>
+                <path
+                  d={`M ${line}`}
+                  fill="none"
+                  stroke={segment.color}
+                  strokeWidth={linked ? 3 : 2}
+                  strokeLinejoin="round"
                 />
-                {/* and its own bar, where the label fits */}
-                <rect
-                  x={left}
-                  y={top}
-                  width={barWidth}
-                  height={BAND_HEIGHT}
-                  rx={2}
-                  fill={color}
-                  opacity={linked ? 0.95 : 0.72}
-                />
-                {barWidth > 34 && (
+                {/* the step's name, on the graph — this is the timeline now */}
+                {x(last.time) - x(first.time) > 42 && (
                   <text
-                    x={left + 5}
-                    y={top + BAND_HEIGHT - 4}
-                    className="dps-band-label"
-                    clipPath="none"
+                    x={x(first.time) + 5}
+                    y={plotTop + 12}
+                    className="dps-step-label"
+                    fill={segment.color}
                   >
-                    {span.label.length * 6.2 > barWidth - 8
-                      ? span.label.slice(0, Math.max(1, Math.floor((barWidth - 8) / 6.2)))
-                      : span.label}
+                    {segment.label.length * 6.1 > x(last.time) - x(first.time) - 8
+                      ? `${segment.label.slice(
+                          0,
+                          Math.max(1, Math.floor((x(last.time) - x(first.time) - 14) / 6.1)),
+                        )}…`
+                      : segment.label}
                   </text>
                 )}
+                {/* and its boundary, so the cut is visible where the rate is flat */}
+                <line
+                  x1={x(first.time)}
+                  x2={x(first.time)}
+                  y1={plotTop}
+                  y2={plotBottom}
+                  stroke={segment.color}
+                  strokeWidth={1}
+                  opacity={0.22}
+                />
               </g>
             );
           })}
 
-          {/* the rate itself */}
-          <path d={area} className="dps-area" />
-          <path
-            d={samples.map((entry, index) => `${index === 0 ? 'M' : 'L'} ${x(entry.time)} ${y(entry.rate)}`).join(' ')}
-            className="dps-line"
-          />
+          {/*
+            * One dot per instant, as on the running total: the marker is where
+            * the damage landed, and simultaneous hits share it rather than
+            * stacking three circles on one pixel.
+            */}
+          {instants.map((instant) => {
+            const linked = !!instant.stepUid && instant.stepUid === linkedStepUid;
+            const pinned = !!instant.stepUid && instant.stepUid === pinnedStepUid;
+            return (
+              <g
+                key={instant.id}
+                onClick={(event) => {
+                  if (!instant.stepUid) return;
+                  event.stopPropagation();
+                  onPinStep?.(instant.stepUid);
+                }}
+                className={instant.stepUid ? 'dps-hit is-clickable' : 'dps-hit'}
+              >
+                <title>
+                  {formatSeconds(instant.time)} s · {instant.label} ·{' '}
+                  {Math.round(instant.damage).toLocaleString('en-US')} damage
+                </title>
+                <circle
+                  cx={x(instant.time)}
+                  cy={y(rateAt(instant.time))}
+                  r={linked || pinned ? 6 : 4}
+                  fill="var(--surface-1)"
+                  stroke={linked || pinned ? 'var(--gold-300)' : instant.color}
+                  strokeWidth={linked || pinned ? 3 : 2}
+                />
+              </g>
+            );
+          })}
 
           {/* the peak, named */}
           <circle cx={x(peak.time)} cy={y(peak.rate)} r={4} className="dps-peak" />
@@ -395,11 +533,10 @@ export function DpsChart({ analysis, playhead, linkedStepUid, pinnedStepUid, onP
       </div>
 
       <figcaption className="chart-caption">
-        Damage inside a {WINDOW_SECONDS.toFixed(0)} s window centred on each moment · peak{' '}
-        {Math.round(peak.rate).toLocaleString('en-US')} dps at {formatSeconds(peak.time)} s
-        {bands.dropped > 0
-          ? ` · ${bands.dropped} more overlapping stretch${bands.dropped === 1 ? '' : 'es'} not drawn`
-          : ''}
+        Damage per second at each moment · every hit is its own hill, {SIGMA.toFixed(2)} s wide · the
+        area under the curve is the {Math.round(analysis.totalMitigated).toLocaleString('en-US')}{' '}
+        damage dealt, coloured by the combo step that owns each stretch · peak {Math.round(peak.rate).toLocaleString('en-US')} dps at{' '}
+        {formatSeconds(peak.time)} s
         {pinnedStepUid ? ' · click a stretch to follow its step' : ''}
       </figcaption>
     </figure>

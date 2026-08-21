@@ -524,6 +524,7 @@ export function AnalysisPanel({
             * attention.
             */
           <ComboTimeline
+            rows="groups"
             analysis={analysis}
             combo={combo}
             abilities={abilities}

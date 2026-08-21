@@ -13,7 +13,7 @@ import type { AbilityMeta } from '../model/champions/types';
 import type { ChampionStats } from '../model/stats';
 import { Panel } from './components/Panel';
 import { StatSheet, type LiveStats, type StatComparison } from './StatSheet';
-import { AbilityStrip } from './AbilityStrip';
+import { AbilityStrip, type AbilityTile } from './AbilityStrip';
 
 interface Props {
   detail: DDragonChampionDetail | null;
@@ -28,10 +28,7 @@ interface Props {
   /** The moment the sheet's arrows are measured against. */
   previous?: StatComparison | null;
   /** Cooldowns and charges at the focused moment, keyed by slot. */
-  readiness?: Record<
-    string,
-    { readyIn: number; cooldown: number; charges?: { available: number; max: number } }
-  >;
+  readiness?: Record<string, AbilityTile['readiness']>;
   onLevelChange: (level: number) => void;
   onRankChange: (slot: AbilitySlot, rank: number) => void;
 }

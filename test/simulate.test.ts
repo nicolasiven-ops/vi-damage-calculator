@@ -82,6 +82,25 @@ describe('basic attacks', () => {
   });
 });
 
+describe('charge abilities', () => {
+  it('reports the recharge window and, with none in hand, a wait longer than the gap', () => {
+    // Two E casts empty the charges; what you then wait for is the recharge,
+    // not the one-second gap between casts. The strip draws whichever of the
+    // two is the real wait, so both numbers have to be in the snapshot.
+    const result = run([
+      step({ kind: 'ability', slot: 'E' }),
+      step({ kind: 'attack' }),
+      step({ kind: 'ability', slot: 'E' }),
+    ]);
+    const last = result.snapshots[result.snapshots.length - 1]!;
+    const e = last.abilities.find((entry) => entry.slot === 'E');
+
+    expect(e?.charges?.available).toBe(0);
+    expect(e?.charges?.interval).toBeCloseTo(VI_CONSTANTS.e.rechargeSeconds[4]!, 6);
+    expect(e!.charges!.nextIn).toBeGreaterThan(e!.readyIn);
+  });
+});
+
 describe('Vault Breaker (Q)', () => {
   it('scales damage with charge time', () => {
     const uncharged = run([step({ kind: 'ability', slot: 'Q' }, 0)]);

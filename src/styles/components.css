@@ -2959,7 +2959,14 @@ code {
   top: calc(100% + 6px);
   right: 0;
   z-index: 50;
-  width: 300px;
+  /*
+   * Wide enough for four columns of numbers plus a label that reads on one
+   * line. At 300 px the labels wrapped to three lines and the change column
+   * fell out of the panel.
+   */
+  width: min(92vw, 620px);
+  max-height: min(78vh, 720px);
+  overflow-y: auto;
   display: grid;
   gap: var(--space-2);
   padding: var(--space-3);
@@ -3035,6 +3042,12 @@ code {
   width: 100%;
   border-collapse: collapse;
   font-size: 12px;
+  /* Labels take what is left; the three number columns keep their own width. */
+  table-layout: auto;
+}
+.patch-table thead th:not(:first-child),
+.patch-table tbody td {
+  width: 108px;
 }
 .patch-table th,
 .patch-table td {
@@ -3057,7 +3070,10 @@ code {
   font-weight: 500;
   color: var(--text-2);
   padding-right: 12px;
-  white-space: normal;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px;
 }
 .patch-table td {
   padding-left: 10px;
@@ -3219,4 +3235,19 @@ code {
 }
 .item-value-note.dim {
   color: var(--text-dim);
+}
+
+.dps-segment.is-clickable {
+  cursor: pointer;
+}
+
+.dps-step-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
+
+.dps-hit.is-clickable {
+  cursor: pointer;
 }

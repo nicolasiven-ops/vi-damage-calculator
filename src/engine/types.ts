@@ -77,8 +77,14 @@ export interface AbilityAvailability {
   readyIn: number;
   /** The full cooldown this one is counting down from, for the sweep. */
   cooldown: number;
-  /** Charges in hand and the maximum, for abilities that hold them. */
-  charges?: { available: number; max: number; nextIn: number };
+  /**
+   * Charges in hand and the maximum, for abilities that hold them.
+   *
+   * `interval` is the full recharge window the timer is counting down from —
+   * hasted, as it was actually set. Without it a view can show how long is left
+   * but not how far along it is, and a sweep needs both.
+   */
+  charges?: { available: number; max: number; nextIn: number; interval: number };
 }
 
 export interface DamageTerm {

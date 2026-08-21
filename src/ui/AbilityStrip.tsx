@@ -26,7 +26,11 @@ export interface AbilityTile {
    * The client shows this on the icon and so does this strip: ranks say what you
    * bought, this says what you can press.
    */
-  readiness?: { readyIn: number; cooldown: number; charges?: { available: number; max: number } };
+  readiness?: {
+    readyIn: number;
+    cooldown: number;
+    charges?: { available: number; max: number; nextIn: number; interval: number };
+  };
 }
 
 interface Props {
@@ -73,33 +77,45 @@ export function AbilityStrip({ tiles, onRankChange }: Props) {
                * The cooldown, the way the game draws it: the icon goes dark and
                * the dark part shrinks away as it comes back up. The seconds are
                * on top of it, because "3.4" is the number you actually want.
+               *
+               * A charge ability has two timers and only one of them is the
+               * answer. With a charge in hand, the ability is castable and the
+               * short gap between casts is the only thing running — that gets a
+               * faint dim and no number. With no charges left, the thing you are
+               * waiting for is the recharge, so *that* is what the wedge sweeps
+               * and what the seconds count down. Showing the gap there was the
+               * bug: a bright, apparently ready icon on an ability that could not
+               * be cast for another six seconds.
                */}
-              {tile.readiness && tile.readiness.readyIn > 0.05 && (
-                <>
-                  {/*
-                   * A wedge from twelve o'clock, clockwise, the way the client
-                   * draws it — not a bar. A bar has to start somewhere, and
-                   * wherever that is, it reads as a value rather than as time
-                   * running out.
-                   */}
-                  <span
-                    className="ability-cd-wipe"
-                    style={{
-                      background: `conic-gradient(rgba(3, 6, 12, 0.74) ${
-                        Math.min(
-                          100,
-                          (tile.readiness.readyIn / Math.max(0.1, tile.readiness.cooldown)) * 100,
-                        ).toFixed(1)
-                      }%, transparent 0)`,
-                    }}
-                  />
-                  <span className="ability-cd-seconds mono">
-                    {tile.readiness.readyIn < 10
-                      ? tile.readiness.readyIn.toFixed(1)
-                      : Math.round(tile.readiness.readyIn)}
-                  </span>
-                </>
-              )}
+              {(() => {
+                const state = readinessOf(tile);
+                if (!state) return null;
+                return (
+                  <>
+                    {/*
+                     * A wedge from twelve o'clock, clockwise, the way the client
+                     * draws it — not a bar. A bar has to start somewhere, and
+                     * wherever that is, it reads as a value rather than as time
+                     * running out.
+                     */}
+                    <span
+                      className="ability-cd-wipe"
+                      style={{
+                        background: `conic-gradient(rgba(3, 6, 12, ${
+                          state.kind === 'recharge' ? 0.74 : 0.34
+                        }) ${state.percent.toFixed(1)}%, transparent 0)`,
+                      }}
+                    />
+                    {state.kind === 'recharge' && (
+                      <span className="ability-cd-seconds mono">
+                        {state.remaining < 10
+                          ? state.remaining.toFixed(1)
+                          : Math.round(state.remaining)}
+                      </span>
+                    )}
+                  </>
+                );
+              })()}
 
               {/* Charges in hand, where the client puts them. */}
               {tile.readiness?.charges && tile.readiness.charges.max > 1 && (
@@ -120,4 +136,44 @@ export function AbilityStrip({ tiles, onRankChange }: Props) {
       })}
     </div>
   );
+}
+
+/**
+ * Which of an ability's timers to draw, and how far it has got.
+ *
+ * Returns null when there is nothing to draw. 'recharge' is the one you are
+ * waiting for — no charges left, or a plain ability on cooldown; 'gap' is the
+ * short unavailability after a cast that still has charges in hand.
+ */
+function readinessOf(
+  tile: AbilityTile,
+): { kind: 'recharge' | 'gap'; remaining: number; percent: number } | null {
+  const readiness = tile.readiness;
+  if (!readiness) return null;
+  const charges = readiness.charges;
+
+  if (charges && charges.max > 1) {
+    if (charges.available === 0 && charges.nextIn > 0.05) {
+      return {
+        kind: 'recharge',
+        remaining: charges.nextIn,
+        percent: Math.min(100, (charges.nextIn / Math.max(0.1, charges.interval)) * 100),
+      };
+    }
+    if (readiness.readyIn > 0.05) {
+      return {
+        kind: 'gap',
+        remaining: readiness.readyIn,
+        percent: Math.min(100, (readiness.readyIn / Math.max(0.1, readiness.cooldown)) * 100),
+      };
+    }
+    return null;
+  }
+
+  if (readiness.readyIn <= 0.05) return null;
+  return {
+    kind: 'recharge',
+    remaining: readiness.readyIn,
+    percent: Math.min(100, (readiness.readyIn / Math.max(0.1, readiness.cooldown)) * 100),
+  };
 }

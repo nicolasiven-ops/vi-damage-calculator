@@ -57,10 +57,11 @@ interface Props {
    * Which rows to draw.
    *
    * 'combo' is the combo's own steps and nothing else — the reading that belongs
-   * next to the result, where the question is what was pressed and when. 'all'
-   * adds the groups that are not steps: procs, buffs, shreds, crowd control.
+   * next to the result, where the question is what was pressed and when.
+   * 'groups' is everything that is not a step: procs, buffs, shreds, crowd
+   * control, sustain. 'all' is both, for a view that stands alone.
    */
-  rows?: 'combo' | 'all';
+  rows?: 'combo' | 'groups' | 'all';
   /** Where playback stands, in seconds; null when it is not running. */
   playhead?: number | null;
   pinnedStepUid?: string | null;
@@ -368,7 +369,7 @@ export function ComboTimeline({
       cursor += height;
     };
 
-    combo.forEach((step, index) => {
+    if (which !== 'groups') combo.forEach((step, index) => {
       const { label, color } = describeStep(step, abilities);
       // A step's own row never stacks: cast and cooldown belong on one line.
       push(
@@ -389,8 +390,19 @@ export function ComboTimeline({
       const key = `lane:${group.lane}`;
       const hasContent = (spansByRow.get(key)?.length ?? 0) > 0 || (hitsByRow.get(key)?.length ?? 0) > 0;
       if (!hasContent) continue;
-      // Group rows stack: two effects running at once are two effects.
-      push(key, group.label, groupLaneColor(group.lane), group.title, true, true);
+      /*
+       * Group rows stack: two effects running at once are two effects. With the
+       * combo drawn elsewhere the first group needs no gap above it — the gap
+       * exists to separate it from the steps.
+       */
+      push(
+        key,
+        group.label,
+        groupLaneColor(group.lane),
+        group.title,
+        which !== 'groups' || out.length > 0,
+        true,
+      );
     }
 
     return out;

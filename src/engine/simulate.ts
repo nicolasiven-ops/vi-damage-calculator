@@ -289,6 +289,12 @@ export function simulate(
                     state.nextChargeAt === Number.POSITIVE_INFINITY
                       ? 0
                       : Math.max(0, state.nextChargeAt - time),
+                  /*
+                   * The recharge window as it was set, haste included. Falls
+                   * back to the unhasted value before the first cast, where
+                   * nothing is running to have been shortened.
+                   */
+                  interval: state.interval > 0 ? state.interval : spec.rechargeSeconds,
                 },
               }
             : {}),
