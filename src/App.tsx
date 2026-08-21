@@ -123,7 +123,14 @@ export default function App() {
    * thing that picks the moment, so every panel reads the same instant and the
    * whole page moves — the combo is played rather than inspected.
    */
+  /**
+   * Playback: where the clock stands, and whether it is moving.
+   *
+   * Two pieces of state rather than one, so pausing can hold the moment. A
+   * single nullable position had to throw the moment away to stop.
+   */
   const [playhead, setPlayhead] = useState<number | null>(null);
+  const [playing, setPlaying] = useState(false);
   const patch = usePatchData(DEFAULT_LOCALE);
   const bundle = patch.bundle;
 
@@ -486,7 +493,7 @@ export default function App() {
    * stopped by hand is a run you have to watch instead of read.
    */
   useEffect(() => {
-    if (playhead === null || !analysis) return;
+    if (!playing || playhead === null || !analysis) return;
     let frame = 0;
     let last = performance.now();
     const tick = (now: number): void => {
@@ -495,7 +502,13 @@ export default function App() {
       setPlayhead((current) => {
         if (current === null) return null;
         const next = current + delta;
-        return next >= analysis.duration ? null : next;
+        // At the end the run lets go of the moment entirely, so the panel goes
+        // back to reading the whole combo rather than freezing on its last step.
+        if (next >= analysis.duration) {
+          setPlaying(false);
+          return null;
+        }
+        return next;
       });
       frame = requestAnimationFrame(tick);
     };
@@ -503,7 +516,7 @@ export default function App() {
     return () => cancelAnimationFrame(frame);
     // Restarting on every playhead change would reset the frame clock, so this
     // depends on whether playback is running rather than on where it has got to.
-  }, [playhead !== null, analysis]);
+  }, [playing, playhead !== null, analysis]);
 
   /**
    * The same combo, on the other patch's numbers.
@@ -815,24 +828,27 @@ export default function App() {
             analysis={analysis}
             target={effectiveTarget}
             moment={moment}
-            playing={playhead !== null}
+            playState={playing ? 'running' : playhead !== null ? 'paused' : 'idle'}
             playhead={playhead}
-            onTogglePlay={() =>
-              setPlayhead((current) => {
-                if (current !== null) return null;
-                // Starting playback lets go of the pin: two things claiming the
-                // moment at once is the one state that reads as a bug.
-                setPinnedStepUid(null);
-                /*
-                 * Start where the views start, not at zero. A fully charged Q
-                 * spends a second and a half before anything lands, and the
-                 * plots cut that run-up off — so beginning at zero meant
-                 * watching an empty graph while the clock ran somewhere
-                 * off-screen.
-                 */
-                return timeWindowOf(analysis.timeToFirstDamage, analysis.duration).start;
-              })
-            }
+            onTogglePlay={() => {
+              if (playing) {
+                // Pause: the clock stops, the moment stays where it was.
+                setPlaying(false);
+                return;
+              }
+              setPlaying(true);
+              if (playhead !== null) return; // continue from where it was held
+              // Starting playback lets go of the pin: two things claiming the
+              // moment at once is the one state that reads as a bug.
+              setPinnedStepUid(null);
+              /*
+               * Start where the views start, not at zero. A fully charged Q
+               * spends a second and a half before anything lands, and the plots
+               * cut that run-up off — so beginning at zero meant watching an
+               * empty graph while the clock ran somewhere off-screen.
+               */
+              setPlayhead(timeWindowOf(analysis.timeToFirstDamage, analysis.duration).start);
+            }}
             targetResource={
               build.targetMode === 'champion' && targetStats && targetStats.maxMana > 0
                 ? {
@@ -853,7 +869,15 @@ export default function App() {
             patchVersion={bundle?.version ?? ""}
             linkedStepUid={linkedStepUid}
             pinnedStepUid={pinnedStepUid}
-            onPinStep={(uid) => setPinnedStepUid((current) => (current === uid ? null : uid))}
+            onPinStep={(uid) => {
+              /*
+               * Clicking a step is the way out of a held run: the pin and the
+               * playhead both claim the focused moment, so taking the pin means
+               * letting the clock go.
+               */
+              if (!playing && playhead !== null) setPlayhead(null);
+              setPinnedStepUid((current) => (current === uid ? null : uid));
+            }}
           />
         ) : (
           <section className="panel">

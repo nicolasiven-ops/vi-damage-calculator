@@ -77,7 +77,14 @@ interface Props {
   itemValueRows?: ItemValueRow[];
   /** For item icons. */
   patchVersion?: string;
-  playing?: boolean;
+  /**
+   * Where playback stands: not started, running, or held.
+   *
+   * Three states rather than a boolean, because pausing is not stopping — a held
+   * clock keeps its moment, and the button has to offer to resume it rather than
+   * to start over.
+   */
+  playState?: 'idle' | 'running' | 'paused';
   /** Seconds into the run while playback is going; null when it is not. */
   playhead?: number | null;
   onTogglePlay?: () => void;
@@ -149,9 +156,9 @@ const LEDGER_TITLES: Record<LedgerView, string> = {
 };
 
 const SHAPE_TITLES: Record<ShapeView, string> = {
-  total: 'Analysis - Total',
-  gantt: 'Analysis - Gantt',
-  burst: 'Analysis - Burst',
+  total: 'Total',
+  gantt: 'Gantt',
+  burst: 'Burst',
 };
 
 /**
@@ -190,7 +197,7 @@ export function AnalysisPanel({
   moment,
   itemValueRows,
   patchVersion,
-  playing,
+  playState = 'idle',
   playhead,
   onTogglePlay,
   targetResource,
@@ -199,7 +206,9 @@ export function AnalysisPanel({
   onPinStep,
 }: Props) {
   const [view, setView] = useState<ResultView>('timeline');
-  const [shape, setShape] = useState<ShapeView>('total');
+  // Burst first: the rate is the reading that answers "is this a burst" without
+  // anyone having to interpret a rising line.
+  const [shape, setShape] = useState<ShapeView>('burst');
   const [ledger, setLedger] = useState<LedgerView>('items');
 
   /**
@@ -311,11 +320,17 @@ export function AnalysisPanel({
              * the stat sheets change exactly as they did during the fight.
              */
             <button
-              className={`btn play${playing ? ' running' : ''}`}
+              className={`btn play${playState === 'running' ? ' running' : ''}${
+                playState === 'paused' ? ' held' : ''
+              }`}
               onClick={onTogglePlay}
               disabled={analysis.duration <= 0}
             >
-              {playing ? 'Stop simulation' : 'Start simulation'}
+              {playState === 'running'
+                ? 'Pause simulation'
+                : playState === 'paused'
+                  ? 'Continue simulation'
+                  : 'Start simulation'}
             </button>
           ) : null
         }
@@ -497,7 +512,7 @@ export function AnalysisPanel({
         className="analysis-view"
         // The panel keeps its own name; the tabs say which reading is open.
         title="Detailed Analysis"
-        actions={
+        center={
           <div className="view-tabs">
             {(['timeline', 'details', 'detailed', 'sources', 'formulas'] as ResultView[]).map(
               (entry) => (
@@ -656,7 +671,7 @@ export function AnalysisPanel({
       <Panel
         className="analysis-sources"
         title="Ledger"
-        actions={
+        center={
           <div className="view-tabs">
             {(['items', 'reference'] as LedgerView[]).map((entry) => (
               <button

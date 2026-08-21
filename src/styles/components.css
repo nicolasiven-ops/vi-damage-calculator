@@ -3262,3 +3262,10 @@ code {
   fill: var(--gold-200);
   font-weight: 600;
 }
+
+/* held: the clock is stopped but the moment is kept */
+.btn.play.held {
+  border-color: rgba(200, 170, 110, 0.6);
+  color: var(--gold-200);
+  background: linear-gradient(180deg, rgba(200, 170, 110, 0.16), transparent);
+}
