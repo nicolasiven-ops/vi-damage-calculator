@@ -758,6 +758,7 @@ export default function App() {
             target={effectiveTarget}
             moment={moment}
             playing={playhead !== null}
+            playhead={playhead}
             onTogglePlay={() =>
               setPlayhead((current) => {
                 if (current !== null) return null;

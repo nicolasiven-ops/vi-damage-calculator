@@ -139,56 +139,69 @@ export function AppHeader({
                   {comparison.loading ? (
                     <p className="field-hint">Loading {comparison.patch} …</p>
                   ) : (
-                    <>
-                      <div className="patch-diff-head">
-                        <span className="mono">
-                          {Math.round(comparison.damageThen).toLocaleString('en-US')}
-                        </span>
-                        <span aria-hidden="true">→</span>
-                        <span className="mono strong">
-                          {Math.round(comparison.damageNow).toLocaleString('en-US')}
-                        </span>
-                        <span
-                          className={`patch-delta ${
-                            comparison.damageNow >= comparison.damageThen ? 'up' : 'down'
-                          }`}
-                        >
-                          {comparison.damageNow >= comparison.damageThen ? '+' : '−'}
-                          {Math.abs(
-                            Math.round(comparison.damageNow - comparison.damageThen),
-                          ).toLocaleString('en-US')}
-                        </span>
-                      </div>
+                    <table className="patch-table">
+                      {/*
+                        * Columns, not arrows: with two patches and a difference,
+                        * "145 → 120 → 130" is unreadable, and per-rank values
+                        * carry an arrow of their own. Naming the two patches in
+                        * the header says once what every row then means.
+                        */}
+                      <thead>
+                        <tr>
+                          <th />
+                          <th className="mono">{comparison.patch}</th>
+                          <th className="mono">{version}</th>
+                          <th>Change</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="is-total">
+                          <th scope="row">Combo damage</th>
+                          <td className="mono">
+                            {Math.round(comparison.damageThen).toLocaleString('en-US')}
+                          </td>
+                          <td className="mono strong">
+                            {Math.round(comparison.damageNow).toLocaleString('en-US')}
+                          </td>
+                          <td
+                            className={`mono patch-delta ${
+                              comparison.damageNow >= comparison.damageThen ? 'up' : 'down'
+                            }`}
+                          >
+                            {signed(comparison.damageNow - comparison.damageThen)}
+                          </td>
+                        </tr>
 
-                      {comparison.killedThen !== comparison.killedNow && (
-                        <p
-                          className={`patch-verdict ${comparison.killedNow ? 'good' : 'bad'}`}
-                        >
-                          {comparison.killedNow
-                            ? 'This combo kills now and did not before.'
-                            : 'This combo killed before and does not now.'}
-                        </p>
-                      )}
-
-                      {comparison.changes.length === 0 ? (
-                        <p className="field-hint">
-                          No value this build uses changed between the two patches.
-                        </p>
-                      ) : (
-                        <ul className="patch-changes">
-                          {comparison.changes.map((change) => (
-                            <li key={`${change.slot}-${change.label}`}>
-                              <b>
-                                {change.slot} · {change.label}
-                              </b>
-                              <span className="mono">
-                                {change.from} → {change.to}
+                        {comparison.changes.map((change) => (
+                          <tr key={`${change.slot}-${change.label}`}>
+                            <th scope="row">
+                              <span className={`patch-slot slot-${change.slot.toLowerCase()}`}>
+                                {change.slot}
                               </span>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </>
+                              {change.label}
+                            </th>
+                            <td className="mono">{plain(change.from)}</td>
+                            <td className="mono">{plain(change.to)}</td>
+                            <td className="mono patch-delta">{valueDelta(change.from, change.to)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+
+                  {!comparison.loading &&
+                    comparison.killedThen !== comparison.killedNow && (
+                      <p className={`patch-verdict ${comparison.killedNow ? 'good' : 'bad'}`}>
+                        {comparison.killedNow
+                          ? 'This combo kills now and did not before.'
+                          : 'This combo killed before and does not now.'}
+                      </p>
+                    )}
+
+                  {!comparison.loading && comparison.changes.length === 0 && (
+                    <p className="field-hint">
+                      No value this build uses changed between the two patches.
+                    </p>
                   )}
                 </div>
               )}
@@ -213,4 +226,47 @@ export function AppHeader({
       )}
     </header>
   );
+}
+
+/** A number with its sign, for a change column. Zero stays "±0". */
+function signed(value: number): string {
+  const rounded = Math.round(value);
+  if (rounded === 0) return '±0';
+  return `${rounded > 0 ? '+' : '−'}${Math.abs(rounded).toLocaleString('en-US')}`;
+}
+
+/**
+ * A per-rank value reads "80% → 160%" — an arrow that would collide with the
+ * table's own reading. Inside a column, a range is a range.
+ */
+function plain(value: string): string {
+  return value.replace(/ → /g, ' – ');
+}
+
+/**
+ * The change between two printed values, when it can be told honestly.
+ *
+ * Both sides are strings the champion module wrote, so this parses the numbers
+ * back out rather than pretending to know their shape. A per-rank list changed
+ * by the same amount at every rank is one number; changed unevenly it is the
+ * range of the changes; anything this cannot line up gets a dash rather than a
+ * guess.
+ */
+function valueDelta(from: string, to: string): string {
+  const left = [...from.matchAll(/-?\d+(?:\.\d+)?/g)].map((match) => Number(match[0]));
+  const right = [...to.matchAll(/-?\d+(?:\.\d+)?/g)].map((match) => Number(match[0]));
+  if (left.length === 0 || left.length !== right.length) return '—';
+
+  const unit = from.includes('%') && to.includes('%') ? '%' : '';
+  const deltas = right.map((value, index) => value - (left[index] ?? 0));
+  const round = (value: number): string => {
+    const fixed = Math.abs(value) < 10 ? Number(value.toFixed(2)) : Math.round(value);
+    return `${fixed > 0 ? '+' : fixed < 0 ? '−' : '±'}${Math.abs(fixed)}${unit}`;
+  };
+
+  const first = deltas[0]!;
+  if (deltas.every((value) => Math.abs(value - first) < 0.005)) return round(first);
+  const low = Math.min(...deltas);
+  const high = Math.max(...deltas);
+  return `${round(low)} … ${round(high)}`;
 }

@@ -53,6 +53,8 @@ interface Props {
   /** For the row names: ability names as Data Dragon spells them. */
   abilities: AbilityMeta[];
   linkedStepUid?: string | null;
+  /** Where playback stands, in seconds; null when it is not running. */
+  playhead?: number | null;
   pinnedStepUid?: string | null;
   onPinStep?: (uid: string | null) => void;
 }
@@ -230,6 +232,7 @@ export function ComboTimeline({
   combo,
   abilities,
   linkedStepUid,
+  playhead,
   pinnedStepUid,
   onPinStep,
 }: Props) {
@@ -655,6 +658,31 @@ export function ComboTimeline({
               </g>
             );
           }),
+        )}
+
+        {/* ------------------------------------------------------- playhead */}
+        {/*
+          * The same rule as on the chart above, at the same x — that shared axis
+          * is what makes the two views one picture while it runs: the curve says
+          * how much has landed, the bars say what was busy landing it.
+          */}
+        {playhead !== null && playhead !== undefined && (
+          <g pointerEvents="none">
+            <line
+              className="gantt-playhead"
+              x1={x(playhead)}
+              x2={x(playhead)}
+              y1={RULER_HEIGHT - 7}
+              y2={height - 24}
+            />
+            <text
+              className="gantt-playhead-label mono"
+              x={Math.min(x(playhead) + 5, width - 40)}
+              y={height - 28}
+            >
+              {formatSeconds(playhead)} s
+            </text>
+          </g>
         )}
 
         {/* ------------------------------------------------------ crosshair */}

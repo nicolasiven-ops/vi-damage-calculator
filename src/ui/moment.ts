@@ -72,10 +72,19 @@ export function fightMomentAt(
   return {
     attacker: source.attacker,
     attackerResource: source.attackerResource,
-    abilities: source.abilities,
+    /*
+     * Cooldowns are carried forward to the real clock rather than left at the
+     * snapshot's. Snapshots only exist where something happened, so reading them
+     * raw made every cooldown tick down in jumps of a whole step — a number that
+     * stood still for a second and then dropped by a second. The countdown is
+     * arithmetic on the elapsed time, so it can simply be finished here, and the
+     * icons then run down as smoothly as the frame clock allows.
+     */
+    abilities: advanceCooldowns(source.abilities, seconds - source.time),
     shieldGained: source.shieldGained,
     target: source.target,
-    time: source.time,
+    // The live clock, not the last thing that happened: the playhead is here.
+    time: Math.max(source.time, seconds),
     targetLostNow: previous
       ? Math.max(0, previous.target.currentHealth - source.target.currentHealth)
       : 0,
@@ -86,6 +95,31 @@ export function fightMomentAt(
       ? { attacker: previous.attacker, target: previous.target }
       : null,
   };
+}
+
+/** Count cooldowns down by the seconds passed since the snapshot was taken. */
+function advanceCooldowns(
+  abilities: StatSnapshot['abilities'],
+  elapsed: number,
+): StatSnapshot['abilities'] {
+  if (elapsed <= 0.0005) return abilities;
+  return abilities.map((ability) => {
+    const readyIn = Math.max(0, ability.readyIn - elapsed);
+    if (readyIn === ability.readyIn) return ability;
+    if (!ability.charges) return { ...ability, readyIn };
+    // A recharging ability hands itself a charge when its timer runs out.
+    const nextIn = Math.max(0, ability.charges.nextIn - elapsed);
+    const gained = ability.charges.nextIn > 0 && nextIn === 0 ? 1 : 0;
+    return {
+      ...ability,
+      readyIn,
+      charges: {
+        ...ability.charges,
+        available: Math.min(ability.charges.max, ability.charges.available + gained),
+        nextIn,
+      },
+    };
+  });
 }
 
 /**

@@ -3029,3 +3029,79 @@ code {
   color: var(--text-primary);
   font-weight: 600;
 }
+
+/* patch compare · the table */
+.patch-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.patch-table th,
+.patch-table td {
+  padding: 4px 0;
+  text-align: right;
+  white-space: nowrap;
+  vertical-align: baseline;
+}
+.patch-table thead th {
+  color: var(--text-dim);
+  font-weight: 600;
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border-soft);
+  padding-bottom: 5px;
+}
+.patch-table tbody th[scope='row'] {
+  text-align: left;
+  font-weight: 500;
+  color: var(--text-2);
+  padding-right: 12px;
+  white-space: normal;
+}
+.patch-table td {
+  padding-left: 10px;
+  color: var(--text-2);
+}
+.patch-table td.strong {
+  color: var(--text-1);
+  font-weight: 600;
+}
+.patch-table tr.is-total th[scope='row'],
+.patch-table tr.is-total td {
+  font-size: 14px;
+  padding-top: 7px;
+  padding-bottom: 9px;
+}
+.patch-table tr.is-total td.strong {
+  font-size: 17px;
+}
+.patch-table tbody tr + tr th[scope='row'],
+.patch-table tbody tr + tr td {
+  border-top: 1px solid color-mix(in srgb, var(--border-soft) 55%, transparent);
+}
+.patch-slot {
+  display: inline-block;
+  min-width: 13px;
+  margin-right: 6px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.patch-slot.slot-p { color: var(--slot-p); }
+.patch-slot.slot-q { color: var(--slot-q); }
+.patch-slot.slot-w { color: var(--slot-w); }
+.patch-slot.slot-e { color: var(--slot-e); }
+.patch-slot.slot-r { color: var(--slot-r); }
+
+/* the playhead, on both stacked views */
+.chart-playhead,
+.gantt-playhead {
+  stroke: var(--status-good);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+  opacity: 0.85;
+}
+.gantt-playhead-label {
+  fill: var(--status-good);
+  font-size: 10.5px;
+}

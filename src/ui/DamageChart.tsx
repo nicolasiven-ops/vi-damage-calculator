@@ -56,6 +56,13 @@ interface Props {
   targetStartingHealth: number;
   /** The step highlighted right now, from hover anywhere or from the pin. */
   linkedStepUid?: string | null;
+  /**
+   * Where playback stands, in seconds — null when it is not running.
+   *
+   * Drawn as a dashed rule so the curve can be read as a position and not only
+   * as a shape: everything left of the line has happened.
+   */
+  playhead?: number | null;
   /** The step pinned by clicking; survives the cursor leaving the chart. */
   pinnedStepUid?: string | null;
   onPinStep?: (uid: string | null) => void;
@@ -85,6 +92,7 @@ export function DamageChart({
   analysis,
   targetStartingHealth,
   linkedStepUid,
+  playhead,
   pinnedStepUid,
   onPinStep,
 }: Props) {
@@ -144,6 +152,16 @@ export function DamageChart({
     [analysis.byType],
   );
 
+  const maxValue = Math.max(analysis.totalMitigated, targetStartingHealth) * 1.08 || 1;
+  /*
+   * A rise this small is under a pixel tall, so a point of its own would be a
+   * marker sitting on what looks like the same height as the one before it —
+   * read, reasonably, as the same point drawn twice. Its damage still counts and
+   * the hit is still listed under the point it merged into; what it loses is a
+   * marker nobody could tell apart from its neighbour.
+   */
+  const invisibleRise = maxValue * 0.006;
+
   const steps = useMemo<Step[]>(() => {
     const running: Record<DamageType, number> = { physical: 0, magic: 0, true: 0 };
     const result: Step[] = [{ time: 0, totals: { ...running }, total: 0, instances: [] }];
@@ -156,7 +174,11 @@ export function DamageChart({
 
       // Fold a simultaneous hit into the step that is already there, so the
       // curve keeps one reachable point per instant.
-      if (result.length > 1 && Math.abs(point.instance.time - last.time) < SAME_INSTANT) {
+      if (
+        result.length > 1 &&
+        (Math.abs(point.instance.time - last.time) < SAME_INSTANT ||
+          total - last.total < invisibleRise)
+      ) {
         last.totals = totals;
         last.total = total;
         last.instances.push(point.instance);
@@ -171,13 +193,12 @@ export function DamageChart({
       });
     }
     return result;
-  }, [analysis.curve]);
+  }, [analysis.curve, invisibleRise]);
 
   const maxTime = Math.max(0.6, steps[steps.length - 1]?.time ?? 1);
   // Shared with the Gantt view below, so a moment sits at the same x in both.
   const window = timeWindowOf(analysis.timeToFirstDamage, analysis.duration);
   const endTime = window.end;
-  const maxValue = Math.max(analysis.totalMitigated, targetStartingHealth) * 1.08 || 1;
 
   const x = (time: number) =>
     timeToX(time, WIDTH, window);
@@ -386,6 +407,17 @@ export function DamageChart({
               </text>
             );
           })}
+
+          {/* Playback's own rule, dashed, drawn under the crosshair. */}
+          {playhead !== null && playhead !== undefined && (
+            <line
+              x1={x(playhead)}
+              x2={x(playhead)}
+              y1={PADDING.top}
+              y2={HEIGHT - PADDING.bottom}
+              className="chart-playhead"
+            />
+          )}
 
           {/* Crosshair */}
           {hovered && (

@@ -71,6 +71,8 @@ interface Props {
    * so it only asks for it to start and stop.
    */
   playing?: boolean;
+  /** Seconds into the run while playback is going; null when it is not. */
+  playhead?: number | null;
   onTogglePlay?: () => void;
   /**
    * The target's resource pool, when it has one.
@@ -160,6 +162,7 @@ export function AnalysisPanel({
   gameDataStatus,
   moment,
   playing,
+  playhead,
   onTogglePlay,
   targetResource,
   linkedStepUid,
@@ -398,6 +401,7 @@ export function AnalysisPanel({
         )}
 
         <DamageChart
+          playhead={playhead ?? null}
           analysis={analysis}
           targetStartingHealth={startingHealth}
           linkedStepUid={linkedStepUid}
@@ -448,6 +452,7 @@ export function AnalysisPanel({
       >
         {view === 'timeline' && (
           <ComboTimeline
+            playhead={playhead ?? null}
             analysis={analysis}
             combo={combo}
             abilities={abilities}
