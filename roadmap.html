@@ -433,24 +433,28 @@
           <div class="lab-stage plain">
             <div class="lab-kv">
               <div class="lab-kv-row">
-                <span>Level → minutes into the game</span>
-                <span class="mono">assumption, adjustable</span>
+                <span>Level → XP needed</span>
+                <span class="mono">Riot: ExperienceCurveData, 280 g … 18,360 to level 18</span>
+              </div>
+              <div class="lab-kv-row">
+                <span>XP → minutes into the game</span>
+                <span class="mono">assumption — the one real guess</span>
               </div>
               <div class="lab-kv-row">
                 <span>Minutes → gold</span>
-                <span class="mono">passive income + farm rate + a kill share</span>
+                <span class="mono">Riot: 10.2 g / 5 s from 1:05, minion and kill values</span>
               </div>
               <div class="lab-kv-row">
                 <span>Gold → items</span>
-                <span class="mono">an ordered core per archetype, from item.json's own recipes</span>
+                <span class="mono">hand-kept core per archetype + Riot's recipe graph</span>
               </div>
               <div class="lab-kv-row">
                 <span>Champion → runes, shards, summoners</span>
-                <span class="mono">one default page per archetype</span>
+                <span class="mono">Riot: champion-rune-recommendations.json</span>
               </div>
               <div class="lab-kv-row">
-                <span>Level → skill points</span>
-                <span class="mono">the ultimate at 6/11/16, the rest maxed in order</span>
+                <span>Level → skill order</span>
+                <span class="mono">Riot: RecSpellRankUpInfoList, per champion and position</span>
               </div>
               <div class="lab-kv-row is-total">
                 <span>Out falls</span>
@@ -459,26 +463,68 @@
             </div>
           </div>
 
-          <h3 class="lab-sub">What is published and what is not</h3>
+          <h3 class="lab-sub">What is published, checked rather than assumed</h3>
           <p class="lab-why">
-            Riot publishes the shop — every item, its recipe, its cost — and the champion's
-            own numbers, which is the half that has to be exact. Riot does not publish what
-            a jungler has by minute fourteen, and neither does anyone else in a form worth
-            trusting. So the gold estimate is a model, it is labelled a model, and it is one
-            slider: "roughly this far into the game". Anything derived from it inherits the
-            label — the panel should read <em>≈ 8,400 g</em>, never <em>8,400 g</em>.
+            This was researched before writing it down, and it moved the plan: far more of
+            this is Riot's own data than expected, and it is not in Data Dragon but in the
+            shipped <code>.bin</code> files that CommunityDragon mirrors as JSON.
           </p>
+          <div class="lab-stage plain">
+            <ul class="lab-scrap">
+              <li>
+                <b>Runes, shards and summoner spells — published and maintained</b>
+                <span><code>champion-rune-recommendations.json</code>: 258 champions, per
+                position and per map, nine perk ids (four primary, two secondary, three
+                shards) plus the two summoner spells, each entry stamped with its own
+                date.</span>
+                <em>This deletes the largest piece of hand-maintenance the plan had. It is
+                live data, not a 2021 fossil, so a target's rune page can simply be right.</em>
+              </li>
+              <li>
+                <b>Skill order — published per champion and position</b>
+                <span><code>RecSpellRankUpInfoList</code> in the champion's own bin:
+                a priority order over Q/W/E/R and an opening override.</span>
+                <em>Riot's data, with one caveat worth carrying into the code: the encoding
+                of the opening override is not documented, so it gets read defensively and
+                the priority order is what we lean on.</em>
+              </li>
+              <li>
+                <b>Data Dragon's <code>recommended</code> block — empty, not stale</b>
+                <span>All 173 champions ship the key with zero entries, and have since
+                patch 11.9.1. The 2021 payload it used to carry is 27 % dead item ids.</span>
+                <em>Worth writing down because it is the obvious place to look and it costs
+                an afternoon to discover this. There is no CommunityDragon replacement
+                either — item builds are the one thing Riot does not publish.</em>
+              </li>
+              <li>
+                <b>Time → level — genuinely not published</b>
+                <span>Riot ships every input (the XP curve, minion XP, the sharing
+                multipliers, catch-up XP) and no output. No wiki table, no published
+                match-data curve.</span>
+                <em>So this is the single slider the feature exposes, and everything
+                downstream of it inherits the ≈. Guessing it silently is the one thing this
+                feature must not do.</em>
+              </li>
+              <li>
+                <b>The ultimate at 6 / 11 / 16 — wiki-only</b>
+                <span>Absent from every Riot file searched; it appears to be hardcoded in
+                the engine.</span>
+                <em>And <code>maxrank</code> has to be read per champion rather than assumed
+                to be three: Udyr has six, Jayce has one.</em>
+              </li>
+            </ul>
+          </div>
           <p class="lab-caption">
-            <strong>What it needs.</strong> A per-archetype table of build orders and rune
-            pages — bruiser, mage, marksman, tank, assassin, enchanter — which is the only
-            hand-maintained part and the reason this is not free; the recipe graph does the
-            rest, since "spend 8,400 g sensibly" is a walk down an ordered list with
-            components filling the remainder. Data Dragon's own <code>recommended</code>
-            blocks are the tempting shortcut and the wrong one: they are stale enough to
-            suggest items that no longer exist, and a default that recommends a removed
-            item is worse than no default. Every generated choice keeps a note saying it was
-            generated, so a target nobody edited never gets mistaken for a target somebody
-            scouted.
+            <strong>What it needs.</strong> A hand-kept core build order per archetype —
+            bruiser, mage, marksman, tank, assassin, enchanter — which is now the *only*
+            hand-maintained part, since runes, shards, summoners and skill order all come
+            from Riot. The recipe graph does the rest: "spend ≈ 8,400 g sensibly" is a walk
+            down an ordered list with components filling the remainder. Every generated
+            choice keeps a note saying it was generated, so a target nobody edited never
+            gets mistaken for a target somebody scouted. And one operational caveat:
+            CommunityDragon's <code>/latest</code> follows the live patch rather than the
+            one selected in the app, so anything read from there has to be pinned or
+            labelled with the patch it actually came from.
           </p>
         </section>
 
