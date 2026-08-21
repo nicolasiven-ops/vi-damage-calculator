@@ -315,19 +315,6 @@ export default function App() {
   );
 
   /**
-   * Names the moment for the stat sheets.
-   *
-   * "Attack speed 2.14" on its own looks like a bug; "after step 4" makes it a
-   * measurement.
-   */
-  const focusLabel =
-    build.combo.length === 0
-      ? null
-      : moment.stepNumber !== null
-        ? `after step ${moment.stepNumber} · ${moment.time.toFixed(2)} s`
-        : `end of combo · ${moment.time.toFixed(2)} s`;
-
-  /**
    * The attacker's summoner spells, in slot order, for the combo strip.
    *
    * Names and icons come from Data Dragon rather than being hardcoded, so a
@@ -473,13 +460,7 @@ export default function App() {
               abilities={abilities}
               stats={moment.attacker}
               live={{ shield: moment.shieldGained }}
-              previous={
-                moment.previous
-                  ? { stats: moment.previous.attacker, label: moment.previous.label }
-                  : null
-              }
-              focusLabel={focusLabel}
-              active={moment.active.filter((entry) => entry.side === 'attacker')}
+              previous={moment.previous ? { stats: moment.previous.attacker } : null}
               onLevelChange={(level) => patchBuild({ level })}
               onRankChange={(slot, rank) =>
                 patchBuild({ ranks: { ...build.ranks, [slot]: Math.max(0, rank) } })
@@ -588,8 +569,6 @@ export default function App() {
                 currentHealth: moment.target.currentHealth,
                 armor: moment.target.currentArmor,
                 magicResist: moment.target.baseMagicResist,
-                armorAsMet: moment.target.effectiveArmor,
-                magicResistAsMet: moment.target.effectiveMagicResist,
               }}
               previous={
                 moment.previous
@@ -602,12 +581,9 @@ export default function App() {
                         armor: moment.previous.target.currentArmor,
                         magicResist: moment.previous.target.baseMagicResist,
                       },
-                      label: moment.previous.label,
                     }
                   : null
               }
-              focusLabel={focusLabel}
-              active={moment.active.filter((entry) => entry.side === 'target')}
               champions={bundle?.champions ?? {}}
               profile={targetProfile.profile}
               version={bundle?.version ?? ''}

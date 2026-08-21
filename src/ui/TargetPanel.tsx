@@ -43,9 +43,7 @@ interface Props {
   stats: ChampionStats | null;
   /** Health and armour as the simulation has them at the focused moment. */
   live?: LiveStats;
-  focusLabel?: string | null;
   previous?: StatComparison | null;
-  active?: { label: string; detail: string }[];
   champions: Record<string, DDragonChampionSummary>;
   /** Full detail for the selected champion, once it has loaded. */
   profile: DDragonChampionDetail | null;
@@ -99,9 +97,7 @@ export function TargetPanel({
   state,
   stats,
   live,
-  focusLabel,
   previous,
-  active,
   champions,
   profile,
   version,
@@ -276,13 +272,7 @@ export function TargetPanel({
           <hr className="divider" />
 
           {stats && (
-            <StatSheet
-              stats={stats}
-              live={live}
-              previous={previous}
-              focusLabel={focusLabel}
-              active={active}
-            />
+            <StatSheet stats={stats} live={live} previous={previous} />
           )}
 
           <span className="field-hint">
@@ -358,12 +348,9 @@ export function TargetPanel({
                       magicResist: target.magicResist,
                     }),
                     live: previous.live,
-                    label: previous.label,
                   }
                 : null
             }
-            focusLabel={focusLabel}
-            active={active}
           />
         </>
       )}

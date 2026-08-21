@@ -897,12 +897,6 @@
   box-shadow: inset 0 0 0 1px var(--line);
 }
 
-.stat-focus {
-  margin: 0;
-  font-size: 10.5px;
-  color: var(--text-muted);
-  text-align: right;
-}
 
 /*
  * All four pages in one cell, only one of them visible.
@@ -990,39 +984,7 @@
   background: linear-gradient(90deg, var(--surface-2), var(--surface-1));
 }
 
-.stat-focus-vs {
-  color: var(--text-muted);
-}
 
-/* What is ticking right now, under the sheet it explains. */
-.stat-active {
-  display: grid;
-  gap: 4px;
-}
-
-.stat-active ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: grid;
-  gap: 3px;
-}
-
-.stat-active li {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--space-2);
-  font-size: 11px;
-  color: var(--text-secondary);
-  padding: 3px 6px;
-  border-left: 2px solid var(--gold-500);
-  background: var(--surface-2);
-}
-
-.stat-active li strong {
-  color: var(--text-primary);
-  font-weight: 600;
-}
 
 .stat-label {
   grid-area: label;

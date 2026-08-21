@@ -298,15 +298,8 @@ export interface StatSnapshot {
     baseMagicResist: number;
     effectiveMagicResist: number;
   };
-  /**
-   * Timed effects in force right now, each tagged with whose they are.
-   *
-   * The side matters because the two stat sheets sit in opposite sidebars: an
-   * attack speed buff belongs under the attacker's stats, an armour shred under
-   * the target's, and one merged list would put both under whichever it was
-   * printed next to.
-   */
-  active: { side: 'attacker' | 'target'; label: string; detail: string }[];
+  /** Timed effects in force right now, attacker-side and target-side. */
+  active: { label: string; detail: string }[];
   /** Running totals, so the panel can show what the combo has produced so far. */
   damageDone: number;
   shieldGained: number;

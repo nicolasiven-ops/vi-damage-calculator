@@ -29,9 +29,6 @@ export interface LiveStats {
   /** Armour after shred, before anyone's penetration. */
   armor?: number;
   magicResist?: number;
-  /** Armour as the attacker's damage actually meets it, penetration included. */
-  armorAsMet?: number;
-  magicResistAsMet?: number;
   shield?: number;
 }
 
@@ -39,18 +36,12 @@ export interface LiveStats {
 export interface StatComparison {
   stats: ChampionStats;
   live?: LiveStats;
-  /** What that moment was, for the header line. */
-  label: string;
 }
 
 interface Props {
   stats: ChampionStats;
   live?: LiveStats;
   previous?: StatComparison | null;
-  /** What moment this is a picture of, e.g. "after step 3". */
-  focusLabel?: string | null;
-  /** Timed effects in force at this moment, on this side of the fight. */
-  active?: { label: string; detail: string }[];
 }
 
 type PageId = 'overview' | 'offense' | 'defense' | 'utility';
@@ -135,7 +126,7 @@ export function unknownStats(overrides: Partial<ChampionStats>): ChampionStats {
   };
 }
 
-export function StatSheet({ stats, live, previous, focusLabel, active }: Props) {
+export function StatSheet({ stats, live, previous }: Props) {
   const [page, setPage] = useState<PageId>('overview');
   const now = { stats, live: live ?? {} };
 
@@ -155,19 +146,6 @@ export function StatSheet({ stats, live, previous, focusLabel, active }: Props) 
           </button>
         ))}
       </div>
-
-      {/*
-       * Says which moment the numbers belong to, and which one the arrows are
-       * measured against. Without it a mid-combo sheet looks like a wrong sheet:
-       * 2.1 attacks per second is a surprise until it says it was measured while
-       * Hail of Blades was up.
-       */}
-      {focusLabel && (
-        <p className="stat-focus">
-          {focusLabel}
-          {previous && <span className="stat-focus-vs"> vs {previous.label}</span>}
-        </p>
-      )}
 
       <div className="stat-stack">
         {PAGES.map((entry) => (
@@ -195,26 +173,10 @@ export function StatSheet({ stats, live, previous, focusLabel, active }: Props) 
       </div>
 
       {/*
-       * What is currently ticking. A stat sheet explains a number; this explains
-       * why the number is where it is, and when it will stop being there.
+       * No list of what is ticking. Every buff and shred worth reading is
+       * already in the numbers above and on the timeline below, so the list
+       * restated them in a third place and grew the panel to do it.
        */}
-      {active && (
-        <div className="stat-active">
-          <span className="field-label">In force right now</span>
-          {active.length === 0 ? (
-            <p className="field-hint">Nothing timed is active at this moment.</p>
-          ) : (
-            <ul>
-              {active.map((entry) => (
-                <li key={`${entry.label}-${entry.detail}`}>
-                  <strong>{entry.label}</strong>
-                  <span>{entry.detail}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
     </div>
   );
 }
@@ -268,26 +230,6 @@ function buildRows(page: PageId, now: Reading, previous: StatComparison | null):
   // names both the number it came down from and the number the attacker meets.
   const armorPick: Pick = (r) => r.live.armor ?? r.stats.armor;
   const mrPick: Pick = (r) => r.live.magicResist ?? r.stats.magicResist;
-  /*
-   * "As it is met" only when it differs.
-   *
-   * Penetration is the attacker's, not the target's, so it is worth a line when
-   * it changes what the target's armour is worth — and worth nothing when the
-   * attacker has none, where it would just print the same number twice.
-   */
-  const asMet = (value: number | undefined, current: number): string | null =>
-    value !== undefined && Math.abs(value - current) > 0.5 ? `${one(value)} as it is met` : null;
-  const currentArmor = armorPick(now);
-  const armorDetail =
-    [
-      live.armor !== undefined && known(stats.armor) && Math.abs(live.armor - stats.armor) > 0.5
-        ? `${int(stats.armor)} before shred`
-        : null,
-      asMet(live.armorAsMet, currentArmor),
-    ]
-      .filter(Boolean)
-      .join(' · ') || undefined;
-  const mrDetail = asMet(live.magicResistAsMet, mrPick(now)) ?? undefined;
 
   const attackDamage = row('Attack Damage', (r) => r.stats.totalAttackDamage, int, {
     detail:
@@ -296,8 +238,10 @@ function buildRows(page: PageId, now: Reading, previous: StatComparison | null):
         : undefined,
   });
   const abilityPower = row('Ability Power', (r) => r.stats.abilityPower);
-  const armor = row('Armor', armorPick, flex, { detail: armorDetail });
-  const magicResist = row('Magic Resistance', mrPick, flex, { detail: mrDetail });
+  // No footnote about shred or penetration: the value is what the target has
+  // right now, the arrow says it moved, and the timeline says what moved it.
+  const armor = row('Armor', armorPick, flex);
+  const magicResist = row('Magic Resistance', mrPick, flex);
   const attackSpeed = row('Attack Speed', (r) => r.stats.totalAttackSpeed, three, {
     detail: known(stats.bonusAttackSpeed) ? `+${pct(stats.bonusAttackSpeed)} bonus` : undefined,
   });

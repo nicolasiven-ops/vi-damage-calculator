@@ -38,9 +38,7 @@ export interface FightMoment {
    * the combo is compared with its start, which answers the other one: what did
    * the whole thing do.
    */
-  previous: { attacker: ChampionStats; target: StatSnapshot['target']; label: string } | null;
-  /** Timed effects in force at this moment, both sides, each tagged. */
-  active: StatSnapshot['active'];
+  previous: { attacker: ChampionStats; target: StatSnapshot['target'] } | null;
 }
 
 /**
@@ -77,7 +75,6 @@ export function fightMoment(
       stepNumber: null,
       isEnd: true,
       previous: null,
-      active: [],
     };
   }
 
@@ -94,12 +91,7 @@ export function fightMoment(
     isEnd: !focused,
     previous:
       against && against !== source
-        ? {
-            attacker: against.attacker,
-            target: against.target,
-            label: against.index < 0 ? 'combo start' : `step ${against.index + 1}`,
-          }
+        ? { attacker: against.attacker, target: against.target }
         : null,
-    active: source.active,
   };
 }

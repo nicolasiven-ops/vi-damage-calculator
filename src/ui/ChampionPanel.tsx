@@ -24,12 +24,8 @@ interface Props {
   stats: ChampionStats;
   /** Simulation-owned values for the focused moment (shield, current health). */
   live?: LiveStats;
-  /** What moment the sheet shows, e.g. "after step 3". */
-  focusLabel?: string | null;
   /** The moment the sheet's arrows are measured against. */
   previous?: StatComparison | null;
-  /** Timed effects on this side of the fight, right now. */
-  active?: { label: string; detail: string }[];
   onLevelChange: (level: number) => void;
   onRankChange: (slot: AbilitySlot, rank: number) => void;
 }
@@ -43,9 +39,7 @@ export function ChampionPanel({
   abilities,
   stats,
   live,
-  focusLabel,
   previous,
-  active,
   onLevelChange,
   onRankChange,
 }: Props) {
@@ -113,13 +107,7 @@ export function ChampionPanel({
 
       <hr className="divider" />
 
-      <StatSheet
-        stats={stats}
-        live={live}
-        previous={previous}
-        focusLabel={focusLabel}
-        active={active}
-      />
+      <StatSheet stats={stats} live={live} previous={previous} />
     </Panel>
   );
 }
