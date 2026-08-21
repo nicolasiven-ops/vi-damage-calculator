@@ -37,10 +37,9 @@ export function ChampionPanel({
   onRankChange,
 }: Props) {
   return (
-    <Panel
-      title={championName}
-      actions={<span className="tag gold">Level {level}</span>}
-    >
+    // The level belongs to its slider, not to a badge in the far corner that
+    // repeats it.
+    <Panel title={championName}>
       <div className="champion-head">
         {detail && (
           <img
@@ -52,7 +51,7 @@ export function ChampionPanel({
         <div className="champion-head-body">
           <span className="champion-title">{detail?.title ?? 'the Piltover Enforcer'}</span>
           <label className="field">
-            <span className="field-label">Champion level</span>
+            <span className="field-label">Champion level {level}</span>
             <input
               type="range"
               min={1}

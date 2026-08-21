@@ -9,13 +9,13 @@ import { DEFAULT_TIMINGS, type ComboStep, type CritMode, type TargetConfig, type
 import type { AbilitySlot } from '../engine/types';
 import type { StatBlock } from '../model/stats';
 
-/** Where the target values come from. */
-export type TargetMode = 'custom' | 'champion';
-
-export interface BuildState {
-  championId: string;
-  level: number;
-  ranks: Record<AbilitySlot, number>;
+/**
+ * Items and runes: one side of the fight, kitted out.
+ *
+ * Extracted because both sides need it. The attacker keeps these fields
+ * inline on the build for continuity; the target carries its own copy.
+ */
+export interface LoadoutState {
   /** Six item slots; empty string means the slot is free. */
   itemIds: string[];
   keystoneId: number | null;
@@ -24,16 +24,56 @@ export interface BuildState {
   secondaryTreeId: number | null;
   secondaryRuneIds: (number | null)[];
   shardIds: (number | null)[];
+}
+
+export function emptyLoadout(): LoadoutState {
+  return {
+    itemIds: ['', '', '', '', '', ''],
+    keystoneId: null,
+    primaryTreeId: null,
+    primaryRuneIds: [null, null, null],
+    secondaryTreeId: null,
+    secondaryRuneIds: [null, null],
+    shardIds: [null, null, null],
+  };
+}
+
+/** Where the target values come from. */
+export type TargetMode = 'custom' | 'champion';
+
+/**
+ * The target, plus what each mode remembers.
+ *
+ * `target` is the one the engine reads. The other fields are the two modes'
+ * own state, kept side by side so switching restores what that mode last held
+ * instead of inheriting the other one's numbers under the other one's name —
+ * picking Thresh and then switching to Custom used to leave "Thresh" in the
+ * heading with no preset behind it.
+ */
+export interface TargetState {
   target: TargetConfig;
-  /**
-   * How the target is defined: typed in by hand, or derived from a champion.
-   *
-   * Part of the build rather than of the panel, so a reload does not silently
-   * turn a champion target back into loose numbers.
-   */
   targetMode: TargetMode;
   /** Which champion the target follows in champion mode. */
   targetChampionId: string;
+  /** The target as custom mode last had it. */
+  customTarget: TargetConfig;
+  /** Which preset custom mode last loaded, empty when typed by hand. */
+  customPresetId: string;
+  /**
+   * The target own items and runes.
+   *
+   * Only their stat contributions apply: a target does not proc anything in
+   * this simulation, it only gets hit.
+   */
+  targetLoadout: LoadoutState;
+}
+
+/** The attacker's own gear stays inline on the build, where it always was. */
+export interface BuildState extends TargetState, LoadoutState {
+  championId: string;
+  level: number;
+  ranks: Record<AbilitySlot, number>;
+
   combo: ComboStep[];
   critMode: CritMode;
   timings: TimingConfig;
@@ -80,6 +120,9 @@ export function defaultBuild(): BuildState {
     target: { ...DEFAULT_TARGET },
     targetMode: 'custom',
     targetChampionId: '',
+    customTarget: { ...DEFAULT_TARGET },
+    customPresetId: '',
+    targetLoadout: emptyLoadout(),
     // The classic Vi engage: charged Q in, ult, then E-weave for the W proc.
     combo: [
       step({ kind: 'ability', slot: 'Q' }, 1.25),
@@ -139,10 +182,24 @@ function mergeBuild(base: BuildState, stored: Partial<BuildState>): BuildState {
     target: { ...base.target, ...(stored.target ?? {}) },
     targetMode: stored.targetMode ?? base.targetMode,
     targetChampionId: stored.targetChampionId ?? base.targetChampionId,
+    customTarget: { ...base.customTarget, ...(stored.customTarget ?? {}) },
+    customPresetId: stored.customPresetId ?? base.customPresetId,
+    targetLoadout: mergeLoadout(base.targetLoadout, stored.targetLoadout),
     timings: { ...base.timings, ...(stored.timings ?? {}) },
     manualStats: stored.manualStats ?? {},
     // Regenerate uids so drag & drop keys stay unique after a reload.
     combo: combo.map((entry) => ({ ...entry, uid: newUid() })),
+  };
+}
+
+function mergeLoadout(base: LoadoutState, stored?: Partial<LoadoutState>): LoadoutState {
+  return {
+    ...base,
+    ...(stored ?? {}),
+    itemIds: normaliseSlots(stored?.itemIds, 6, ''),
+    primaryRuneIds: normaliseSlots(stored?.primaryRuneIds, 3, null),
+    secondaryRuneIds: normaliseSlots(stored?.secondaryRuneIds, 2, null),
+    shardIds: normaliseSlots(stored?.shardIds, 3, null),
   };
 }
 
@@ -173,18 +230,18 @@ export function decodeBuild(encoded: string): BuildState | null {
 }
 
 /** Rune ids actually in play, for the engine. */
-export function activeRuneIds(build: BuildState): number[] {
+export function activeRuneIds(loadout: LoadoutState): number[] {
   return [
-    build.keystoneId,
-    ...build.primaryRuneIds,
-    ...build.secondaryRuneIds,
+    loadout.keystoneId,
+    ...loadout.primaryRuneIds,
+    ...loadout.secondaryRuneIds,
   ].filter((id): id is number => typeof id === 'number');
 }
 
-export function activeShardIds(build: BuildState): number[] {
-  return build.shardIds.filter((id): id is number => typeof id === 'number');
+export function activeShardIds(loadout: LoadoutState): number[] {
+  return loadout.shardIds.filter((id): id is number => typeof id === 'number');
 }
 
-export function activeItemIds(build: BuildState): string[] {
-  return build.itemIds.filter((id) => id !== '');
+export function activeItemIds(loadout: LoadoutState): string[] {
+  return loadout.itemIds.filter((id) => id !== '');
 }

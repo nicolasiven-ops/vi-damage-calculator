@@ -16,6 +16,7 @@ import {
   loadBuild,
   saveBuild,
   type BuildState,
+  type LoadoutState,
 } from './state/build';
 import { useChampionDetail, useChampionProfile, usePatchData } from './hooks/usePatchData';
 import { AnalysisPanel } from './ui/AnalysisPanel';
@@ -182,6 +183,64 @@ export default function App() {
     [baseStats, build.level, bonusStats],
   );
 
+  /* ---------------------------------------------------------------- the target */
+
+  /**
+   * The target's gear, as stats only.
+   *
+   * Items and runes on a target contribute what they *are* — armour, health,
+   * resistances — and nothing they *do*: no procs, no on-hit riders, no
+   * keystones. The target is hit in this simulation; it never acts. Running the
+   * same `runeStats` and item pipeline as the attacker keeps the two sides from
+   * drifting apart.
+   */
+  const targetBonusStats = useMemo(() => {
+    const champion = bundle?.champions[build.targetChampionId];
+    if (!champion) return emptyStats();
+    const fromItems = activeItemIds(build.targetLoadout)
+      .map((id) => itemById.get(id)?.stats)
+      .filter(Boolean) as ReturnType<typeof emptyStats>[];
+    const baseline = resolveChampionStats(champion.stats, build.target.level, sumStats(fromItems));
+    const fromRunes = runeStats(
+      [...activeRuneIds(build.targetLoadout), ...activeShardIds(build.targetLoadout)],
+      { level: build.target.level, baseline },
+    );
+    return sumStats([...fromItems, ...fromRunes]);
+  }, [bundle, build.targetChampionId, build.targetLoadout, build.target.level, itemById]);
+
+  const targetStats = useMemo(() => {
+    const champion = bundle?.champions[build.targetChampionId];
+    if (!champion) return null;
+    return resolveChampionStats(champion.stats, build.target.level, targetBonusStats);
+  }, [bundle, build.targetChampionId, build.target.level, targetBonusStats]);
+
+  /**
+   * What the engine actually shoots at.
+   *
+   * In champion mode the defensive numbers are derived every render from the
+   * champion, its level and its gear, so nothing stored can contradict the name
+   * in the heading. Custom mode passes its typed values through untouched. Both
+   * keep the situational fields from the Simulation panel.
+   */
+  const effectiveTarget = useMemo(() => {
+    if (build.targetMode !== 'champion' || !targetStats) return build.target;
+    return {
+      ...build.target,
+      maxHealth: Math.round(targetStats.maxHealth),
+      bonusHealth: Math.round(targetStats.bonusHealth),
+      armor: Math.round(targetStats.armor * 10) / 10,
+      magicResist: Math.round(targetStats.magicResist * 10) / 10,
+    };
+  }, [build.target, build.targetMode, targetStats]);
+
+  /** Patch the target's gear without disturbing the rest of the build. */
+  const patchTargetLoadout = useCallback((patch: Partial<LoadoutState>) => {
+    setBuild((current) => ({
+      ...current,
+      targetLoadout: { ...current.targetLoadout, ...patch },
+    }));
+  }, []);
+
   const analysis = useMemo(() => {
     if (!baseStats || !stats) return null;
     const result = simulate(
@@ -198,7 +257,7 @@ export default function App() {
         championBaseStats: baseStats,
         attackerStats: stats,
         bonusStats,
-        target: build.target,
+        target: effectiveTarget,
         combo: build.combo,
         timings: build.timings,
         critMode: build.critMode,
@@ -206,8 +265,8 @@ export default function App() {
       VI_MODULE,
       moduleCtx,
     );
-    return analyse(result, build.target, stats);
-  }, [baseStats, stats, bonusStats, build, moduleCtx]);
+    return analyse(result, effectiveTarget, stats);
+  }, [baseStats, stats, bonusStats, build, moduleCtx, effectiveTarget]);
 
   const abilities = useMemo(
     () => resolveAbilityNames(VI_MODULE.abilities, moduleCtx),
@@ -359,7 +418,7 @@ export default function App() {
           <div className="config-slot" data-tab="runes" id="config-runes">
             <RunePanel
               trees={bundle?.runeTrees ?? []}
-              build={build}
+              loadout={build}
               offline={bundle?.offline ?? true}
               onChange={patchBuild}
             />
@@ -371,7 +430,7 @@ export default function App() {
         {analysis && stats ? (
           <AnalysisPanel
             analysis={analysis}
-            target={build.target}
+            target={effectiveTarget}
             module={VI_MODULE}
             moduleCtx={moduleCtx}
             abilities={abilities}
@@ -408,22 +467,51 @@ export default function App() {
         >
           <div className="config-slot" data-tab="target" id="config-target">
             <TargetPanel
-              target={build.target}
-              mode={build.targetMode}
-              championId={build.targetChampionId}
+              state={build}
+              stats={targetStats}
               champions={bundle?.champions ?? {}}
               profile={targetProfile.profile}
               version={bundle?.version ?? ''}
-              onChange={(target) => patchBuild({ target })}
-              onModeChange={(targetMode) => patchBuild({ targetMode })}
-              onChampionChange={(targetChampionId) => patchBuild({ targetChampionId })}
+              onChange={patchBuild}
             />
+          </div>
+
+          {/*
+           * The target's own gear, in the same panels the attacker uses. Only
+           * the stats count for a target, which the note says out loud — a
+           * Randuin's on the target soaks nothing here, its 65 armour does.
+           */}
+          <div className="config-slot" data-tab="target">
+            <ItemPanel
+              items={items}
+              itemIds={build.targetLoadout.itemIds}
+              version={bundle?.version ?? ''}
+              offline={bundle?.offline ?? true}
+              onChange={(itemIds) => patchTargetLoadout({ itemIds })}
+            />
+          </div>
+
+          <div className="config-slot" data-tab="target">
+            <RunePanel
+              trees={bundle?.runeTrees ?? []}
+              loadout={build.targetLoadout}
+              offline={bundle?.offline ?? true}
+              onChange={patchTargetLoadout}
+            />
+          </div>
+
+          <div className="config-slot" data-tab="target">
+            <p className="field-hint">
+              On the target, items and runes count for their stats only — health, armour, magic
+              resistance. Nothing they <em>do</em> is simulated: the target is hit, it never acts.
+            </p>
           </div>
 
           <div className="config-slot" data-tab="sim" id="config-sim">
             <SettingsPanel
               critMode={build.critMode}
               timings={build.timings}
+              target={build.target}
               onChange={patchBuild}
             />
           </div>

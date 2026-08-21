@@ -12,13 +12,13 @@ import { imageUrls } from '../data/ddragon';
 import type { DDragonRune, DDragonRuneTree } from '../data/types';
 import { SHARD_DEFINITIONS, getRuneDefinition, isRuneModelled } from '../model/runes';
 import { Panel } from './components/Panel';
-import type { BuildState } from '../state/build';
+import type { LoadoutState } from '../state/build';
 
 interface Props {
   trees: DDragonRuneTree[];
-  build: BuildState;
+  loadout: LoadoutState;
   offline: boolean;
-  onChange: (patch: Partial<BuildState>) => void;
+  onChange: (patch: Partial<LoadoutState>) => void;
 }
 
 /** Stat shard rows. Data Dragon does not describe these, so they are fixed. */
@@ -28,24 +28,24 @@ const SHARD_ROWS: { label: string; ids: number[] }[] = [
   { label: 'Defense', ids: [5011, 5013, 5001] },
 ];
 
-export function RunePanel({ trees, build, offline, onChange }: Props) {
-  const primary = trees.find((tree) => tree.id === build.primaryTreeId) ?? null;
-  const secondary = trees.find((tree) => tree.id === build.secondaryTreeId) ?? null;
+export function RunePanel({ trees, loadout, offline, onChange }: Props) {
+  const primary = trees.find((tree) => tree.id === loadout.primaryTreeId) ?? null;
+  const secondary = trees.find((tree) => tree.id === loadout.secondaryTreeId) ?? null;
 
   const selectedCount = useMemo(
     () =>
-      [build.keystoneId, ...build.primaryRuneIds, ...build.secondaryRuneIds, ...build.shardIds].filter(
+      [loadout.keystoneId, ...loadout.primaryRuneIds, ...loadout.secondaryRuneIds, ...loadout.shardIds].filter(
         (id) => id !== null,
       ).length,
-    [build],
+    [loadout],
   );
 
   const unmodelled = useMemo(
     () =>
-      [build.keystoneId, ...build.primaryRuneIds, ...build.secondaryRuneIds]
+      [loadout.keystoneId, ...loadout.primaryRuneIds, ...loadout.secondaryRuneIds]
         .filter((id): id is number => typeof id === 'number')
         .filter((id) => !isRuneModelled(id)),
-    [build],
+    [loadout],
   );
 
   if (offline || trees.length === 0) {
@@ -63,7 +63,7 @@ export function RunePanel({ trees, build, offline, onChange }: Props) {
       primaryTreeId: treeId,
       keystoneId: null,
       primaryRuneIds: [null, null, null],
-      ...(build.secondaryTreeId === treeId ? { secondaryTreeId: null, secondaryRuneIds: [null, null] } : {}),
+      ...(loadout.secondaryTreeId === treeId ? { secondaryTreeId: null, secondaryRuneIds: [null, null] } : {}),
     });
   }
 
@@ -72,7 +72,7 @@ export function RunePanel({ trees, build, offline, onChange }: Props) {
   }
 
   function pickPrimary(rowIndex: number, runeId: number): void {
-    const next = [...build.primaryRuneIds];
+    const next = [...loadout.primaryRuneIds];
     next[rowIndex] = next[rowIndex] === runeId ? null : runeId;
     onChange({ primaryRuneIds: next });
   }
@@ -82,7 +82,7 @@ export function RunePanel({ trees, build, offline, onChange }: Props) {
    * rune from a row that is already represented replaces that pick.
    */
   function pickSecondary(rowIndex: number, runeId: number, rowsById: Map<number, number>): void {
-    const current = [...build.secondaryRuneIds];
+    const current = [...loadout.secondaryRuneIds];
     const existingIndex = current.findIndex(
       (id) => id !== null && rowsById.get(id) === rowIndex,
     );
@@ -102,7 +102,7 @@ export function RunePanel({ trees, build, offline, onChange }: Props) {
   }
 
   function pickShard(rowIndex: number, shardId: number): void {
-    const next = [...build.shardIds];
+    const next = [...loadout.shardIds];
     next[rowIndex] = next[rowIndex] === shardId ? null : shardId;
     onChange({ shardIds: next });
   }
@@ -142,7 +142,7 @@ export function RunePanel({ trees, build, offline, onChange }: Props) {
           {trees.map((tree) => (
             <button
               key={tree.id}
-              className={`rune-tree${build.primaryTreeId === tree.id ? ' selected' : ''}`}
+              className={`rune-tree${loadout.primaryTreeId === tree.id ? ' selected' : ''}`}
               onClick={() => selectPrimaryTree(tree.id)}
               title={tree.name}
             >
@@ -158,9 +158,9 @@ export function RunePanel({ trees, build, offline, onChange }: Props) {
           <RuneRow
             label="Keystone"
             runes={primary.slots[0]?.runes ?? []}
-            isSelected={(rune) => build.keystoneId === rune.id}
+            isSelected={(rune) => loadout.keystoneId === rune.id}
             onPick={(rune) =>
-              onChange({ keystoneId: build.keystoneId === rune.id ? null : rune.id })
+              onChange({ keystoneId: loadout.keystoneId === rune.id ? null : rune.id })
             }
             large
           />
@@ -169,7 +169,7 @@ export function RunePanel({ trees, build, offline, onChange }: Props) {
               key={rowIndex}
               label={`Row ${rowIndex + 1}`}
               runes={slot.runes}
-              isSelected={(rune) => build.primaryRuneIds[rowIndex] === rune.id}
+              isSelected={(rune) => loadout.primaryRuneIds[rowIndex] === rune.id}
               onPick={(rune) => pickPrimary(rowIndex, rune.id)}
             />
           ))}
@@ -182,11 +182,11 @@ export function RunePanel({ trees, build, offline, onChange }: Props) {
         <span className="field-label">Secondary path</span>
         <div className="rune-tree-row">
           {trees
-            .filter((tree) => tree.id !== build.primaryTreeId)
+            .filter((tree) => tree.id !== loadout.primaryTreeId)
             .map((tree) => (
               <button
                 key={tree.id}
-                className={`rune-tree${build.secondaryTreeId === tree.id ? ' selected' : ''}`}
+                className={`rune-tree${loadout.secondaryTreeId === tree.id ? ' selected' : ''}`}
                 onClick={() => selectSecondaryTree(tree.id)}
                 title={tree.name}
               >
@@ -204,7 +204,7 @@ export function RunePanel({ trees, build, offline, onChange }: Props) {
               key={rowIndex}
               label={`Row ${rowIndex + 1}`}
               runes={slot.runes}
-              isSelected={(rune) => build.secondaryRuneIds.includes(rune.id)}
+              isSelected={(rune) => loadout.secondaryRuneIds.includes(rune.id)}
               onPick={(rune) => pickSecondary(rowIndex, rune.id, secondaryRowById)}
             />
           ))}
@@ -226,7 +226,7 @@ export function RunePanel({ trees, build, offline, onChange }: Props) {
                   return (
                     <button
                       key={`${shardId}-${columnIndex}`}
-                      className={`shard${build.shardIds[rowIndex] === shardId ? ' selected' : ''}`}
+                      className={`shard${loadout.shardIds[rowIndex] === shardId ? ' selected' : ''}`}
                       onClick={() => pickShard(rowIndex, shardId)}
                       title={definition?.note}
                     >

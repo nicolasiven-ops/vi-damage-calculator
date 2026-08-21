@@ -1,45 +1,51 @@
 /**
  * The target: the other half of every number this app produces.
  *
- * Two modes, because there are two honest ways to describe what you are hitting:
+ * Built like the attacker's panel on purpose — same head, same ability list,
+ * same stat sheet. Two things being compared are easier to read when they are
+ * shaped alike, and the comparison is the whole job here.
  *
- *  - **Champion** — pick one, pick a level, and the resistances come from Riot's
- *    base stats and growth curve. This is the mode to trust: base armour and
- *    magic resistance grow non-linearly, and guessing them is where hand-rolled
- *    damage maths usually goes wrong. The values are read-only here, because
- *    they are derived; editing one would make the champion label a lie.
- *  - **Custom** — type the numbers, or start from a preset. This is the mode for
- *    "what if they had 200 armour", and for minions and monsters.
+ * Two modes, because there are two honest ways to say what you are hitting:
  *
- * Switching from champion to custom hands the derived numbers over as a starting
- * point, so the switch never costs you your place.
+ *  - **Champion** — pick one, pick a level, and health and resistances come from
+ *    Riot's base stats and growth curve. Those values are read-only: they are
+ *    derived, and editing one would make the champion in the heading a lie.
+ *  - **Custom** — type them, or start from a preset. For "what if they had 200
+ *    armour", and for minions and monsters.
  *
- * The layout mirrors the attacker's panel on purpose: same head, same ability
- * list, same stat sheet. Comparing two things is easier when they are shaped
- * alike, and the target's abilities are shown for orientation — the simulation
- * models damage *to* the target, never the target acting.
+ * Each mode keeps its own state, so switching back and forth restores what that
+ * mode last held rather than carrying the other one's numbers under the other
+ * one's name.
+ *
+ * The situational settings — how hurt the target already is, what is soaking
+ * damage on top of resistances — live in the Simulation panel. They describe the
+ * moment being simulated rather than who the target is.
  */
 
 import { useMemo } from 'react';
 import { imageUrls } from '../data/ddragon';
 import type { DDragonChampionDetail, DDragonChampionSummary } from '../data/types';
 import type { TargetConfig } from '../engine/types';
-import type { TargetMode } from '../state/build';
-import { resolveChampionStats, emptyStats } from '../model/stats';
+import type { TargetMode, TargetState } from '../state/build';
+import type { ChampionStats } from '../model/stats';
+import { StatSheet } from './ChampionPanel';
 import { Panel } from './components/Panel';
 import { SelectMenu, type SelectOption } from './components/SelectMenu';
 
 interface Props {
-  target: TargetConfig;
-  mode: TargetMode;
-  championId: string;
+  state: TargetState;
+  /**
+   * The target champion resolved at its level, with its own items and runes.
+   *
+   * Computed one level up, next to the attacker: both sides go through the same
+   * stat pipeline, so neither can drift from the other.
+   */
+  stats: ChampionStats | null;
   champions: Record<string, DDragonChampionSummary>;
-  /** Full detail for the selected champion, when it has loaded. */
+  /** Full detail for the selected champion, once it has loaded. */
   profile: DDragonChampionDetail | null;
   version: string;
-  onChange: (target: TargetConfig) => void;
-  onModeChange: (mode: TargetMode) => void;
-  onChampionChange: (championId: string) => void;
+  onChange: (next: Partial<TargetState>) => void;
 }
 
 const PRESETS: { id: string; name: string; target: Partial<TargetConfig> }[] = [
@@ -84,17 +90,9 @@ const PRESETS: { id: string; name: string; target: Partial<TargetConfig> }[] = [
 /** The five slots a champion's abilities occupy, in the order the client shows. */
 const ABILITY_SLOTS = ['P', 'Q', 'W', 'E', 'R'] as const;
 
-export function TargetPanel({
-  target,
-  mode,
-  championId,
-  champions,
-  profile,
-  version,
-  onChange,
-  onModeChange,
-  onChampionChange,
-}: Props) {
+export function TargetPanel({ state, stats, champions, profile, version, onChange }: Props) {
+  const { target, targetMode: mode, targetChampionId, customPresetId } = state;
+
   const championList = useMemo(
     () => Object.values(champions).sort((a, b) => a.name.localeCompare(b.name, 'en')),
     [champions],
@@ -121,52 +119,52 @@ export function TargetPanel({
     [],
   );
 
-  const selected = champions[championId] ?? null;
+  const selected = champions[targetChampionId] ?? null;
 
-  function patch(next: Partial<TargetConfig>): void {
-    onChange({ ...target, ...next });
+  /** A target edit. In custom mode it is also what custom mode will remember. */
+  function patchTarget(next: Partial<TargetConfig>): void {
+    const updated = { ...target, ...next };
+    onChange(mode === 'custom' ? { target: updated, customTarget: updated } : { target: updated });
   }
 
-  /** Base stats of the selected champion at a level, without items. */
-  function championStats(level: number) {
-    if (!selected) return null;
-    return resolveChampionStats(selected.stats, level, emptyStats());
-  }
-
-  function applyChampion(id: string, level: number): void {
-    const champion = champions[id];
+  /**
+   * Picking a champion stores the pick, not its numbers.
+   *
+   * The numbers are derived from the pick, its level and its gear every render,
+   * so there is nothing to keep in sync — and no way for a stored copy to
+   * disagree with the champion whose name is in the heading.
+   */
+  function applyChampion(championId: string, level: number): void {
+    const champion = champions[championId];
     if (!champion) return;
-    const stats = resolveChampionStats(champion.stats, level, emptyStats());
-    onChampionChange(id);
-    patch({
-      name: champion.name,
-      level,
-      maxHealth: Math.round(stats.maxHealth),
-      armor: Math.round(stats.armor * 10) / 10,
-      magicResist: Math.round(stats.magicResist * 10) / 10,
-      unitType: 'champion',
+    onChange({
+      targetChampionId: championId,
+      target: { ...target, name: champion.name, level, unitType: 'champion' },
     });
   }
 
   function applyPreset(id: string): void {
     const preset = PRESETS.find((entry) => entry.id === id);
-    if (preset) patch(preset.target);
+    if (!preset) return;
+    const updated = { ...target, ...preset.target };
+    onChange({ target: updated, customTarget: updated, customPresetId: id });
   }
 
-  /**
-   * Champion mode needs a champion. Picking the first one on switching is
-   * friendlier than an empty panel that explains itself.
-   */
+  /** Each mode restores its own state, rather than inheriting the other's. */
   function switchMode(next: TargetMode): void {
-    onModeChange(next);
-    if (next === 'champion' && !champions[championId]) {
-      const first = championList[0];
-      if (first) applyChampion(first.id, target.level);
+    if (next === mode) return;
+    if (next === 'custom') {
+      onChange({ targetMode: 'custom', target: state.customTarget });
+      return;
     }
+    const championId = champions[targetChampionId] ? targetChampionId : championList[0]?.id ?? '';
+    const champion = champions[championId];
+    onChange({
+      targetMode: 'champion',
+      targetChampionId: championId,
+      target: champion ? { ...target, name: champion.name, unitType: 'champion' } : target,
+    });
   }
-
-  const stats = mode === 'champion' ? championStats(target.level) : null;
-  const currentPreset = PRESETS.find((preset) => preset.target.name === target.name);
 
   return (
     <Panel
@@ -174,7 +172,7 @@ export function TargetPanel({
         mode === 'champion' ? (
           <SelectMenu
             variant="title"
-            value={championId}
+            value={targetChampionId}
             options={championOptions}
             onChange={(id) => applyChampion(id, target.level)}
             placeholder="Pick a champion"
@@ -185,14 +183,15 @@ export function TargetPanel({
         ) : (
           <SelectMenu
             variant="title"
-            value={currentPreset?.id ?? ''}
+            value={customPresetId}
             options={presetOptions}
             onChange={applyPreset}
-            placeholder={target.name || 'Custom target'}
+            placeholder={target.name || 'Custom'}
             ariaLabel="Target preset"
           />
         )
       }
+      /* The button names where it takes you, not where you are. */
       actions={
         <button
           className="mode-toggle"
@@ -203,35 +202,43 @@ export function TargetPanel({
               : 'Switch to a champion’s base stats'
           }
         >
-          {mode === 'champion' ? 'Champion' : 'Custom'}
+          {mode === 'champion' ? 'Custom' : 'Champion'}
         </button>
       }
     >
+      <div className="champion-head">
+        {mode === 'champion' && profile && version && (
+          <img
+            className="champion-portrait"
+            src={imageUrls.champion(version, profile.image.full)}
+            alt={profile.name}
+          />
+        )}
+        <div className="champion-head-body">
+          <span className="champion-title">
+            {mode === 'champion'
+              ? profile?.title ?? selected?.title ?? ''
+              : 'Hand-typed target'}
+          </span>
+          <label className="field">
+            <span className="field-label">Target level {target.level}</span>
+            <input
+              type="range"
+              min={1}
+              max={18}
+              value={target.level}
+              onChange={(event) => {
+                const level = Number(event.target.value);
+                if (mode === 'champion') applyChampion(targetChampionId, level);
+                else patchTarget({ level });
+              }}
+            />
+          </label>
+        </div>
+      </div>
+
       {mode === 'champion' ? (
         <>
-          <div className="champion-head">
-            {profile && version && (
-              <img
-                className="champion-portrait"
-                src={imageUrls.champion(version, profile.image.full)}
-                alt={profile.name}
-              />
-            )}
-            <div className="champion-head-body">
-              <span className="champion-title">{profile?.title ?? selected?.title ?? ''}</span>
-              <label className="field">
-                <span className="field-label">Target level</span>
-                <input
-                  type="range"
-                  min={1}
-                  max={18}
-                  value={target.level}
-                  onChange={(event) => applyChampion(championId, Number(event.target.value))}
-                />
-              </label>
-            </div>
-          </div>
-
           <div className="ability-ranks">
             {ABILITY_SLOTS.map((slot) => {
               const ability = abilityOf(profile, slot, version);
@@ -250,37 +257,13 @@ export function TargetPanel({
             })}
           </div>
 
-          <span className="field-hint">
-            Abilities are listed for orientation. The simulation models damage dealt to this
-            target, never the target acting.
-          </span>
-
           <hr className="divider" />
 
-          {stats && (
-            <div className="stat-sheet">
-              <StatRow
-                label="Health"
-                value={Math.round(stats.maxHealth).toLocaleString('en-US')}
-                detail={`level ${target.level} base, no items`}
-              />
-              <StatRow label="Armor" value={round1(stats.armor).toString()} />
-              <StatRow label="Magic Resistance" value={round1(stats.magicResist).toString()} />
-              <StatRow
-                label="Attack Damage"
-                value={Math.round(stats.totalAttackDamage).toString()}
-                detail="not used — the target does not fight back"
-              />
-            </div>
-          )}
-
-          <hr className="divider" />
-
-          <Situational target={target} patch={patch} />
+          {stats && <StatSheet stats={stats} />}
 
           <span className="field-hint">
-            Health and resistances follow the champion and its level. To bend them, switch to
-            Custom — the numbers come along.
+            Base stats at level {target.level}, without items. Of these, health and the two
+            resistances are what the simulation uses — the target never acts.
           </span>
         </>
       ) : (
@@ -292,137 +275,52 @@ export function TargetPanel({
                 type="number"
                 min={1}
                 value={Math.round(target.maxHealth)}
-                onChange={(event) => patch({ maxHealth: Math.max(1, Number(event.target.value)) })}
+                onChange={(event) =>
+                  patchTarget({ maxHealth: Math.max(1, Number(event.target.value)) })
+                }
               />
             </label>
             <label className="field">
-              <span className="field-label">Level</span>
+              <span className="field-label">Armor</span>
               <input
                 type="number"
-                min={1}
-                max={18}
-                value={target.level}
-                onChange={(event) => patch({ level: clamp(Number(event.target.value), 1, 18) })}
+                value={round1(target.armor)}
+                onChange={(event) => patchTarget({ armor: Number(event.target.value) })}
               />
             </label>
           </div>
 
           <div className="field-row">
             <label className="field">
-              <span className="field-label">Armor</span>
-              <input
-                type="number"
-                value={round1(target.armor)}
-                onChange={(event) => patch({ armor: Number(event.target.value) })}
-              />
-            </label>
-            <label className="field">
               <span className="field-label">Magic resistance</span>
               <input
                 type="number"
                 value={round1(target.magicResist)}
-                onChange={(event) => patch({ magicResist: Number(event.target.value) })}
+                onChange={(event) => patchTarget({ magicResist: Number(event.target.value) })}
               />
+            </label>
+            <label className="field">
+              <span className="field-label">Unit type</span>
+              <div className="segmented">
+                {(['champion', 'minion', 'monster'] as const).map((type) => (
+                  <button
+                    key={type}
+                    aria-pressed={target.unitType === type}
+                    onClick={() => patchTarget({ unitType: type })}
+                  >
+                    {type === 'champion' ? 'Champ' : type === 'minion' ? 'Minion' : 'Monster'}
+                  </button>
+                ))}
+              </div>
             </label>
           </div>
 
-          <div className="field">
-            <span className="field-label">Unit type</span>
-            <div className="segmented">
-              {(['champion', 'minion', 'monster'] as const).map((type) => (
-                <button
-                  key={type}
-                  aria-pressed={target.unitType === type}
-                  onClick={() => patch({ unitType: type })}
-                >
-                  {type === 'champion' ? 'Champion' : type === 'minion' ? 'Minion' : 'Monster'}
-                </button>
-              ))}
-            </div>
-            <span className="field-hint">
-              Affects caps such as the 300 damage cap on Denting Blows.
-            </span>
-          </div>
-
-          <hr className="divider" />
-
-          <Situational target={target} patch={patch} />
+          <span className="field-hint">
+            The unit type decides caps such as the 300 damage cap on Denting Blows.
+          </span>
         </>
       )}
     </Panel>
-  );
-}
-
-/**
- * The parts that apply whichever mode you are in: how hurt the target already
- * is, and what is soaking damage on top of resistances.
- */
-function Situational({
-  target,
-  patch,
-}: {
-  target: TargetConfig;
-  patch: (next: Partial<TargetConfig>) => void;
-}) {
-  return (
-    <>
-      <label className="field">
-        <span className="field-label">Current health</span>
-        <div className="input-with-suffix">
-          <input
-            type="number"
-            min={1}
-            max={100}
-            value={Math.round(target.currentHealthPercent * 100)}
-            onChange={(event) =>
-              patch({ currentHealthPercent: clamp(Number(event.target.value) / 100, 0.01, 1) })
-            }
-          />
-          <span className="input-suffix">%</span>
-        </div>
-      </label>
-
-      <div className="field-row">
-        <label className="field">
-          <span className="field-label">Damage reduction</span>
-          <div className="input-with-suffix">
-            <input
-              type="number"
-              min={0}
-              max={90}
-              value={Math.round(target.percentDamageReduction * 100)}
-              onChange={(event) =>
-                patch({ percentDamageReduction: clamp(Number(event.target.value) / 100, 0, 0.9) })
-              }
-            />
-            <span className="input-suffix">%</span>
-          </div>
-          <span className="field-hint">Exhaust, Randuin’s Omen …</span>
-        </label>
-        <label className="field">
-          <span className="field-label">Flat reduction</span>
-          <input
-            type="number"
-            min={0}
-            value={round1(target.flatDamageReduction)}
-            onChange={(event) =>
-              patch({ flatDamageReduction: Math.max(0, Number(event.target.value)) })
-            }
-          />
-          <span className="field-hint">Doran’s Shield, Bone Plating …</span>
-        </label>
-      </div>
-    </>
-  );
-}
-
-function StatRow({ label, value, detail }: { label: string; value: string; detail?: string }) {
-  return (
-    <div className="stat-row">
-      <span className="stat-label">{label}</span>
-      <span className="stat-value mono">{value}</span>
-      {detail && <span className="stat-detail">{detail}</span>}
-    </div>
   );
 }
 
@@ -446,11 +344,6 @@ function abilityOf(
     name: spell.name,
     icon: version ? imageUrls.spell(version, spell.image.full) : null,
   };
-}
-
-function clamp(value: number, min: number, max: number): number {
-  if (!Number.isFinite(value)) return min;
-  return Math.min(max, Math.max(min, value));
 }
 
 function round1(value: number): number {
