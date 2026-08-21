@@ -25,18 +25,9 @@
         <h1 class="lab-nav-title">Workshop</h1>
         <span class="lab-nav-sub">Where a feature is argued out</span>
         <ol>
-          <li><a href="#roll">The combo as a timeline</a></li>
-          <li><a href="#avail">Availability bar</a></li>
-          <li><a href="#hp">The target's health bar</a></li>
-          <li><a href="#waterfall">Mitigation chain</a></li>
-          <li><a href="#ttk">Time-to-kill matrix</a></li>
-          <li><a href="#contrib">What each item contributes</a></li>
-          <li><a href="#breaks">Thresholds</a></li>
-          <li><a href="#diff">Comparing two builds</a></li>
           <li><a href="#scaling">Scaling curve</a></li>
           <li><a href="#cmd">Typing a combo</a></li>
           <li><a href="#duel">1 versus 1</a></li>
-          <li><a href="#formula">The formula, expandable</a></li>
           <li><a href="#wire">Everything together</a></li>
           <li><a href="#close">What I would build first</a></li>
           <li class="lab-nav-break">Proposals — round two</li>
@@ -46,10 +37,8 @@
           <li><a href="#gold">Damage per 1,000 gold</a></li>
           <li><a href="#skill">Where the skill point goes</a></li>
           <li><a href="#optimise">The best order</a></li>
-          <li><a href="#mana">Can you pay for it</a></li>
           <li><a href="#metronome">The attack metronome</a></li>
           <li><a href="#reset">What a reset bought</a></li>
-          <li><a href="#lanes">Every effect a lane</a></li>
           <li><a href="#window">Fitting the windows</a></li>
           <li><a href="#spread">Crit as a spread</a></li>
           <li><a href="#burst">A window you choose</a></li>
@@ -88,564 +77,7 @@
           </p>
         </header>
 
-        <!-- ================================================= 01 Timeline -->
-        <section class="lab-section" id="roll">
-          <div class="lab-section-head">
-            <span class="lab-num">01</span>
-            <h2>The combo as a timeline, not as a list</h2>
-            <div class="lab-cost"><span class="lab-pill ready">built</span>
-              <span class="lab-pill ready">data available</span>
-            </div>
-          </div>
-          <p class="lab-why">
-            To my mind this is the most important proposal on the page. The simulation
-            <em>is</em> a timeline — but the combo is built as a row of cards and read
-            as a table, so you have to work out what happens simultaneously yourself.
-            Here every ability sits in a lane of its own:
-            <strong>blocks are cast times, diamonds are hits, and the thin strip
-            under each lane is the cooldown.</strong> You can see at a glance that
-            W's armor reduction only takes hold from 1.99 s — so it applies to R at
-            3.20 s, but not to the basic attacks before it. This one has since been
-            built: the Gantt timeline is no longer a proposal but a shipped feature,
-            and the app draws it straight from the span data the simulation already
-            produces.
-          </p>
-          <div class="lab-stage">
-            <svg class="roll" viewBox="0 0 1060 246" role="img"
-              aria-label="Combo timeline with lanes for Q, W, E, R and basic attacks">
-              <defs>
-                <pattern id="hatch" width="6" height="6" patternTransform="rotate(45)"
-                  patternUnits="userSpaceOnUse">
-                  <rect width="6" height="6" fill="rgba(79,176,232,0.14)" />
-                  <line x1="0" y1="0" x2="0" y2="6" stroke="rgba(79,176,232,0.5)" stroke-width="2" />
-                </pattern>
-              </defs>
-
-              <!-- Time grid: half seconds fine, whole seconds emphasized -->
-              <line class="roll-grid" x1="204" y1="22" x2="204" y2="222" />
-              <line class="roll-grid major" x1="304" y1="16" x2="304" y2="222" />
-              <line class="roll-grid" x1="404" y1="22" x2="404" y2="222" />
-              <line class="roll-grid major" x1="504" y1="16" x2="504" y2="222" />
-              <line class="roll-grid" x1="604" y1="22" x2="604" y2="222" />
-              <line class="roll-grid major" x1="704" y1="16" x2="704" y2="222" />
-              <line class="roll-grid" x1="804" y1="22" x2="804" y2="222" />
-              <line class="roll-grid major" x1="904" y1="16" x2="904" y2="222" />
-              <line class="roll-grid" x1="1004" y1="22" x2="1004" y2="222" />
-
-              <text class="roll-tick" x="104" y="12">0 s</text>
-              <text class="roll-tick" x="304" y="12">1 s</text>
-              <text class="roll-tick" x="504" y="12">2 s</text>
-              <text class="roll-tick" x="704" y="12">3 s</text>
-              <text class="roll-tick" x="904" y="12">4 s</text>
-
-              <!-- ---------------------------------------------------- Q -->
-              <rect class="roll-lane-bg" x="104" y="26" width="900" height="30" />
-              <text class="roll-lane-label" x="8" y="45">Q Vault Breaker</text>
-              <rect class="roll-charge" x="104" y="30" width="250" height="18" />
-              <text class="roll-note" x="110" y="43">1.25 s charging</text>
-              <rect x="354" y="30" width="50" height="18" rx="2" fill="var(--slot-q)"
-                fill-opacity="0.55" stroke="var(--slot-q)" />
-              <path d="M404 39 l7 -7 l7 7 l-7 7 z" fill="var(--gold-200)" />
-              <text class="roll-hit-label" x="420" y="43">158</text>
-              <!-- Cooldown starts on the cast, not on the hit -->
-              <rect class="roll-cd" x="354" y="50" width="650" height="4" />
-              <text class="roll-note" x="600" y="47">cooldown 6 s → ready at 7.25 s</text>
-
-              <!-- ---------------------------------------------------- W -->
-              <rect class="roll-lane-bg" x="104" y="64" width="900" height="30" />
-              <text class="roll-lane-label" x="8" y="83">W Denting Blows</text>
-              <text class="roll-note" x="410" y="76">1/3</text>
-              <text class="roll-note" x="454" y="76">2/3</text>
-              <path d="M502 77 l7 -7 l7 7 l-7 7 z" fill="var(--series-physical)" />
-              <text class="roll-hit-label" x="518" y="81">77</text>
-              <text class="roll-note" x="548" y="81">3rd hit</text>
-              <rect class="roll-shred" x="502" y="88" width="502" height="4" />
-              <text class="roll-note" x="640" y="86">−20% armor, 4 s — applies to everything after</text>
-
-              <!-- ---------------------------------------------------- E -->
-              <rect class="roll-lane-bg" x="104" y="102" width="900" height="30" />
-              <text class="roll-lane-label" x="8" y="121">E Relentless Force</text>
-              <rect x="458" y="106" width="44" height="18" rx="2" fill="var(--slot-e)"
-                fill-opacity="0.5" stroke="var(--slot-e)" />
-              <path d="M502 115 l7 -7 l7 7 l-7 7 z" fill="var(--slot-e)" />
-              <text class="roll-hit-label" x="518" y="119">63</text>
-              <text class="roll-note" x="548" y="119">replaces the attack · timer reset</text>
-              <rect class="roll-cd" x="458" y="126" width="546" height="4" />
-              <text class="roll-note" x="760" y="123">charge 1/2 · next in 10 s</text>
-
-              <!-- ---------------------------------------------------- R -->
-              <rect class="roll-lane-bg" x="104" y="140" width="900" height="30" />
-              <text class="roll-lane-label" x="8" y="159">R Cease and Desist</text>
-              <rect x="694" y="144" width="50" height="18" rx="2" fill="var(--slot-r)"
-                fill-opacity="0.5" stroke="var(--slot-r)" />
-              <text class="roll-note" x="698" y="157">dash</text>
-              <path d="M744 153 l7 -7 l7 7 l-7 7 z" fill="var(--slot-r)" />
-              <text class="roll-hit-label" x="760" y="157">145</text>
-              <text class="roll-note" x="790" y="157">after W's reduction</text>
-              <rect class="roll-cd" x="694" y="164" width="310" height="4" />
-              <text class="roll-note" x="890" y="157">115 s</text>
-
-              <!-- --------------------------------------------------- AA -->
-              <rect class="roll-lane-bg" x="104" y="178" width="900" height="30" />
-              <text class="roll-lane-label" x="8" y="197">AA Basic attack</text>
-              <path d="M448 191 l6 -6 l6 6 l-6 6 z" fill="var(--slot-p)" />
-              <text class="roll-hit-label" x="462" y="195">33</text>
-              <path d="M884 191 l6 -6 l6 6 l-6 6 z" fill="var(--slot-p)" />
-              <text class="roll-hit-label" x="898" y="195">33</text>
-              <rect class="roll-cd" x="448" y="202" width="70" height="4" />
-              <text class="roll-note" x="524" y="199">attack timer 1.32 s → 0.91 s after W</text>
-
-              <line x1="104" y1="222" x2="1004" y2="222" stroke="var(--line)" />
-              <text class="roll-note" x="104" y="238">
-                550 effective in total · 1,005 raw · target survives with 1,550 HP
-              </text>
-            </svg>
-          </div>
-          <p class="lab-caption">
-            Real values from the current simulation. The lanes make visible what the
-            table only asserts: Q charges for 1.25 s before anything happens at all,
-            and its cooldown runs from the cast — the dash is already inside it.
-          </p>
-
-          <h3 style="font-size: 14px; color: var(--gold-200); margin: 24px 0 8px">
-            The same view when the combo has to wait
-          </h3>
-          <p class="lab-why">
-            The real payoff shows up in a combo that does not come together.
-            <strong>Q Q Q</strong> is not a burst combo but three casts spread over
-            15.75 seconds — in the list they look identical, here they do not.
-          </p>
-          <div class="lab-stage">
-            <svg class="roll" viewBox="0 0 1060 132" role="img"
-              aria-label="Timeline of the combo Q Q Q with two stretches of idle time">
-              <line class="roll-grid major" x1="188" y1="16" x2="188" y2="112" />
-              <line class="roll-grid major" x1="272" y1="16" x2="272" y2="112" />
-              <line class="roll-grid major" x1="356" y1="16" x2="356" y2="112" />
-              <line class="roll-grid major" x1="440" y1="16" x2="440" y2="112" />
-              <line class="roll-grid major" x1="524" y1="16" x2="524" y2="112" />
-              <line class="roll-grid major" x1="608" y1="16" x2="608" y2="112" />
-              <line class="roll-grid major" x1="692" y1="16" x2="692" y2="112" />
-              <line class="roll-grid major" x1="776" y1="16" x2="776" y2="112" />
-              <text class="roll-tick" x="104" y="12">0 s</text>
-              <text class="roll-tick" x="272" y="12">4 s</text>
-              <text class="roll-tick" x="440" y="12">8 s</text>
-              <text class="roll-tick" x="608" y="12">12 s</text>
-              <text class="roll-tick" x="776" y="12">16 s</text>
-
-              <rect class="roll-lane-bg" x="104" y="26" width="760" height="30" />
-              <text class="roll-lane-label" x="8" y="45">Q Vault Breaker</text>
-              <rect class="roll-charge" x="104" y="30" width="52" height="18" />
-              <path d="M167 39 l7 -7 l7 7 l-7 7 z" fill="var(--gold-200)" />
-              <text class="roll-hit-label" x="150" y="26">158</text>
-              <rect class="roll-charge" x="408" y="30" width="52" height="18" />
-              <path d="M471 39 l7 -7 l7 7 l-7 7 z" fill="var(--gold-200)" />
-              <text class="roll-hit-label" x="454" y="26">158</text>
-              <rect class="roll-charge" x="702" y="30" width="52" height="18" />
-              <path d="M765 39 l7 -7 l7 7 l-7 7 z" fill="var(--gold-200)" />
-              <text class="roll-hit-label" x="748" y="26">158</text>
-              <rect class="roll-cd" x="156" y="50" width="252" height="4" />
-              <rect class="roll-cd" x="460" y="50" width="242" height="4" />
-
-              <rect class="roll-lane-bg" x="104" y="64" width="760" height="30" />
-              <text class="roll-lane-label" x="8" y="83">Idle</text>
-              <rect class="roll-idle" x="167" y="68" width="241" height="18" />
-              <text class="roll-note" x="200" y="81">waiting 5.75 s — Q on cooldown</text>
-              <rect class="roll-idle" x="471" y="68" width="231" height="18" />
-              <text class="roll-note" x="500" y="81">waiting 5.50 s</text>
-
-              <text class="roll-note" x="104" y="122">
-                474 damage over 15.75 s · 30 damage per second — the very same three casts
-              </text>
-            </svg>
-          </div>
-        </section>
-
-        <!-- ============================================= 02 Availability -->
-        <section class="lab-section" id="avail">
-          <div class="lab-section-head">
-            <span class="lab-num">02</span>
-            <h2>What is ready right now?</h2>
-            <div class="lab-cost"><span class="lab-pill ready">data available</span></div>
-          </div>
-          <p class="lab-why">
-            One line that fits into the pinned bar and keeps pace while you build the
-            combo: <strong>at the end of the combo</strong> Q still has 3.35 s of
-            cooldown left, E has one of its two charges, R is gone for the next
-            111 s. That way you know before the next step whether it is possible at
-            all — instead of finding out only from the idle time in the timeline.
-          </p>
-          <div class="lab-stage plain">
-            <div class="avail">
-              <span class="avail-chip q">
-                <span class="avail-key">Q</span>
-                <span class="avail-meter"><span style="width: 44%"></span></span>
-                <span class="avail-time">3.35 s</span>
-              </span>
-              <span class="avail-chip w">
-                <span class="avail-key">W</span>
-                <span class="avail-ammo"><i class="full"></i><i class="full"></i><i></i></span>
-                <span class="avail-time">2/3</span>
-              </span>
-              <span class="avail-chip e">
-                <span class="avail-key">E</span>
-                <span class="avail-ammo"><i class="full"></i><i></i></span>
-                <span class="avail-time">7.8 s</span>
-              </span>
-              <span class="avail-chip r">
-                <span class="avail-key">R</span>
-                <span class="avail-meter"><span style="width: 3%"></span></span>
-                <span class="avail-time">111 s</span>
-              </span>
-              <span class="avail-chip">
-                <span class="avail-key">AA</span>
-                <span class="avail-ready">ready</span>
-              </span>
-            </div>
-          </div>
-          <p class="lab-caption">
-            W shows no cooldown but its counter instead — the view follows the
-            mechanic rather than forcing one uniform bar onto everything.
-          </p>
-        </section>
-
-        <!-- ============================================== 03 Health bar -->
-        <section class="lab-section" id="hp">
-          <div class="lab-section-head">
-            <span class="lab-num">03</span>
-            <h2>The health bar everyone knows from the game</h2>
-            <div class="lab-cost"><span class="lab-pill ready">partly built</span><span class="lab-pill ready">data available</span></div>
-          </div>
-          <p class="lab-why">
-            “Target survives with 1,550 HP” is a number; <em>this</em> is a picture.
-            Every segment is one hit in the order it lands, as wide as its damage —
-            and the hatched remainder is what is missing. Anyone building a combo
-            wants to know exactly that: <strong>is it enough?</strong>
-          </p>
-          <div class="lab-stage plain">
-            <div class="hpbar">
-              <div class="hpbar-seg physical" style="width: 7.52%" title="Vault Breaker (Q) 158">158</div>
-              <div class="hpbar-seg physical" style="width: 1.57%" title="Basic attack 33"></div>
-              <div class="hpbar-seg physical" style="width: 3%" title="Relentless Force (E) 63">63</div>
-              <div class="hpbar-seg physical" style="width: 3.67%" title="Denting Blows (W) 77">77</div>
-              <div class="hpbar-seg physical" style="width: 6.9%" title="Cease and Desist (R) 145">145</div>
-              <div class="hpbar-seg physical" style="width: 1.57%" title="Basic attack 33"></div>
-              <div class="hpbar-rest">1,550 HP left — 1,550 damage missing</div>
-            </div>
-            <div class="hpbar-scale">
-              <span>0</span><span>525</span><span>1,050</span><span>1,575</span><span>2,100 HP</span>
-            </div>
-          </div>
-          <p class="lab-caption">
-            Color is the damage type, not the source — the same coding as in the
-            chart. On a lethal result the bar would run all the way to the end and the
-            overkill would stand to the right as a segment of its own.
-          </p>
-        </section>
-
-        <!-- ================================================ 04 Waterfall -->
-        <section class="lab-section" id="waterfall">
-          <div class="lab-section-head">
-            <span class="lab-num">04</span>
-            <h2>Where half the damage disappears to</h2>
-            <div class="lab-cost"><span class="lab-pill ready">data available</span></div>
-          </div>
-          <p class="lab-why">
-            The mitigation chain is the most carefully written piece of code in the
-            project — and the most invisible one. “Throughput 55%” does not say
-            <em>where</em> the other 45% went. Read as a waterfall it turns into a
-            calculation you can follow: 1,005 raw, of which armor eats 455, and
-            whatever W's armor reduction wins back gets a line of its own inside it.
-          </p>
-          <div class="lab-stage">
-            <div class="waterfall">
-              <div class="wf-row">
-                <span class="wf-label"><b>Raw damage</b>all hits, before anything else</span>
-                <span class="wf-track"><span class="wf-fill total" style="left: 0; width: 100%"></span></span>
-                <span class="wf-value">1,005</span>
-              </div>
-              <div class="wf-row">
-                <span class="wf-label"><b>− Armor 90</b>×0.526 on physical</span>
-                <span class="wf-track"><span class="wf-fill loss" style="left: 52.6%; width: 47.4%"></span></span>
-                <span class="wf-value loss">−476</span>
-              </div>
-              <div class="wf-row">
-                <span class="wf-label"><b>+ Armor reduction from W</b>−20% from 1.99 s</span>
-                <span class="wf-track"><span class="wf-fill kept" style="left: 50.5%; width: 2.1%"></span></span>
-                <span class="wf-value" style="color: var(--status-good)">+21</span>
-              </div>
-              <div class="wf-row">
-                <span class="wf-label"><b>Effective damage</b>what arrived at the target</span>
-                <span class="wf-track"><span class="wf-fill kept" style="left: 0; width: 54.7%"></span></span>
-                <span class="wf-value">550</span>
-              </div>
-            </div>
-          </div>
-          <p class="lab-caption">
-            With penetration, lethality or flat reduction there would be one more row
-            each — in the order the engine applies them. That is what turns the
-            waterfall into a set of instructions for what to change about the build.
-          </p>
-        </section>
-
-        <!-- ======================================================= 05 TTK -->
-        <section class="lab-section" id="ttk">
-          <div class="lab-section-head">
-            <span class="lab-num">05</span>
-            <h2>Who is the combo actually enough against?</h2>
-            <div class="lab-cost">
-              <span class="lab-pill needs">invented numbers</span>
-              <span class="lab-pill needs">needs repeated simulation runs</span>
-            </div>
-          </div>
-          <p class="lab-why">
-            Today the calculator answers one question per run: is it enough against
-            <em>this</em> target. The more interesting thing is the map — at which
-            combination of health and armor does it tip over? The simulation is fast
-            enough to compute that repeatedly across a grid: <strong>one cell is one
-            complete run</strong>, and the edge between green and red is the real
-            answer.
-          </p>
-          <div class="lab-stage">
-            <table class="heat">
-              <thead>
-                <tr>
-                  <th></th>
-                  <th colspan="6">Target armor</th>
-                </tr>
-                <tr>
-                  <th class="rowhead">Health</th>
-                  <th>0</th><th>30</th><th>60</th><th>90</th><th>120</th><th>150</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <th class="rowhead">1,200</th>
-                  <td class="dead-fast">1.7 s</td>
-                  <td class="dead-fast">1.9 s</td>
-                  <td class="dead">2.9 s</td>
-                  <td class="dead">3.2 s</td>
-                  <td class="close">3.9 s</td>
-                  <td class="alive">−140</td>
-                </tr>
-                <tr>
-                  <th class="rowhead">1,600</th>
-                  <td class="dead-fast">1.9 s</td>
-                  <td class="dead">3.2 s</td>
-                  <td class="dead">3.6 s</td>
-                  <td class="close">3.9 s</td>
-                  <td class="alive">−280</td>
-                  <td class="alive">−430</td>
-                </tr>
-                <tr>
-                  <th class="rowhead">2,100</th>
-                  <td class="dead">3.2 s</td>
-                  <td class="close">3.9 s</td>
-                  <td class="alive">−90</td>
-                  <td class="alive">−1,550</td>
-                  <td class="alive">−1,700</td>
-                  <td class="alive-far">−1,820</td>
-                </tr>
-                <tr>
-                  <th class="rowhead">2,600</th>
-                  <td class="close">3.9 s</td>
-                  <td class="alive">−400</td>
-                  <td class="alive">−1,320</td>
-                  <td class="alive-far">−2,050</td>
-                  <td class="alive-far">−2,200</td>
-                  <td class="alive-far">−2,320</td>
-                </tr>
-                <tr>
-                  <th class="rowhead">3,200</th>
-                  <td class="alive">−260</td>
-                  <td class="alive-far">−1,400</td>
-                  <td class="alive-far">−1,920</td>
-                  <td class="alive-far">−2,650</td>
-                  <td class="alive-far">−2,800</td>
-                  <td class="alive-far">−2,920</td>
-                </tr>
-              </tbody>
-            </table>
-            <div class="heat-legend">
-              <span><i style="background: #12b886"></i> dies in under 2 s</span>
-              <span><i style="background: #6cba7a"></i> dies</span>
-              <span><i style="background: #d9a441"></i> barely dies</span>
-              <span><i style="background: rgba(224,75,75,0.75)"></i> survives (damage missing)</span>
-            </div>
-          </div>
-          <p class="lab-caption">
-            The current target setting would be marked on the map, so you can see your
-            own result in context. The axes would be switchable — health against
-            armor, against magic resistance, against champion level.
-          </p>
-        </section>
-
-        <!-- ============================================== 06 Contributions -->
-        <section class="lab-section" id="contrib">
-          <div class="lab-section-head">
-            <span class="lab-num">06</span>
-            <h2>What each item really contributes</h2>
-            <div class="lab-cost">
-              <span class="lab-pill needs">invented numbers</span>
-              <span class="lab-pill needs">one run per item, without it</span>
-            </div>
-          </div>
-          <p class="lab-why">
-            An item advertises stats; what is interesting is the damage it actually
-            adds <em>in this combo</em>. That can be answered exactly, by running the
-            simulation once without each item and taking the difference. Out of that
-            comes the number that carries build decisions:
-            <strong>damage per 1,000 gold</strong>. And it exposes items whose stats
-            never arrive here at all.
-          </p>
-          <div class="lab-stage">
-            <div class="contrib">
-              <div class="contrib-row">
-                <span class="contrib-name"><span class="contrib-icon">◆</span> Black Cleaver</span>
-                <span class="contrib-track"><span style="width: 100%"></span></span>
-                <span class="contrib-value">+189</span>
-                <span class="contrib-eff">61 / 1k g</span>
-              </div>
-              <div class="contrib-row">
-                <span class="contrib-name"><span class="contrib-icon">◆</span> Sundered Sky</span>
-                <span class="contrib-track"><span style="width: 62%"></span></span>
-                <span class="contrib-value">+117</span>
-                <span class="contrib-eff">38 / 1k g</span>
-              </div>
-              <div class="contrib-row">
-                <span class="contrib-name"><span class="contrib-icon">◆</span> Trinity Force</span>
-                <span class="contrib-track"><span style="width: 54%"></span></span>
-                <span class="contrib-value">+102</span>
-                <span class="contrib-eff">29 / 1k g</span>
-              </div>
-              <div class="contrib-row">
-                <span class="contrib-name"><span class="contrib-icon">◆</span> Sterak's Gage</span>
-                <span class="contrib-track"><span style="width: 17%"></span></span>
-                <span class="contrib-value">+32</span>
-                <span class="contrib-eff weak">10 / 1k g</span>
-              </div>
-              <div class="contrib-row">
-                <span class="contrib-name"><span class="contrib-icon">◆</span> Guardian Angel</span>
-                <span class="contrib-track"><span style="width: 3%"></span></span>
-                <span class="contrib-value">+6</span>
-                <span class="contrib-eff weak">2 / 1k g</span>
-              </div>
-            </div>
-          </div>
-          <p class="lab-caption">
-            The same view works for runes and for individual stats (“what do the last
-            10 AD get me?”). What would matter is an honest note wherever a passive is
-            not modelled yet — otherwise a pure-stats item looks worse here than it
-            really is.
-          </p>
-        </section>
-
-        <!-- ================================================ 07 Thresholds -->
-        <section class="lab-section" id="breaks">
-          <div class="lab-section-head">
-            <span class="lab-num">07</span>
-            <h2>Thresholds instead of numbers you have to interpret yourself</h2>
-            <div class="lab-cost">
-              <span class="lab-pill needs">invented numbers</span>
-              <span class="lab-pill needs">search over one parameter</span>
-            </div>
-          </div>
-          <p class="lab-why">
-            In the end you do not want a number, you want a decision. When the combo
-            falls 1,550 damage short, the useful statement is not “550” but
-            <strong>how far away the kill is</strong> — in attack damage, in ability
-            ranks, in target armor. Each of these cards is a small search over one
-            parameter, run until the outcome flips.
-          </p>
-          <div class="lab-stage plain">
-            <div class="breaks">
-              <div class="break-card good">
-                <div class="break-head">+142 AD</div>
-                <div class="break-what">and the combo kills this target</div>
-                <div class="break-why">
-                  Roughly two attack damage items. Q and R scale with bonus AD, E with
-                  total AD.
-                </div>
-              </div>
-              <div class="break-card">
-                <div class="break-head">3 × AA</div>
-                <div class="break-what">are enough instead of more items</div>
-                <div class="break-why">
-                  Three more attacks after the combo, thanks to W's reduction and
-                  attack speed — 2.7 s longer in the fight.
-                </div>
-              </div>
-              <div class="break-card bad">
-                <div class="break-head">from 96 armor</div>
-                <div class="break-what">the combo loses more than half</div>
-                <div class="break-why">
-                  Throughput drops below 50%. From here on, armor penetration is worth
-                  more than further attack damage.
-                </div>
-              </div>
-              <div class="break-card">
-                <div class="break-head">Q at rank 5</div>
-                <div class="break-what">+30 damage over rank 4</div>
-                <div class="break-why">
-                  The cheapest gain in this combo — ahead of R at rank 3
-                  (+22) and E at rank 4 (+18).
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- ======================================================= 08 Diff -->
-        <section class="lab-section" id="diff">
-          <div class="lab-section-head">
-            <span class="lab-num">08</span>
-            <h2>Two builds side by side</h2>
-            <div class="lab-cost">
-              <span class="lab-pill needs">invented numbers</span>
-              <span class="lab-pill needs">second build in the state</span>
-            </div>
-          </div>
-          <p class="lab-why">
-            Almost every question you put to a damage calculator is a comparison: this
-            item or that one, this combo order or the other. Today you have to
-            memorize the first result, change things around and subtract in your head.
-            A second build held in the state turns that into
-            <strong>one difference column</strong> — and since the engine runs twice
-            either way, all it costs is the presentation.
-          </p>
-          <div class="lab-stage">
-            <div class="diff">
-              <div class="diff-col">
-                <div class="diff-title">A — Cleaver first</div>
-                <div class="diff-line"><span>Total damage</span><b>739</b></div>
-                <div class="diff-line"><span>Burst (1 s)</span><b>398</b></div>
-                <div class="diff-line"><span>Time to kill</span><b>—</b></div>
-                <div class="diff-line"><span>Throughput</span><b>61%</b></div>
-                <div class="diff-line"><span>Gold</span><b>3,100</b></div>
-              </div>
-              <div class="diff-middle">
-                <span class="diff-delta up">+128</span>
-                <span class="diff-delta up">+43</span>
-                <span class="diff-delta flat">—</span>
-                <span class="diff-delta up">+7%</span>
-                <span class="diff-delta down">+200</span>
-              </div>
-              <div class="diff-col b">
-                <div class="diff-title">B — Sundered Sky first</div>
-                <div class="diff-line"><span>Total damage</span><b>867</b></div>
-                <div class="diff-line"><span>Burst (1 s)</span><b>441</b></div>
-                <div class="diff-line"><span>Time to kill</span><b>—</b></div>
-                <div class="diff-line"><span>Throughput</span><b>68%</b></div>
-                <div class="diff-line"><span>Gold</span><b>3,300</b></div>
-              </div>
-            </div>
-          </div>
-          <p class="lab-caption">
-            Stronger still with both curves drawn over each other in the same chart:
-            then you see not just that B does more, but from what point on.
-          </p>
-        </section>
-
-        <!-- ==================================================== 09 Curve -->
+                                                                        <!-- ==================================================== 09 Curve -->
         <section class="lab-section" id="scaling">
           <div class="lab-section-head">
             <span class="lab-num">09</span>
@@ -815,45 +247,7 @@
           </p>
         </section>
 
-        <!-- ==================================================== 12 Formula -->
-        <section class="lab-section" id="formula">
-          <div class="lab-section-head">
-            <span class="lab-num">12</span>
-            <h2>The formula at the hit, not in a table of its own</h2>
-            <div class="lab-cost"><span class="lab-pill ready">built</span><span class="lab-pill ready">data available</span></div>
-          </div>
-          <p class="lab-why">
-            The formula inspector is one of the best things about the project, but it
-            sits a long way from the hit that is actually in question. As an
-            expandable card <em>on the timeline row</em> it answers the question at
-            the moment of doubt: <strong>why 158?</strong> Every number in it names
-            where it came from.
-          </p>
-          <div class="lab-stage plain">
-            <div class="formula-card">
-              <div class="formula-head">
-                <b>Vault Breaker (Q) · 1.50 s</b>
-                <span class="tag good" style="font-size: 9px">game data</span>
-              </div>
-              <div class="formula-expr">
-                <em title="MaxDamageTooltip, rank 5, from the bin file">300</em>
-                <span class="num">base</span> + <em title="bonus AD ratio, fully charged">150%</em>
-                × <em title="bonus attack damage from items and runes">0</em>
-                <span class="num">bonus AD</span> = <em>300</em> raw<br />
-                × <em title="100 / (100 + 90) — effective armor after all reductions">0.526</em>
-                <span class="num">armor 90</span>
-              </div>
-              <div class="formula-result">= 158 effective</div>
-              <div class="formula-trace">
-                Charge 100% (1.25 s of 1.25 s) · formula <code>ViQ.MaxDamageTooltip</code>
-                from patch 16.16, checked against Data Dragon · armor undiminished, W
-                has not gone off yet at this point
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- ===================================================== 13 Layout -->
+                <!-- ===================================================== 13 Layout -->
         <section class="lab-section" id="wire">
           <div class="lab-section-head">
             <span class="lab-num">13</span>
@@ -1224,48 +618,7 @@
           </p>
         </section>
 
-        <!-- ============================================== 20 Mana as a track -->
-        <section class="lab-section" id="mana">
-          <div class="lab-section-head">
-            <span class="lab-num">20</span>
-            <h2>Can you even pay for this combo?</h2>
-            <div class="lab-cost"><span class="lab-pill ready">built</span><span class="lab-pill ready">data available</span></div>
-          </div>
-          <p class="lab-why">
-            Every cost is in the game data already — the bin file carries mana per
-            rank next to the damage, and the app cross-checks it against Data Dragon
-            on load. Nothing uses it. A combo that needs 340 mana from a 250 mana
-            pool is not a combo, and right now the tool would report its damage
-            without a word.
-          </p>
-          <div class="lab-stage plain">
-            <div class="mana">
-              <div class="mana-track">
-                <span class="mana-fill" style="width: 100%"></span>
-                <span class="mana-spend q" style="left: 100%; width: 9%" title="Q · 80"></span>
-                <span class="mana-spend e" style="left: 91%; width: 5%" title="E · 44"></span>
-                <span class="mana-spend r" style="left: 86%; width: 11%" title="R · 100"></span>
-                <span class="mana-cap"></span>
-              </div>
-              <div class="mana-legend">
-                <span><i class="q"></i>Q 80</span>
-                <span><i class="e"></i>E 44</span>
-                <span><i class="r"></i>R 100</span>
-                <span class="mana-left mono">641 / 865 left</span>
-              </div>
-            </div>
-          </div>
-          <p class="lab-caption">
-            Same shape for energy and for the manaless: a champion who pays nothing
-            gets an empty rail rather than a missing one, so both sides of the
-            workbench stay the same height. <strong>Implementation:</strong> add mana
-            to the simulation's per-step snapshot, read the cost with the existing
-            <code>spellTiming(…, 'cost', rank)</code> helper, and warn when it goes
-            negative.
-          </p>
-        </section>
-
-        <!-- ========================================= 21 The attack metronome -->
+                <!-- ========================================= 21 The attack metronome -->
         <section class="lab-section" id="metronome">
           <div class="lab-section-head">
             <span class="lab-num">21</span>
@@ -1345,57 +698,7 @@
           </p>
         </section>
 
-        <!-- ============================================= 23 Buff lanes (Gantt) -->
-        <section class="lab-section" id="lanes">
-          <div class="lab-section-head">
-            <span class="lab-num">23</span>
-            <h2>Every timed effect as its own lane</h2>
-            <div class="lab-cost"><span class="lab-pill ready">built</span><span class="lab-pill ready">data available</span></div>
-          </div>
-          <p class="lab-why">
-            Buffs and debuffs are the part of a fight that is invisible in a table of
-            hits. The armour shred lasts four seconds; the keystone lasts three
-            attacks; the shield lasts three seconds. Whether the ultimate lands
-            inside or outside those windows is worth more than any total, and it is
-            a question only a picture answers.
-          </p>
-          <div class="lab-stage plain">
-            <div class="lanes">
-              <div class="lanes-row">
-                <span class="lanes-label">Armor −20%</span>
-                <span class="lanes-track"><span class="span shred" style="left: 31%; width: 44%"></span></span>
-              </div>
-              <div class="lanes-row">
-                <span class="lanes-label">Hail of Blades</span>
-                <span class="lanes-track"><span class="span keystone" style="left: 2%; width: 26%"></span></span>
-              </div>
-              <div class="lanes-row">
-                <span class="lanes-label">+45% attack speed</span>
-                <span class="lanes-track"><span class="span buff" style="left: 31%; width: 44%"></span></span>
-              </div>
-              <div class="lanes-row">
-                <span class="lanes-label">Blast Shield</span>
-                <span class="lanes-track"><span class="span shield" style="left: 14%; width: 33%"></span></span>
-              </div>
-              <div class="lanes-row is-hits">
-                <span class="lanes-label">Hits</span>
-                <span class="lanes-track">
-                  <i style="left: 14%"></i><i style="left: 22%"></i><i style="left: 31%"></i>
-                  <i style="left: 31.5%"></i><i style="left: 58%"></i><i style="left: 79%"></i>
-                </span>
-              </div>
-            </div>
-          </div>
-          <p class="lab-caption">
-            The last hit sits outside the shred window — 20% armour that the biggest
-            number in the combo does not benefit from. Reordering fixes it, and the
-            optimiser two sections up would find it.
-            <strong>Implementation:</strong> <code>analysis.spans</code> already
-            holds start, end and label per effect. This is a renderer, not a feature.
-          </p>
-        </section>
-
-        <!-- ========================================== 24 Shred window fitting -->
+                <!-- ========================================== 24 Shred window fitting -->
         <section class="lab-section" id="window">
           <div class="lab-section-head">
             <span class="lab-num">24</span>
@@ -2192,9 +1495,28 @@
             first, against the thought and not against the label.
           </p>
           <div class="lab-stage plain">
-            <p class="empty-note">
-              Nothing here yet. Name a proposal by its number and it lands here.
-            </p>
+            <ul class="lab-scrap">
+              <li>
+                <b>Two builds side by side (08)</b>
+                <span>Hold a second build in state and put one difference column between
+                the two results: same combo, same target, two item sets, and every figure
+                shown as the delta between them.</span>
+                <em>Out. Watch for it coming back as "compare builds", an A/B toggle, a
+                pinned build to measure against, or a second column of numbers anywhere —
+                same thought.</em>
+              </li>
+              <li>
+                <b>Thresholds instead of numbers (07)</b>
+                <span>Cards that convert a result into the decision behind it: how much
+                attack damage is still missing for the kill, how many more autos, how
+                much target armour would flip the outcome, whether the next skill point
+                changes it — each one found by nudging a parameter and re-simulating
+                until the verdict flips.</span>
+                <em>Out. Watch for it coming back as "break-even points", "what would it
+                take", a solver-shaped search over one stat, or a tile that answers "how
+                far off am I" — same thought, different label.</em>
+              </li>
+            </ul>
           </div>
         </section>
 

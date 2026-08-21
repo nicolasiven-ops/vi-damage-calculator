@@ -27,6 +27,11 @@ interface Props {
   live?: LiveStats;
   /** The moment the sheet's arrows are measured against. */
   previous?: StatComparison | null;
+  /** Cooldowns and charges at the focused moment, keyed by slot. */
+  readiness?: Record<
+    string,
+    { readyIn: number; cooldown: number; charges?: { available: number; max: number } }
+  >;
   onLevelChange: (level: number) => void;
   onRankChange: (slot: AbilitySlot, rank: number) => void;
 }
@@ -41,6 +46,7 @@ export function ChampionPanel({
   stats,
   live,
   previous,
+  readiness,
   onLevelChange,
   onRankChange,
 }: Props) {
@@ -78,6 +84,7 @@ export function ChampionPanel({
           icon: spellIcon(detail, ability, version),
           maxRank: ability.maxRank,
           rank: ranks[ability.slot] ?? 0,
+          readiness: readiness?.[ability.slot],
         }))}
         onRankChange={(slot, rank) => onRankChange(slot as AbilitySlot, rank)}
       />

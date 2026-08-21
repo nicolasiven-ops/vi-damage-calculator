@@ -15,6 +15,8 @@ export interface FightMoment {
   attacker: ChampionStats;
   /** The attacker's resource at this moment, spent by casts. */
   attackerResource: { current: number; max: number };
+  /** What is up and what is on cooldown at this moment. */
+  abilities: StatSnapshot['abilities'];
   shieldGained: number;
   target: StatSnapshot['target'];
   /** Seconds into the combo. */
@@ -73,6 +75,7 @@ export function fightMoment(
         current: fallback.attacker.maxMana,
         max: fallback.attacker.maxMana,
       },
+      abilities: [],
       shieldGained: 0,
       target: fallback.target,
       time: 0,
@@ -87,6 +90,7 @@ export function fightMoment(
   return {
     attacker: source.attacker,
     attackerResource: source.attackerResource,
+    abilities: source.abilities,
     shieldGained: source.shieldGained,
     target: source.target,
     time: source.time,

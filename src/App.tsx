@@ -532,6 +532,12 @@ export default function App() {
               ranks={build.ranks}
               abilities={abilities}
               stats={moment.attacker}
+              readiness={Object.fromEntries(
+                moment.abilities.map((entry) => [
+                  entry.slot,
+                  { readyIn: entry.readyIn, cooldown: entry.cooldown, charges: entry.charges },
+                ]),
+              )}
               live={{ shield: moment.shieldGained }}
               previous={moment.previous ? { stats: moment.previous.attacker } : null}
               onLevelChange={(level) => patchBuild({ level })}

@@ -34,6 +34,7 @@ import type {
 import { IGNITE, byLevel, smiteById } from '../model/summoners';
 import { effectiveResistance, mitigate } from './damage';
 import type {
+  AbilityAvailability,
   AbilitySlot,
   CritMode,
   DamageInstance,
@@ -247,6 +248,40 @@ export function simulate(
    * resistances are computed the same way `applyDamage` computes them — same
    * function, same order — so the panel cannot drift from the damage.
    */
+  /**
+   * What each ability's state is right now.
+   *
+   * Read out of the same maps the cast path checks, so the sidebar cannot
+   * disagree with what the simulation would allow.
+   */
+  function availability(): AbilityAvailability[] {
+    return (['P', 'Q', 'W', 'E', 'R'] as AbilitySlot[])
+      .filter((slot) => (module.abilities.find((ability) => ability.slot === slot)?.castable ?? false))
+      .map((slot) => {
+        const rank = input.attacker.ranks[slot] ?? 0;
+        const readyAt = cooldowns.get(slot) ?? 0;
+        const spec = chargeSpec(slot);
+        const state = spec ? chargeState(slot, spec) : null;
+        return {
+          slot,
+          readyIn: Math.max(0, readyAt - time),
+          cooldown: rank > 0 ? baseCooldownOf(slot, rank) : 0,
+          ...(spec && state
+            ? {
+                charges: {
+                  available: state.available,
+                  max: spec.max,
+                  nextIn:
+                    state.nextChargeAt === Number.POSITIVE_INFINITY
+                      ? 0
+                      : Math.max(0, state.nextChargeAt - time),
+                },
+              }
+            : {}),
+        };
+      });
+  }
+
   function takeSnapshot(index: number, stepUid?: string): void {
     const stats = currentStats();
     const shred = combinedShred();
@@ -258,6 +293,7 @@ export function simulate(
       attacker: stats,
       /** The attacker's resource at this instant, so the bar can move. */
       attackerResource: { current: currentMana, max: input.attackerStats.maxMana },
+      abilities: availability(),
       target: {
         currentHealth: targetCurrentHealth,
         maxHealth: targetMaxHealth,

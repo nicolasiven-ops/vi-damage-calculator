@@ -31,6 +31,8 @@
           <li><a href="#solver">The combo solver</a></li>
           <li><a href="#worth">What a stat is worth</a></li>
           <li><a href="#sweep">Against more than one target</a></li>
+          <li><a href="#ttk">Who is it enough against</a></li>
+          <li><a href="#contrib">What each item contributes</a></li>
           <li class="lab-nav-break">Making the numbers readable</li>
           <li><a href="#spread">The crit spread</a></li>
           <li class="lab-nav-break">Correctness</li>
@@ -84,6 +86,40 @@
           </p>
           <div class="lab-stage plain">
             <ul class="lab-scrap">
+              <li>
+                <b>The combo as a timeline</b>
+                <span>Workshop 01.</span>
+                <em>The Gantt view: one row per step, cast blocks, hit diamonds, cooldown
+                and attack-timer bars behind them, idle time drawn as its own span.</em>
+              </li>
+              <li>
+                <b>What is ready right now</b>
+                <span>Workshop 02.</span>
+                <em>Cooldowns are drawn on the ability icons the way the client draws
+                them — a dark wipe that shrinks as the ability comes back, the remaining
+                seconds on top of it, charges in the corner — and they follow the focused
+                step, so the strip answers "what could I press at that moment".</em>
+              </li>
+              <li>
+                <b>The health bar from the game</b>
+                <span>Workshop 03.</span>
+                <em>Both sides drawn as the game draws them, green, emptying leftwards,
+                with the focused step's damage left standing as a translucent stub and the
+                resource rail underneath.</em>
+              </li>
+              <li>
+                <b>Where half the damage disappears to</b>
+                <span>Workshop 04.</span>
+                <em>Became the second line of every card in the Formula Inspector: the
+                amplification, the resistance actually met and how it got there, the
+                percent and flat reductions, each with its factor and the running total.</em>
+              </li>
+              <li>
+                <b>Every effect a lane</b>
+                <span>Workshop 23.</span>
+                <em>Buffs, shreds, crowd control and sustain each have their own lane on
+                the timeline, grouped and coloured by what they do.</em>
+              </li>
               <li>
                 <b>The formula at the hit</b>
                 <span>Was: an expandable card on the timeline row.</span>
@@ -163,6 +199,59 @@
             the coverage test fails on an unclassified one, and the first mechanic
             (stacking amplifiers) is implemented and pinned by tests. 13 of 218
             modelled, 11 examined and dismissed, and the rest is the work.
+          </p>
+        </section>
+
+        <!-- ================================================= Time to kill -->
+        <section class="lab-section" id="ttk">
+          <div class="lab-section-head">
+            <span class="lab-num">TTK</span>
+            <h2>Who is this combo actually enough against?</h2>
+            <div class="lab-cost">
+              <span class="lab-pill ready">engine is ready</span>
+              <span class="lab-pill needs">many runs</span>
+            </div>
+          </div>
+          <p class="lab-why">
+            One target answers one question. A grid of health against armour answers the
+            one a build is made against: <strong>where does this combo stop
+            killing?</strong> Every cell is a full run, coloured by whether the target
+            dies and how fast, and the line where the colour changes is the answer — not
+            a number to interpret but a boundary to see.
+          </p>
+          <p class="lab-caption">
+            <strong>What it needs.</strong> The same simulation called once per cell,
+            which is milliseconds each and needs no new rules — plus care that the axes
+            are the ones that matter (health and armour for a physical combo, health and
+            magic resist for a caster) and that the grid says which patch and which build
+            produced it. Cheaper than it looks, and it subsumes
+            <a href="#sweep">the multi-target reading</a> above: that is one row of this.
+          </p>
+        </section>
+
+        <!-- ================================================= Item contributions -->
+        <section class="lab-section" id="contrib">
+          <div class="lab-section-head">
+            <span class="lab-num">ITM</span>
+            <h2>What each item really contributes</h2>
+            <div class="lab-cost">
+              <span class="lab-pill ready">engine is ready</span>
+              <span class="lab-pill needs">needs item passives</span>
+            </div>
+          </div>
+          <p class="lab-why">
+            Take an item out, run the same combo, and the difference is what that item
+            did — measured rather than reasoned, and including everything the item does
+            indirectly: the attack speed that fits an extra auto into the window, the
+            haste that brings an ability back, the shred that makes every later hit
+            land harder. Divided by its gold, it answers what a build guide cannot.
+          </p>
+          <p class="lab-caption">
+            <strong>What it needs.</strong> Six extra runs per render, which is nothing,
+            and the item passives to be modelled first — otherwise the measurement
+            faithfully reports that a stat stick is all an item is. It shares its
+            arithmetic with <a href="#worth">what a stat is worth</a>: same loop, one
+            level of aggregation up.
           </p>
         </section>
 

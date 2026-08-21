@@ -70,6 +70,17 @@ export interface DamageInstance {
  * `source` where that came from — which is what makes the inspector an audit
  * rather than a restatement.
  */
+/** One ability's readiness at a moment: what a game HUD would show. */
+export interface AbilityAvailability {
+  slot: AbilitySlot;
+  /** Seconds until it can be cast again; 0 when it is up. */
+  readyIn: number;
+  /** The full cooldown this one is counting down from, for the sweep. */
+  cooldown: number;
+  /** Charges in hand and the maximum, for abilities that hold them. */
+  charges?: { available: number; max: number; nextIn: number };
+}
+
 export interface DamageTerm {
   label: string;
   amount: number;
@@ -325,6 +336,13 @@ export interface StatSnapshot {
   attacker: ChampionStats;
   /** The attacker's resource pool at this moment: spent by casts, regenerated. */
   attackerResource: { current: number; max: number };
+  /**
+   * What is up and what is not, at this instant.
+   *
+   * The engine knows because it enforces it; without this the sidebar could only
+   * show ranks, which say what you *bought* and never what you can press.
+   */
+  abilities: AbilityAvailability[];
   target: {
     currentHealth: number;
     maxHealth: number;

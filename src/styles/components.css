@@ -929,6 +929,50 @@
   border-radius: 1px;
 }
 
+/*
+ * The cooldown, drawn on the icon the way the client draws it.
+ *
+ * The dark part is what is left to wait: it shrinks off to the left as the
+ * ability comes back, and the seconds sit on top of it because that is the
+ * number anyone actually reads off a HUD.
+ */
+.ability-cd-wipe {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: rgba(3, 6, 12, 0.72);
+  transition: width 120ms linear;
+  pointer-events: none;
+}
+
+.ability-cd-seconds {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+}
+
+/* Charges in hand, in the corner the client uses. */
+.ability-charges {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 13px;
+  height: 13px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--surface-void);
+  border: 1px solid var(--gold-500);
+  color: var(--gold-100);
+  font-size: 9px;
+  line-height: 1;
+}
+
 .ability-key {
   position: absolute;
   right: -5px;

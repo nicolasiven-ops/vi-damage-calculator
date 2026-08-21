@@ -20,6 +20,13 @@ export interface AbilityTile {
   /** 1 or less marks a passive: no points to spend, so no pips. */
   maxRank: number;
   rank: number;
+  /**
+   * What the simulation says about this ability at the focused moment.
+   *
+   * The client shows this on the icon and so does this strip: ranks say what you
+   * bought, this says what you can press.
+   */
+  readiness?: { readyIn: number; cooldown: number; charges?: { available: number; max: number } };
 }
 
 interface Props {
@@ -61,6 +68,35 @@ export function AbilityStrip({ tiles, onRankChange }: Props) {
             <span className="ability-badge">
               {tile.icon ? <img src={tile.icon} alt="" /> : <span>{tile.slot}</span>}
               <span className="ability-key">{tile.slot}</span>
+
+              {/*
+               * The cooldown, the way the game draws it: the icon goes dark and
+               * the dark part shrinks away as it comes back up. The seconds are
+               * on top of it, because "3.4" is the number you actually want.
+               */}
+              {tile.readiness && tile.readiness.readyIn > 0.05 && (
+                <>
+                  <span
+                    className="ability-cd-wipe"
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        (tile.readiness.readyIn / Math.max(0.1, tile.readiness.cooldown)) * 100,
+                      )}%`,
+                    }}
+                  />
+                  <span className="ability-cd-seconds mono">
+                    {tile.readiness.readyIn < 10
+                      ? tile.readiness.readyIn.toFixed(1)
+                      : Math.round(tile.readiness.readyIn)}
+                  </span>
+                </>
+              )}
+
+              {/* Charges in hand, where the client puts them. */}
+              {tile.readiness?.charges && tile.readiness.charges.max > 1 && (
+                <span className="ability-charges mono">{tile.readiness.charges.available}</span>
+              )}
             </span>
             {/* The passive keeps an empty rail so all five tiles are one height. */}
             <span className={`ability-pips${passive ? ' none' : ''}`}>
