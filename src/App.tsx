@@ -29,7 +29,7 @@ import { RunePanel } from './ui/RunePanel';
 import { SummonerPanel, type SummonerOption } from './ui/SummonerPanel';
 import { SettingsPanel } from './ui/SettingsPanel';
 import { LoadoutNotes } from './ui/LoadoutNotes';
-import { fightMoment } from './ui/moment';
+import { fightMoment, fightMomentAt } from './ui/moment';
 import { unknownStats } from './ui/StatSheet';
 import { PRIMAL_SMITES } from './model/summoners';
 import { TargetPanel } from './ui/TargetPanel';
@@ -112,15 +112,14 @@ export default function App() {
   const pinnedStepUid = build.combo.some((entry) => entry.uid === rawPinnedStepUid)
     ? rawPinnedStepUid
     : null;
-  /*
-   * The focused moment is the one you clicked. Nothing else moves it.
+  /**
+   * The playback clock, in seconds since the combo started.
    *
-   * Hover used to pick it, which meant every trip of the mouse across the strip
-   * or the timeline rewrote the stat sheets and the bars on the way past. A
-   * number that changes because the cursor went somewhere is a number you cannot
-   * read.
+   * Null when nothing is running. While it runs it replaces the click as the
+   * thing that picks the moment, so every panel reads the same instant and the
+   * whole page moves — the combo is played rather than inspected.
    */
-  const linkedStepUid = pinnedStepUid;
+  const [playhead, setPlayhead] = useState<number | null>(null);
   const patch = usePatchData(DEFAULT_LOCALE);
   const bundle = patch.bundle;
 
@@ -307,24 +306,33 @@ export default function App() {
    * views of the same moment; deriving it three times is how they end up
    * disagreeing about which moment that is.
    */
-  const moment = useMemo(
-    () =>
-      fightMoment(analysis, linkedStepUid, {
-        // No champion resolved yet: unknown, not zero.
-        attacker: stats ?? unknownStats({}),
-        target: {
-          currentHealth: effectiveTarget.maxHealth * effectiveTarget.currentHealthPercent,
-          maxHealth: effectiveTarget.maxHealth,
-          baseArmor: effectiveTarget.armor,
-          currentArmor: effectiveTarget.armor,
-          effectiveArmor: effectiveTarget.armor,
-          baseMagicResist: effectiveTarget.magicResist,
-          effectiveMagicResist: effectiveTarget.magicResist,
-          crowdControl: [],
-        },
-      }),
-    [analysis, linkedStepUid, stats, effectiveTarget],
-  );
+  const moment = useMemo(() => {
+    const fallback = {
+      // No champion resolved yet: unknown, not zero.
+      attacker: stats ?? unknownStats({}),
+      target: {
+        currentHealth: effectiveTarget.maxHealth * effectiveTarget.currentHealthPercent,
+        maxHealth: effectiveTarget.maxHealth,
+        baseArmor: effectiveTarget.armor,
+        currentArmor: effectiveTarget.armor,
+        effectiveArmor: effectiveTarget.armor,
+        baseMagicResist: effectiveTarget.magicResist,
+        effectiveMagicResist: effectiveTarget.magicResist,
+        crowdControl: [],
+      },
+    };
+    return playhead !== null
+      ? fightMomentAt(analysis, playhead, fallback)
+      : fightMoment(analysis, pinnedStepUid, fallback);
+  }, [analysis, playhead, pinnedStepUid, stats, effectiveTarget]);
+
+  /*
+   * What is highlighted: the step the clock is in, or the one you clicked.
+   *
+   * Derived after the moment rather than before it, because during playback the
+   * moment is what decides the step and not the other way round.
+   */
+  const linkedStepUid = playhead !== null ? moment.stepUid : pinnedStepUid;
 
   /**
    * Every summoner spell the pickers may offer.
@@ -383,6 +391,33 @@ export default function App() {
     measure();
     return () => observer.disconnect();
   }, []);
+
+  /**
+   * Playback, on the real clock.
+   *
+   * One frame at a time from the browser's own animation loop, so a two-second
+   * combo takes two seconds. It stops itself at the end — a run that has to be
+   * stopped by hand is a run you have to watch instead of read.
+   */
+  useEffect(() => {
+    if (playhead === null || !analysis) return;
+    let frame = 0;
+    let last = performance.now();
+    const tick = (now: number): void => {
+      const delta = (now - last) / 1000;
+      last = now;
+      setPlayhead((current) => {
+        if (current === null) return null;
+        const next = current + delta;
+        return next >= analysis.duration ? null : next;
+      });
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+    // Restarting on every playhead change would reset the frame clock, so this
+    // depends on whether playback is running rather than on where it has got to.
+  }, [playhead !== null, analysis]);
 
   /** Spell names by id, for the notes panels. */
   const summonerNames = useMemo(
@@ -609,6 +644,16 @@ export default function App() {
             analysis={analysis}
             target={effectiveTarget}
             moment={moment}
+            playing={playhead !== null}
+            onTogglePlay={() =>
+              setPlayhead((current) => {
+                if (current !== null) return null;
+                // Starting playback lets go of the pin: two things claiming the
+                // moment at once is the one state that reads as a bug.
+                setPinnedStepUid(null);
+                return 0;
+              })
+            }
             targetResource={
               build.targetMode === 'champion' && targetStats && targetStats.maxMana > 0
                 ? {

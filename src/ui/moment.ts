@@ -46,6 +46,49 @@ export interface FightMoment {
 }
 
 /**
+ * The moment at a point in time, for playback.
+ *
+ * The same reading as a focused step, addressed differently: the last snapshot
+ * at or before the clock. That is what lets the panel be played rather than
+ * clicked — the values move because the moment moves, not because anything new
+ * is computed.
+ */
+export function fightMomentAt(
+  analysis: { snapshots: StatSnapshot[] } | null,
+  seconds: number,
+  fallback: { attacker: ChampionStats; target: StatSnapshot['target'] },
+): FightMoment {
+  const list = analysis?.snapshots ?? [];
+  let index = -1;
+  for (let i = 0; i < list.length; i += 1) {
+    if (list[i]!.time <= seconds + 0.0005) index = i;
+  }
+  if (index < 0) {
+    // Before the first snapshot: the state the combo started from.
+    return fightMoment(analysis, null, fallback);
+  }
+  const source = list[index]!;
+  const previous = index > 0 ? list[index - 1] : undefined;
+  return {
+    attacker: source.attacker,
+    attackerResource: source.attackerResource,
+    abilities: source.abilities,
+    shieldGained: source.shieldGained,
+    target: source.target,
+    time: source.time,
+    targetLostNow: previous
+      ? Math.max(0, previous.target.currentHealth - source.target.currentHealth)
+      : 0,
+    stepUid: source.stepUid ?? null,
+    stepNumber: source.index >= 0 ? source.index + 1 : null,
+    isEnd: index === list.length - 1,
+    previous: previous
+      ? { attacker: previous.attacker, target: previous.target }
+      : null,
+  };
+}
+
+/**
  * Pick the snapshot in focus, falling back to the end of the combo and then —
  * for an empty combo, where the simulation has nothing to snapshot — to the
  * build's own figures.

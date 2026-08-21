@@ -25,13 +25,7 @@
         <h1 class="lab-nav-title">Workshop</h1>
         <span class="lab-nav-sub">Where a feature is argued out</span>
         <ol>
-          <li><a href="#scaling">Scaling curve</a></li>
-          <li><a href="#cmd">Typing a combo</a></li>
-          <li><a href="#duel">1 versus 1</a></li>
-          <li><a href="#wire">Everything together</a></li>
           <li><a href="#close">What I would build first</a></li>
-          <li class="lab-nav-break">Proposals — round two</li>
-          <li><a href="#thesis">What makes it an analysis tool</a></li>
           <li><a href="#solve">Solve for the stat</a></li>
           <li><a href="#deriv">Which stat is worth most</a></li>
           <li><a href="#gold">Damage per 1,000 gold</a></li>
@@ -77,277 +71,7 @@
           </p>
         </header>
 
-                                                                        <!-- ==================================================== 09 Curve -->
-        <section class="lab-section" id="scaling">
-          <div class="lab-section-head">
-            <span class="lab-num">09</span>
-            <h2>Where the next item is still worth it</h2>
-            <div class="lab-cost">
-              <span class="lab-pill needs">invented numbers</span>
-              <span class="lab-pill needs">engine across one axis</span>
-            </div>
-          </div>
-          <p class="lab-why">
-            Damage over bonus AD is almost linear on Vi — the interesting part is not
-            the slope but <strong>where the curve crosses the kill
-            threshold</strong>, and where W's armor reduction draws a kink into it.
-            One axis, one run per point, and there is the answer to “what is more AD
-            even getting me at this point”.
-          </p>
-          <div class="lab-stage">
-            <svg viewBox="0 0 900 260" style="width: 100%; min-width: 560px; height: 260px"
-              role="img" aria-label="Curve: total damage over bonus attack damage">
-              <!-- Grid -->
-              <line x1="70" y1="30" x2="860" y2="30" class="roll-grid" />
-              <line x1="70" y1="80" x2="860" y2="80" class="roll-grid" />
-              <line x1="70" y1="130" x2="860" y2="130" class="roll-grid" />
-              <line x1="70" y1="180" x2="860" y2="180" class="roll-grid" />
-              <line x1="70" y1="220" x2="860" y2="220" stroke="var(--line)" />
-
-              <!-- Kill threshold -->
-              <line x1="70" y1="72" x2="860" y2="72" stroke="var(--status-danger)"
-                stroke-dasharray="5 4" />
-              <text x="856" y="66" class="roll-note" text-anchor="end"
-                fill="var(--status-danger)">Kill threshold 2,100 HP</text>
-
-              <!-- Curve: 550 at 0 AD up to 2450 at 300 AD, with a kink at 100 -->
-              <polyline
-                points="70,208 149,193 228,177 307,159 386,138 465,114 544,89 623,66 702,44 781,26 860,14"
-                fill="none" stroke="var(--series-physical)" stroke-width="2.5" />
-
-              <!-- Intersection with the threshold -->
-              <circle cx="597" cy="72" r="6" fill="var(--surface-1)"
-                stroke="var(--gold-300)" stroke-width="3" />
-              <text x="560" y="60" class="roll-hit-label">+142 AD → kill</text>
-
-              <!-- current state -->
-              <circle cx="70" cy="208" r="5" fill="var(--gold-200)" />
-              <text x="78" y="204" class="roll-note">now: 0 bonus AD · 550</text>
-
-              <text x="70" y="240" class="roll-tick">0</text>
-              <text x="228" y="240" class="roll-tick">+60</text>
-              <text x="386" y="240" class="roll-tick">+120</text>
-              <text x="544" y="240" class="roll-tick">+180</text>
-              <text x="702" y="240" class="roll-tick">+240</text>
-              <text x="850" y="240" class="roll-tick">+300</text>
-              <text x="70" y="256" class="roll-note">Bonus attack damage</text>
-              <text x="20" y="34" class="roll-tick">3k</text>
-              <text x="20" y="134" class="roll-tick">1.5k</text>
-              <text x="20" y="224" class="roll-tick">0</text>
-            </svg>
-          </div>
-        </section>
-
-        <!-- ============================================= 10 Command line -->
-        <section class="lab-section" id="cmd">
-          <div class="lab-section-head">
-            <span class="lab-num">10</span>
-            <h2>Typing a combo instead of clicking it</h2>
-            <div class="lab-cost"><span class="lab-pill ready">UI only</span></div>
-          </div>
-          <p class="lab-why">
-            Anyone working through twenty variants clicks six cards together twenty
-            times. Typed out, a combo is a single line: <code>q1.25 aa e aa r aa</code>.
-            The card field stays exactly as it is — the line is just a second way in,
-            and because it can be copied it doubles as the format in which you pass a
-            combo on to someone else.
-          </p>
-          <div class="lab-stage plain">
-            <div class="cmd">
-              <div class="cmd-line">
-                <span class="cmd-prompt">›</span>
-                <span class="cmd-token q">q1.25</span>
-                <span class="cmd-token aa">aa</span>
-                <span class="cmd-token e">e</span>
-                <span class="cmd-token aa">aa</span>
-                <span class="cmd-token r">r</span>
-                <span class="cmd-token aa">aa</span>
-                <span class="cmd-caret"></span>
-              </div>
-              <div class="cmd-suggest">
-                <div class="on"><b>aa</b><span>Basic attack — attack timer 1.32 s</span></div>
-                <div><b>w</b><span>passive, cannot be cast</span></div>
-                <div><b>wait 2</b><span>wait 2 s (lets W's counter expire)</span></div>
-                <div><b>ignite</b><span>Ignite — 250 true damage over 5 s</span></div>
-                <div><b>q</b><span>still 3.35 s on cooldown — would cost 3.35 s of idle time</span></div>
-              </div>
-            </div>
-          </div>
-          <p class="lab-caption">
-            The suggestion list is the real trick: it knows the simulation state and
-            says, before you type, what a step would cost.
-          </p>
-        </section>
-
-        <!-- ======================================================= 11 Duel -->
-        <section class="lab-section" id="duel">
-          <div class="lab-section-head">
-            <span class="lab-num">11</span>
-            <h2>1 versus 1 — both sides on one clock</h2>
-            <div class="lab-cost">
-              <span class="lab-pill needs">invented numbers</span>
-              <span class="lab-pill needs">second champion needed</span>
-            </div>
-          </div>
-          <p class="lab-why">
-            Your idea, and it is less of a gimmick than it sounds: the engine already
-            simulates one side on a clock, and a duel is two of them on the same one.
-            What comes out of it is the question that really counts in game — not “how
-            much damage do I deal” but <strong>who dies first</strong>. The answer
-            hangs on precisely the things this calculator takes seriously: idle time,
-            cooldowns, order.
-          </p>
-          <div class="lab-stage">
-            <div class="duel">
-              <div class="duel-side">
-                <span class="duel-who"><span class="duel-portrait">VI</span> Vi · 11</span>
-                <div>
-                  <div class="hpbar" style="height: 30px">
-                    <div class="hpbar-seg physical" style="width: 34%">720</div>
-                    <div class="hpbar-rest">856 HP left</div>
-                  </div>
-                </div>
-              </div>
-              <div class="duel-side">
-                <span class="duel-who"><span class="duel-portrait">DA</span> Darius · 11</span>
-                <div>
-                  <div class="hpbar" style="height: 30px">
-                    <div class="hpbar-seg physical" style="width: 100%">2,043 — dead at 6.4 s</div>
-                  </div>
-                </div>
-              </div>
-              <svg viewBox="0 0 900 150" style="width: 100%; min-width: 560px; height: 150px"
-                role="img" aria-label="Health of both champions over time">
-                <line x1="60" y1="120" x2="860" y2="120" stroke="var(--line)" />
-                <line x1="60" y1="20" x2="860" y2="20" class="roll-grid" />
-                <line x1="60" y1="70" x2="860" y2="70" class="roll-grid" />
-                <!-- Vi loses health more slowly -->
-                <polyline points="60,20 160,28 260,44 360,52 460,68 560,74 660,86 760,92 860,96"
-                  fill="none" stroke="var(--gold-300)" stroke-width="2.5" />
-                <text x="700" y="88" class="roll-note" fill="var(--gold-200)">Vi</text>
-                <!-- Darius drops and dies -->
-                <polyline points="60,20 160,34 260,40 360,62 460,78 560,84 660,110 700,120"
-                  fill="none" stroke="var(--series-physical)" stroke-width="2.5" />
-                <circle cx="700" cy="120" r="5" fill="var(--status-danger)" />
-                <text x="640" y="136" class="roll-note" fill="var(--status-danger)">
-                  Darius dies · 6.4 s
-                </text>
-                <text x="60" y="136" class="roll-tick">0 s</text>
-                <text x="460" y="136" class="roll-tick">4 s</text>
-                <text x="20" y="24" class="roll-tick">100%</text>
-                <text x="28" y="124" class="roll-tick">0%</text>
-              </svg>
-            </div>
-          </div>
-          <p class="lab-caption">
-            This only stays honest with its assumptions on show: no dodging, no
-            positioning, fixed combos on both sides. As a <em>calculation</em> it is
-            correct, as a prediction of a real duel it is not — and that is exactly
-            what would have to be stated alongside it.
-          </p>
-        </section>
-
-                <!-- ===================================================== 13 Layout -->
-        <section class="lab-section" id="wire">
-          <div class="lab-section-head">
-            <span class="lab-num">13</span>
-            <h2>How all of this adds up to one screen</h2>
-            <div class="lab-cost"><span class="lab-pill ready">Layout</span></div>
-          </div>
-          <p class="lab-why">
-            Thirteen tools are not a toolbox if all of them are visible at once.
-            Proposal: <strong>whatever defines the combo stays pinned at the
-            top</strong> — header, tabs, combo bar, plus the availability bar. Below
-            it <strong>one result area</strong> whose view you switch, instead of
-            stacking everything on top of everything else. Timeline, curve and table
-            show the same thing — you only ever need to see one of them at a time.
-          </p>
-          <div class="lab-stage">
-            <div class="wire">
-              <div class="wire-box pinned">Header · Damage calculator · Patch 16.16 · [Champion] [Items] [Runes] [Target] [Sim]</div>
-              <div class="wire-box pinned">Combo bar · ① Q 1.25 s ② AA ③ E ④ AA ⑤ R ⑥ AA · + Q E R AA ⏱</div>
-              <div class="wire-box pinned">Availability · Q 3.35 s · E ●○ · R 111 s</div>
-              <div class="wire-row">
-                <div class="wire-box hero">
-                  Result · [Timeline] [Curve] [Table] [Matrix] [Comparison]
-                  <div style="margin-top: 8px; text-transform: none; letter-spacing: 0; color: var(--text-muted)">
-                    one view, full width — this is where the timeline from 01 lives
-                  </div>
-                </div>
-                <div class="wire-box">
-                  Verdict · 550 damage · target survives with 1,550
-                  <div style="margin-top: 8px; text-transform: none; letter-spacing: 0; color: var(--text-muted)">
-                    below it the health bar, thresholds, sources
-                  </div>
-                </div>
-              </div>
-              <div class="wire-row thirds">
-                <div class="wire-box">Mitigation chain</div>
-                <div class="wire-box">Item contributions</div>
-                <div class="wire-box">Formula of the selected hit</div>
-              </div>
-            </div>
-          </div>
-          <p class="lab-caption">
-            The moment you clicked on is the thread running through all of it: it
-            lights up in the combo bar, in the timeline, in the table, and the formula
-            card at the bottom shows that exact hit. One state, four views.
-          </p>
-        </section>
-
-        <!-- ==================================== 14 What this should become -->
-        <section class="lab-section" id="thesis">
-          <div class="lab-section-head">
-            <span class="lab-num">14</span>
-            <h2>What separates a calculator from an analysis tool</h2>
-            <div class="lab-cost"><span class="lab-pill">the plan</span></div>
-          </div>
-          <p class="lab-why">
-            Everything below this line is one bet: a damage calculator becomes
-            interesting the moment it stops <em>reporting</em> and starts
-            <em>answering</em>. "1,882 damage" is a fact nobody asked for. "Two more
-            points of AD and the combo kills a 1,900 HP ADC" is a decision. Five
-            principles, and every proposal after this is judged by them.
-          </p>
-          <div class="lab-stage plain">
-            <ol class="thesis">
-              <li>
-                <strong>Answer questions, do not display numbers.</strong> The user
-                came with a decision — which item, which rank, which order. A number
-                they have to interpret themselves is homework, not an answer.
-              </li>
-              <li>
-                <strong>Solve backwards, not just forwards.</strong> Anyone can
-                evaluate a build. The valuable direction is the inverse: how much of
-                a stat do I need for this to kill? The simulation is cheap enough to
-                run two hundred times and search for that.
-              </li>
-              <li>
-                <strong>Show causality, not correlation.</strong> A total hides why.
-                Every number should be traceable to the hit, the formula and the
-                patch it came from — the app already labels its sources, so it can
-                afford to be asked "why" at every level.
-              </li>
-              <li>
-                <strong>Make comparison free.</strong> Insight comes from the
-                difference between two runs, not from one run. If comparing costs
-                clicks, nobody compares.
-              </li>
-              <li>
-                <strong>Be honest about the edges.</strong> An expected value with no
-                spread pretends crits are a constant. Say what is assumed, and say
-                where the assumption stops holding.
-              </li>
-            </ol>
-          </div>
-          <p class="lab-caption">
-            The pills on each proposal say what it costs: <span class="lab-pill ready">data available</span>
-            needs only code, <span class="lab-pill needs">invented numbers</span> needs a value nobody
-            publishes, <span class="lab-pill">the plan</span> is prose.
-          </p>
-        </section>
-
-        <!-- ============================================ 15 Breakpoint solver -->
+                                                                                                                        <!-- ============================================ 15 Breakpoint solver -->
         <section class="lab-section" id="solve">
           <div class="lab-section-head">
             <span class="lab-num">15</span>
@@ -1496,6 +1220,16 @@
           </p>
           <div class="lab-stage plain">
             <ul class="lab-scrap">
+              <li>
+                <b>Everything on one screen (13)</b>
+                <span>A proposed layout: the combo pinned at the top, one switchable
+                result area under it, a verdict panel, and a bottom row of three detail
+                panels, all threaded by the moment you clicked.</span>
+                <em>Out. The layout arrived by building it, not by planning it, and the
+                plan was wrong about most of it. Watch for it coming back as a "layout
+                proposal", a wireframe, or any section that arranges panels on paper
+                instead of arranging them in the app.</em>
+              </li>
               <li>
                 <b>Two builds side by side (08)</b>
                 <span>Hold a second build in state and put one difference column between

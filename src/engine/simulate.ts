@@ -235,6 +235,14 @@ export function simulate(
   const crowdControl: { label: string; expiresAt: number }[] = [];
   const scheduled: ScheduledEvent[] = [];
   const cooldowns = new Map<AbilitySlot, number>();
+  /**
+   * How long the running cooldown actually is, per slot.
+   *
+   * Not the base value: ability haste shortens it, and a HUD that divides the
+   * remaining time by the base duration draws a wedge that is wrong by exactly
+   * the haste — always too small, and never obviously so.
+   */
+  const cooldownTotals = new Map<AbilitySlot, number>();
   const chargeStates = new Map<AbilitySlot, ChargeState>();
   /** Open effect windows by identity — see addEffectSpan. */
   const openEffects = new Map<string, TimelineSpan>();
@@ -265,7 +273,13 @@ export function simulate(
         return {
           slot,
           readyIn: Math.max(0, readyAt - time),
-          cooldown: rank > 0 ? baseCooldownOf(slot, rank) : 0,
+          /*
+           * The cooldown this one is counting down from — the one that was set,
+           * haste included. Falls back to the base value for an ability that has
+           * not been cast yet, where there is nothing running to measure.
+           */
+          cooldown:
+            cooldownTotals.get(slot) ?? (rank > 0 ? baseCooldownOf(slot, rank) : 0),
           ...(spec && state
             ? {
                 charges: {
@@ -1164,7 +1178,10 @@ export function simulate(
         state.nextChargeAt = cooldownFrom + state.interval;
       }
       // Ability haste shortens the recharge timer, never this static gap.
-      if (baseCooldown > 0) cooldowns.set(slot, cooldownFrom + baseCooldown);
+      if (baseCooldown > 0) {
+        cooldowns.set(slot, cooldownFrom + baseCooldown);
+        cooldownTotals.set(slot, baseCooldown);
+      }
       addEvent({
         kind: 'info',
         label: `${slot} charges`,
@@ -1222,6 +1239,7 @@ export function simulate(
         */
       const effective = baseCooldown * cooldownMultiplier(hasteFor(currentStats(), slot));
       cooldowns.set(slot, cooldownFrom + effective);
+      cooldownTotals.set(slot, effective);
       addSpan({
         lane: slot,
         kind: 'cooldown',

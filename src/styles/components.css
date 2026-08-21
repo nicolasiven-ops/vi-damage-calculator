@@ -2909,3 +2909,33 @@ code {
   font-size: 10px;
   color: var(--text-muted);
 }
+
+/*
+ * The playback button: green to start, red while it runs.
+ *
+ * Loud on purpose — it is the only control on the page that makes the numbers
+ * move by themselves, and it has to be findable at a glance.
+ */
+.btn.play {
+  border-color: rgba(10, 200, 185, 0.55);
+  color: var(--status-good);
+  background: linear-gradient(180deg, rgba(10, 200, 185, 0.14), transparent);
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+}
+
+.btn.play:hover {
+  border-color: var(--status-good);
+  background: linear-gradient(180deg, rgba(10, 200, 185, 0.22), transparent);
+}
+
+.btn.play.running {
+  border-color: rgba(208, 70, 60, 0.6);
+  color: var(--status-bad);
+  background: linear-gradient(180deg, rgba(208, 70, 60, 0.18), transparent);
+}
+
+.btn.play:disabled {
+  opacity: 0.45;
+  cursor: default;
+}

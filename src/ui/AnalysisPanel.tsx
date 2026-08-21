@@ -65,6 +65,14 @@ interface Props {
    */
   moment: FightMoment;
   /**
+   * Playback: whether the combo is currently being played out, and the toggle.
+   *
+   * The panel does not own the clock — every other panel reads the same moment —
+   * so it only asks for it to start and stop.
+   */
+  playing?: boolean;
+  onTogglePlay?: () => void;
+  /**
    * The target's resource pool, when it has one.
    *
    * Nothing spends it — the target never acts — but leaving the rail empty said
@@ -151,6 +159,8 @@ export function AnalysisPanel({
   combo,
   gameDataStatus,
   moment,
+  playing,
+  onTogglePlay,
   targetResource,
   linkedStepUid,
   pinnedStepUid,
@@ -240,7 +250,28 @@ export function AnalysisPanel({
 
   return (
     <div className="analysis">
-      <Panel className="analysis-main" title="Analysis">
+      <Panel
+        className="analysis-main"
+        title="Analysis"
+        actions={
+          onTogglePlay ? (
+            /*
+             * The combo, played rather than read.
+             *
+             * Everything on the page already follows one moment; this moves that
+             * moment on the real clock, so the bars drain, the cooldowns sweep and
+             * the stat sheets change exactly as they did during the fight.
+             */
+            <button
+              className={`btn play${playing ? ' running' : ''}`}
+              onClick={onTogglePlay}
+              disabled={analysis.duration <= 0}
+            >
+              {playing ? 'Stop simulation' : 'Start simulation'}
+            </button>
+          ) : null
+        }
+      >
         {/*
          * The two combatants, facing each other across the row, as they stood
          * at the moment in focus.
