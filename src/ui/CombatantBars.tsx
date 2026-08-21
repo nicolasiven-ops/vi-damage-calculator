@@ -11,12 +11,7 @@
  * shrinks, so the empty part grows in from the right. That is what a health bar
  * in the client does, and reading it should not require re-learning it here.
  *
- * The health track can be handed a set of segments instead of a single fill.
- * The target uses that to show one segment per hit, which turns "survives with
- * 1,550" into a picture of how it got there.
  */
-
-import type { ReactNode } from 'react';
 
 export interface BarValue {
   current: number;
@@ -32,8 +27,6 @@ interface Props {
   shield?: number;
   /** Mana, energy, fury — null for the resourceless. */
   resource?: (BarValue & { label: string }) | null;
-  /** Replaces the plain health fill, for a bar that is split per hit. */
-  healthFill?: ReactNode;
   /** Shown on the right of the name row instead of the health numbers. */
   note?: string;
 }
@@ -48,7 +41,6 @@ export function CombatantBars({
   health,
   shield = 0,
   resource,
-  healthFill,
   note,
 }: Props) {
   return (
@@ -60,7 +52,7 @@ export function CombatantBars({
 
       {/* The numbers ride on the bar, the way the HUD puts them. */}
       <div className="bar-track health">
-        {healthFill ?? <div className="bar-fill health" style={{ width: `${share(health)}%` }} />}
+        <div className="bar-fill health" style={{ width: `${share(health)}%` }} />
         {shield > 0 && (
           <div
             className="bar-fill shield"

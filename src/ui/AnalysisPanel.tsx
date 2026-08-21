@@ -30,7 +30,6 @@ import type {
 import type { GameDataStatus } from '../hooks/usePatchData';
 import { ComboTimeline } from './ComboTimeline';
 import { StatsView } from './StatsView';
-import { TargetHealthBar } from './TargetHealthBar';
 import type { ChampionStats } from '../model/stats';
 import { CombatantBars } from './CombatantBars';
 import { DamageChart } from './DamageChart';
@@ -210,13 +209,6 @@ export function AnalysisPanel({
             side="enemy"
             health={{ current: moment.target.currentHealth, max: moment.target.maxHealth }}
             resource={null}
-            healthFill={
-              <TargetHealthBar
-                analysis={analysis}
-                startingHealth={startingHealth}
-                linkedStepUid={linkedStepUid}
-              />
-            }
           />
         </div>
 
