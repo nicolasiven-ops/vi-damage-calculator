@@ -1066,3 +1066,1144 @@
 .lab-close ol strong {
   color: var(--gold-100);
 }
+
+/* =========================================================== round two ====
+
+   Shared primitives first: most of the new proposals are a labelled row with a
+   track and a number, so that shape is defined once and reused rather than
+   redrawn per section. */
+
+.lab-nav-break {
+  margin: 14px 0 4px;
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold-500);
+  list-style: none;
+}
+
+.thesis {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.thesis strong {
+  color: var(--gold-200);
+}
+
+/* ---------------------------------------------------- labelled bar rows */
+
+.lab-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.lab-bar {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr) 64px;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.lab-bars.wide .lab-bar {
+  grid-template-columns: 170px minmax(0, 1fr) 72px;
+}
+
+.lab-bar-label {
+  color: var(--text-secondary);
+}
+
+.lab-bar-track {
+  position: relative;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--surface-void);
+  border: 1px solid var(--line-soft);
+  overflow: visible;
+}
+
+.lab-bar-track > span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 1px;
+  background: linear-gradient(90deg, var(--gold-500), var(--gold-300));
+}
+
+.lab-bar-track > span.pos {
+  background: linear-gradient(90deg, #14603a, var(--bar-health-ally));
+}
+
+/* The needle marks the value on the scale, for rows that answer "how much". */
+.lab-bar-track > i {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  background: var(--gold-100);
+  transform: translateX(-1px);
+}
+
+.lab-bar-value {
+  text-align: right;
+  color: var(--gold-100);
+  font-size: 12px;
+}
+
+.lab-bar.out .lab-bar-track > span {
+  background: repeating-linear-gradient(135deg, var(--surface-3) 0 4px, var(--surface-2) 4px 8px);
+}
+
+.lab-bar.out .lab-bar-value {
+  color: var(--text-muted);
+}
+
+.lab-bar.is-current .lab-bar-label {
+  color: var(--gold-200);
+}
+
+/* ------------------------------------------------------- key/value rows */
+
+.lab-kv {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+}
+
+.lab-kv-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 6px 8px;
+  border-radius: 2px;
+  background: var(--surface-void);
+  color: var(--text-secondary);
+}
+
+.lab-kv-row.is-total {
+  background: var(--surface-2);
+  border: 1px solid var(--gold-600);
+  color: var(--gold-100);
+}
+
+.lab-kv .dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 7px;
+  background: var(--slot-r);
+}
+
+.lab-kv .dot.aa {
+  background: var(--slot-p);
+}
+
+.pos {
+  color: var(--bar-health-ally);
+}
+
+.neg {
+  color: var(--bar-health-enemy);
+}
+
+/* ------------------------------------------------------------- 15 solver */
+
+.solve-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 12px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+/* --------------------------------------------------------- 17 gold rank */
+
+.rank {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rank-row {
+  display: grid;
+  grid-template-columns: 18px 26px minmax(0, 1fr) 120px 84px;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 8px;
+  border-radius: 2px;
+  border: 1px solid transparent;
+  background: var(--surface-void);
+  font-size: 12px;
+}
+
+.rank-row.best {
+  border-color: var(--gold-600);
+  background: var(--surface-2);
+}
+
+.rank-pos {
+  color: var(--text-muted);
+}
+
+.rank-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 2px;
+  border: 1px solid var(--line);
+  background: linear-gradient(135deg, var(--surface-3), var(--surface-input));
+}
+
+.rank-name {
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+}
+
+.rank-name em {
+  font-style: normal;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.rank-bar {
+  position: relative;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--surface-1);
+}
+
+.rank-bar > span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--gold-500), var(--gold-300));
+}
+
+.rank-value {
+  text-align: right;
+  color: var(--gold-100);
+}
+
+.rank-value i {
+  font-style: normal;
+  color: var(--text-muted);
+}
+
+.rank-foot {
+  padding-top: 6px;
+}
+
+/* -------------------------------------------------------- 18 skill point */
+
+.skill {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.skill-row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) 130px 56px;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 2px;
+  background: var(--surface-void);
+  font-size: 12px;
+}
+
+.skill-row.best {
+  background: var(--surface-2);
+}
+
+.skill-key {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 2px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  border: 1px solid var(--line);
+}
+
+.skill-key.q { color: var(--slot-q); border-color: var(--slot-q); }
+.skill-key.w { color: var(--slot-w); border-color: var(--slot-w); }
+.skill-key.e { color: var(--slot-e); border-color: var(--slot-e); }
+.skill-key.r { color: var(--slot-r); border-color: var(--slot-r); }
+
+.skill-name {
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+}
+
+.skill-name em {
+  font-style: normal;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.skill-bar {
+  position: relative;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--surface-1);
+}
+
+.skill-bar > span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #14603a, var(--bar-health-ally));
+}
+
+.skill-value {
+  text-align: right;
+  color: var(--gold-100);
+}
+
+/* ------------------------------------------------------- 19 combo order */
+
+.opt {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.opt-row {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr) 70px 70px;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 2px;
+  border: 1px solid transparent;
+  background: var(--surface-void);
+  font-size: 12px;
+}
+
+.opt-row.is-current {
+  border-color: var(--line);
+}
+
+.opt-row.is-best {
+  border-color: var(--gold-500);
+  background: var(--surface-2);
+}
+
+.opt-tag {
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.opt-row.is-best .opt-tag {
+  color: var(--gold-300);
+}
+
+.opt-seq {
+  display: flex;
+  gap: 4px;
+}
+
+.opt-seq i {
+  display: grid;
+  place-items: center;
+  min-width: 26px;
+  height: 22px;
+  padding: 0 4px;
+  border-radius: 2px;
+  font-style: normal;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  background: var(--surface-3);
+  border: 1px solid var(--line);
+  color: var(--text-secondary);
+}
+
+.opt-seq i.q { color: var(--slot-q); border-color: rgba(79, 176, 232, 0.5); }
+.opt-seq i.e { color: var(--slot-e); border-color: rgba(217, 164, 65, 0.5); }
+.opt-seq i.r { color: var(--slot-r); border-color: rgba(224, 90, 90, 0.5); }
+.opt-seq i.aa { color: var(--text-primary); }
+
+.opt-value,
+.opt-delta {
+  text-align: right;
+  color: var(--gold-100);
+}
+
+/* --------------------------------------------------------------- 20 mana */
+
+.mana-track {
+  position: relative;
+  height: 18px;
+  border-radius: 2px;
+  border: 1px solid var(--line);
+  background: var(--surface-void);
+  overflow: hidden;
+}
+
+.mana-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: linear-gradient(180deg, var(--bar-resource), var(--bar-resource-dim));
+}
+
+/* Each cast is drawn as a bite taken out of the right-hand end. */
+.mana-spend {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  transform: translateX(-100%);
+  border-left: 1px solid var(--surface-void);
+}
+
+.mana-spend.q { background: rgba(79, 176, 232, 0.85); }
+.mana-spend.e { background: rgba(217, 164, 65, 0.85); }
+.mana-spend.r { background: rgba(224, 90, 90, 0.85); }
+
+.mana-legend {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.mana-legend i {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 1px;
+  margin-right: 5px;
+}
+
+.mana-legend i.q { background: rgba(79, 176, 232, 0.85); }
+.mana-legend i.e { background: rgba(217, 164, 65, 0.85); }
+.mana-legend i.r { background: rgba(224, 90, 90, 0.85); }
+
+.mana-left {
+  margin-left: auto;
+  color: var(--bar-resource);
+}
+
+/* ---------------------------------------------------------- 21 metronome */
+
+.metro-lane {
+  position: relative;
+  height: 26px;
+  border-radius: 2px;
+  border: 1px solid var(--line);
+  background: var(--surface-void);
+  overflow: hidden;
+}
+
+.metro-lane > span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+.metro-windup { background: rgba(200, 170, 110, 0.55); }
+.metro-lock { background: rgba(31, 58, 82, 0.9); }
+.metro-dead {
+  background: repeating-linear-gradient(135deg, rgba(224, 75, 75, 0.35) 0 5px, transparent 5px 10px);
+}
+
+.metro-reset {
+  width: 2px;
+  background: var(--gold-100);
+  z-index: 2;
+}
+
+.metro-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 5px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--text-muted);
+}
+
+.metro-legend {
+  display: flex;
+  gap: 14px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.metro-legend i {
+  display: inline-block;
+  width: 10px;
+  height: 8px;
+  margin-right: 5px;
+  border-radius: 1px;
+}
+
+.metro-legend i.w { background: rgba(200, 170, 110, 0.55); }
+.metro-legend i.l { background: rgba(31, 58, 82, 0.9); }
+.metro-legend i.d { background: rgba(224, 75, 75, 0.35); }
+.metro-legend i.r { background: var(--gold-100); }
+
+/* -------------------------------------------------------------- 23 lanes */
+
+.lanes {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.lanes-row {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  font-size: 11.5px;
+}
+
+.lanes-label {
+  color: var(--text-secondary);
+}
+
+.lanes-track {
+  position: relative;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--surface-void);
+  border: 1px solid var(--line-soft);
+}
+
+.lanes-track .span {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  border-radius: 2px;
+}
+
+.lanes-track .span.shred { background: rgba(217, 89, 38, 0.7); }
+.lanes-track .span.keystone { background: rgba(160, 90, 200, 0.7); }
+.lanes-track .span.buff { background: rgba(70, 201, 141, 0.6); }
+.lanes-track .span.shield { background: rgba(223, 230, 234, 0.5); }
+
+.lanes-row.is-hits .lanes-track {
+  background: transparent;
+  border-color: transparent;
+}
+
+.lanes-row.is-hits i {
+  position: absolute;
+  top: 3px;
+  width: 2px;
+  height: 8px;
+  background: var(--series-physical);
+}
+
+/* ---------------------------------------------------------- 24 fit ring */
+
+.fit {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.fit-ring {
+  position: relative;
+  flex: none;
+}
+
+.fit-ring-value {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  color: var(--gold-100);
+}
+
+.fit-body {
+  flex: 1;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.fit-body p {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+/* -------------------------------------------------------- 25 crit spread */
+
+.spread-scale {
+  position: relative;
+  height: 30px;
+  border-radius: 2px;
+  background: var(--surface-void);
+  border: 1px solid var(--line-soft);
+}
+
+.spread-band {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, rgba(200, 170, 110, 0.25), rgba(200, 170, 110, 0.7));
+}
+
+.spread-median {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--gold-100);
+}
+
+.spread-threshold {
+  position: absolute;
+  top: -6px;
+  bottom: -6px;
+  width: 2px;
+  background: var(--bar-health-enemy);
+}
+
+.spread-threshold em {
+  position: absolute;
+  top: -14px;
+  left: 4px;
+  font-style: normal;
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--bar-health-enemy);
+}
+
+.spread-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.spread-axis i {
+  display: block;
+  font-style: normal;
+  font-family: var(--font-body);
+  font-size: 9.5px;
+  color: var(--text-muted);
+}
+
+.spread-verdict {
+  margin: 12px 0 0;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+/* ------------------------------------------------------- 26 burst window */
+
+.win-track {
+  position: relative;
+  height: 64px;
+  border-radius: 2px;
+  background: var(--surface-void);
+  border: 1px solid var(--line-soft);
+}
+
+.win-sel {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(200, 170, 110, 0.12);
+  border-left: 1px solid var(--gold-400);
+  border-right: 1px solid var(--gold-400);
+}
+
+.win-grip {
+  position: absolute;
+  top: 50%;
+  width: 6px;
+  height: 18px;
+  margin-top: -9px;
+  border-radius: 2px;
+  background: var(--gold-400);
+}
+
+.win-grip.left { left: -3px; }
+.win-grip.right { right: -3px; }
+
+.win-hit {
+  position: absolute;
+  bottom: 0;
+  width: 5px;
+  background: var(--series-physical);
+  border-radius: 1px 1px 0 0;
+}
+
+.win-hit.dim {
+  opacity: 0.3;
+}
+
+.win-read {
+  display: flex;
+  gap: 18px;
+  margin-top: 10px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+.win-read .strong {
+  color: var(--gold-100);
+}
+
+/* ---------------------------------------------------------- 27 sweep grid */
+
+.sweep {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.sweep-card {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px;
+  border-radius: 2px;
+  border: 1px solid var(--line);
+  background: var(--surface-void);
+}
+
+.sweep-card.kills {
+  border-color: rgba(31, 170, 75, 0.45);
+}
+
+.sweep-name {
+  font-size: 11.5px;
+  color: var(--text-primary);
+}
+
+.sweep-bar {
+  position: relative;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--surface-1);
+}
+
+.sweep-bar > span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 2px;
+  background: var(--bar-health-enemy);
+}
+
+.sweep-card.kills .sweep-bar > span {
+  background: var(--bar-health-ally);
+}
+
+.sweep-verdict {
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+
+/* ------------------------------------------------------------ 28 patch diff */
+
+.pdiff {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pdiff-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.pdiff-arrow {
+  color: var(--gold-500);
+}
+
+.pdiff-total {
+  margin-left: auto;
+  color: var(--bar-health-ally);
+}
+
+.pdiff-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 120px 60px;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 8px;
+  border-radius: 2px;
+  background: var(--surface-void);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.pdiff-what {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+}
+
+.pdiff-what i {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 2px;
+  font-style: normal;
+  font-size: 9px;
+  font-family: var(--font-mono);
+  border: 1px solid var(--line);
+}
+
+.pdiff-what i.q { color: var(--slot-q); }
+.pdiff-what i.w { color: var(--slot-w); }
+.pdiff-what i.r { color: var(--slot-r); }
+.pdiff-what i.it { background: var(--surface-3); }
+
+.pdiff-delta {
+  text-align: right;
+}
+
+.pdiff-row.is-item {
+  border-left: 2px solid var(--gold-600);
+}
+
+/* ------------------------------------------------------------- 29 trust */
+
+.trust-bar {
+  display: flex;
+  height: 22px;
+  border-radius: 2px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+
+.trust-seg {
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--surface-void);
+}
+
+.trust-seg em {
+  font-style: normal;
+}
+
+.trust-seg.game { background: var(--status-good); }
+.trust-seg.dd { background: var(--blue-300); }
+.trust-seg.reg { background: var(--gold-400); }
+
+.trust-legend {
+  display: flex;
+  gap: 18px;
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.trust-legend i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 1px;
+  margin-right: 6px;
+}
+
+.trust-legend i.game { background: var(--status-good); }
+.trust-legend i.dd { background: var(--blue-300); }
+.trust-legend i.reg { background: var(--gold-400); }
+
+.trust-legend b {
+  margin-left: 6px;
+  color: var(--gold-100);
+  font-weight: 500;
+}
+
+.trust-note {
+  margin: 10px 0 0;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+/* ------------------------------------------------------------- 30 waste */
+
+.waste-bar {
+  display: flex;
+  height: 24px;
+  border-radius: 2px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  margin-bottom: 12px;
+}
+
+.waste-used,
+.waste-over {
+  display: grid;
+  place-items: center;
+  font-size: 10.5px;
+}
+
+.waste-used {
+  background: linear-gradient(180deg, #14603a, #0b3a22);
+  color: var(--text-primary);
+}
+
+.waste-over {
+  background: repeating-linear-gradient(135deg, rgba(224, 75, 75, 0.5) 0 6px, rgba(224, 75, 75, 0.25) 6px 12px);
+  color: var(--text-primary);
+}
+
+.waste-used em,
+.waste-over em {
+  font-style: normal;
+}
+
+/* ------------------------------------------------------ 31 execute range */
+
+.exec {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.exec-row {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr) 60px;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.exec-name {
+  color: var(--text-secondary);
+}
+
+.exec-track {
+  position: relative;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--surface-void);
+  border: 1px solid var(--line-soft);
+}
+
+.exec-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 1px;
+  background: linear-gradient(90deg, rgba(31, 170, 75, 0.65), rgba(31, 170, 75, 0.2));
+}
+
+.exec-track i {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  background: var(--bar-health-ally);
+}
+
+.exec-value {
+  text-align: right;
+  color: var(--gold-100);
+}
+
+/* --------------------------------------------------------- 32 rotation */
+
+.rot-chart {
+  position: relative;
+  height: 34px;
+  border-radius: 2px;
+  background: var(--surface-void);
+  border: 1px solid var(--line-soft);
+  margin-bottom: 12px;
+}
+
+.rot-band {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  display: grid;
+  place-items: center;
+  border-radius: 2px;
+  background: rgba(217, 89, 38, 0.5);
+  font-size: 10px;
+  color: var(--text-primary);
+}
+
+.rot-band em {
+  font-style: normal;
+}
+
+.rot-band.filler {
+  background: repeating-linear-gradient(135deg, rgba(160, 155, 140, 0.25) 0 5px, transparent 5px 10px);
+  color: var(--text-muted);
+}
+
+/* ------------------------------------------------------- 33 pin compare */
+
+.pincmp-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 12px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.pincmp-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px 130px;
+  gap: 1px;
+  font-size: 12px;
+}
+
+.pincmp-grid > span {
+  padding: 6px 8px;
+  background: var(--surface-void);
+  color: var(--text-secondary);
+}
+
+.pincmp-label {
+  color: var(--text-secondary);
+}
+
+.pincmp-a,
+.pincmp-b {
+  text-align: right;
+}
+
+.pincmp-a {
+  color: var(--text-muted);
+}
+
+.pincmp-b {
+  color: var(--gold-100);
+}
+
+.pincmp-b i {
+  font-style: normal;
+  margin-left: 6px;
+  font-size: 10.5px;
+  color: var(--bar-health-ally);
+}
+
+/* --------------------------------------------------- 35 reaction windows */
+
+.react-lane {
+  position: relative;
+  height: 30px;
+  border-radius: 2px;
+  background: var(--surface-void);
+  border: 1px solid var(--line-soft);
+}
+
+.react-cc,
+.react-free {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  display: grid;
+  place-items: center;
+  border-radius: 2px;
+  font-size: 9.5px;
+}
+
+.react-cc {
+  background: rgba(79, 176, 232, 0.45);
+  color: var(--text-primary);
+}
+
+.react-free {
+  background: repeating-linear-gradient(135deg, rgba(224, 75, 75, 0.3) 0 5px, transparent 5px 10px);
+  color: var(--text-secondary);
+}
+
+.react-cc em,
+.react-free em {
+  font-style: normal;
+}
+
+.react-note {
+  margin: 12px 0 0;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+/* --------------------------------------------------------------- 36 log */
+
+.log {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.log-row {
+  display: grid;
+  grid-template-columns: 70px minmax(0, 1fr) 70px;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 8px;
+  border-radius: 2px;
+  border-left: 2px solid var(--bar-health-ally);
+  background: var(--surface-void);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.log-row.is-bad {
+  border-left-color: var(--bar-health-enemy);
+}
+
+.log-time {
+  color: var(--text-muted);
+  font-size: 10.5px;
+}
+
+.log-what strong {
+  color: var(--text-primary);
+}
+
+.log-delta {
+  text-align: right;
+}
+
+.log-foot {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 8px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+.log-foot .mono {
+  margin-left: auto;
+  color: var(--bar-health-ally);
+}
