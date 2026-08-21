@@ -339,7 +339,9 @@ export function DpsChart({ analysis, playhead, linkedStepUid, pinnedStepUid, onP
           <span className="chart-swatch" style={{ background: 'var(--series-physical)' }} />
           Damage per second
         </span>
-        <span className="chart-legend-item muted">Peak {Math.round(peak.rate).toLocaleString('en-US')} at {formatSeconds(peak.time)} s</span>
+        <span className="chart-legend-item muted">
+          Peak at {formatSeconds(peak.time)} s
+        </span>
         {readTime !== null && (
           <span className="chart-legend-item">
             <b className="mono">{Math.round(rateAt(readTime)).toLocaleString('en-US')}</b> dps at{' '}
@@ -378,7 +380,14 @@ export function DpsChart({ analysis, playhead, linkedStepUid, pinnedStepUid, onP
                   y={y(tick) + 4}
                   className={isPeak ? 'chart-tick end is-peak' : 'chart-tick end'}
                 >
+                  {/*
+                    * The top of the scale is the combo's maximum rate, and it is
+                    * the only tick that names its unit — that way the axis
+                    * carries the headline number and the plot stays free of
+                    * text sitting over the curve.
+                    */}
                   {Math.round(tick).toLocaleString('en-US')}
+                  {isPeak ? ' dps' : ''}
                 </text>
               </g>
             );
