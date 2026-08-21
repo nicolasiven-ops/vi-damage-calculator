@@ -25,21 +25,18 @@
         <h1 class="lab-nav-title">Roadmap</h1>
         <span class="lab-nav-sub">Decided, not yet built</span>
         <ol>
+          <li class="lab-nav-break">Done</li>
+          <li><a href="#shipped">Shipped so far</a></li>
           <li class="lab-nav-break">Main features</li>
           <li><a href="#solver">The combo solver</a></li>
           <li><a href="#worth">What a stat is worth</a></li>
           <li><a href="#sweep">Against more than one target</a></li>
           <li class="lab-nav-break">Making the numbers readable</li>
           <li><a href="#spread">The crit spread</a></li>
-          <li><a href="#formula">The formula at the hit</a></li>
-          <li class="lab-nav-break">Honest simulation</li>
+          <li class="lab-nav-break">Correctness</li>
           <li><a href="#items">Item passives, all of them</a></li>
           <li><a href="#loadout">One panel for the loadout</a></li>
-          <li><a href="#mana">Mana, spent and regained</a></li>
-          <li><a href="#regen">Regeneration over time</a></li>
-          <li><a href="#smite">Smite, all four of them</a></li>
-          <li><a href="#haste">The rest of the haste family</a></li>
-          <li><a href="#selflock">What the caster is locked out of</a></li>
+          <li><a href="#haste">Haste for the ultimate alone</a></li>
           <li class="lab-nav-break">Towards the duel</li>
           <li><a href="#champions">More than one champion</a></li>
           <li><a href="#windows">The windows</a></li>
@@ -71,6 +68,103 @@
             one that is missing a view.
           </p>
         </header>
+
+        <!-- ================================================= Shipped -->
+        <section class="lab-section" id="shipped">
+          <div class="lab-section-head">
+            <span class="lab-num">✓</span>
+            <h2>Shipped since this page was written</h2>
+            <div class="lab-cost"><span class="lab-pill ready">done</span></div>
+          </div>
+          <p class="lab-why">
+            Kept rather than deleted: a roadmap that only ever grows tells you
+            nothing about pace, and several of these were on it for a day. Each
+            line says what it actually turned into, because the plan and the thing
+            built are never quite the same.
+          </p>
+          <div class="lab-stage plain">
+            <ul class="lab-scrap">
+              <li>
+                <b>The formula at the hit</b>
+                <span>Was: an expandable card on the timeline row.</span>
+                <em>Built as the first submodule of the new <b>Detailed View</b>: one
+                card per hit, with what was rolled, the measured mitigation factor,
+                what landed, and the engine's own trace lines under it. The factor is
+                divided out of the recorded numbers rather than recomputed, so the
+                card cannot drift from the hit it describes.</em>
+              </li>
+              <li>
+                <b>Mana, spent and regained</b>
+                <span>Was: the bar reads 865 / 865 for the whole combo.</span>
+                <em>Costs come from Data Dragon per rank (Q 50/60/70/80/90, E
+                26/32/38/44/50, R 100), the pool is paid at cast and regenerates on
+                the game's half-second clock, and an ability nobody can pay for is
+                refused with a reason instead of quietly cast.</em>
+              </li>
+              <li>
+                <b>Regeneration over the combo</b>
+                <span>Was: nothing regenerated while a combo ran.</span>
+                <em>A tenth of the per-five-seconds figure every half second, accrued
+                with the clock, for the target's health and the attacker's resource.
+                Its own lane on the timeline and a "Target regenerated" chip, because
+                it works against every damage number to its left.</em>
+              </li>
+              <li>
+                <b>Smite, all of it</b>
+                <span>Was: base Smite only, at a number from the wrong lineage.</span>
+                <em>Base corrected to 600. The three Primal Smites are in the picker
+                with their own icons, and the pet buffs behind them are modelled:
+                Scorchclaw's burn is 5% of the target's maximum health over four
+                seconds and lands as real damage, Mosstomper's shield is up at the
+                start, Gustwalker's movement speed is named as having no effect
+                here.</em>
+              </li>
+              <li>
+                <b>What the caster is locked out of</b>
+                <span>Was: an unverified 1.05 s that turned out not to exist.</span>
+                <em>Riot's file has no such field — every leaf value between 1.00 and
+                1.10 is exactly 1.0 — but it has the cast time (0.25) and the airborne
+                duration, and the wiki says Vi cannot act while she holds the target.
+                So the ultimate now costs cast plus dash plus the 1.3 s grab, as a
+                lock that delays acting without delaying the cooldown.</em>
+              </li>
+              <li>
+                <b>Basic ability haste</b>
+                <span>Was: one haste number for everything.</span>
+                <em>Riot scopes haste in the item text and the app now does too:
+                Shojin's 25 and Legend: Haste's 15 shorten Q, W and E and leave the
+                ultimate alone. The shard that looked like the culprit turned out to
+                grant plain haste all along — checked against perks.json, where the
+                word "Basic" appears on Legend: Haste and nowhere near it.</em>
+              </li>
+              <li>
+                <b>The combo ends with the target</b>
+                <span>Was not on this page, and should have been.</span>
+                <em>Everything after the kill was damage into a corpse: it inflated
+                the totals, stretched the chart and diluted the damage per second.
+                The combo now stops there, the unused steps stay in the strip greyed
+                out, and the kill is the last line of the log — marked, because
+                arriving at it is the point of reading down.</em>
+              </li>
+              <li>
+                <b>Crowd control as a window</b>
+                <span>Was: part of "the windows", section below.</span>
+                <em>Half of it is done as data: the engine records what the target
+                cannot do and for how long, Vi's Q knocks up for 0.75 s and her
+                ultimate for 1.3 s, and both draw as their own lane. What is still
+                missing is the reading — whether a window was long enough for the
+                target to answer.</em>
+              </li>
+            </ul>
+          </div>
+          <p class="lab-caption">
+            Item passives are the one item on this list that is <em>in progress</em>
+            rather than done: the foundation is in — every shop item has a verdict,
+            the coverage test fails on an unclassified one, and the first mechanic
+            (stacking amplifiers) is implemented and pinned by tests. 13 of 218
+            modelled, 11 examined and dismissed, and the rest is the work.
+          </p>
+        </section>
 
         <!-- ================================================= Combo solver -->
         <section class="lab-section" id="solver">
@@ -226,34 +320,11 @@
           </p>
         </section>
 
-        <!-- ================================================= Formula -->
-        <section class="lab-section" id="formula">
-          <div class="lab-section-head">
-            <span class="lab-num">05</span>
-            <h2>The formula at the hit, not in a panel of its own</h2>
-            <div class="lab-cost">
-              <span class="lab-pill ready">data available</span>
-            </div>
-          </div>
-          <p class="lab-why">
-            The formula inspector is one of the best things in the app and it sits a long
-            way from the hit in question. As a card that expands <em>on the timeline
-            row</em> it answers the question at the moment of doubt — <strong>why
-            158?</strong> — with every number in it naming where it came from: which
-            field of which patch's game data, which ratio, which armour value after
-            which shred.
-          </p>
-          <p class="lab-caption">
-            The mock-up is in the workshop. <a href="workshop.html#formula">Section 12
-            there</a> shows the card; the work is threading the derivation the engine
-            already computes through to the row instead of rebuilding it.
-          </p>
-        </section>
-
+        
         <!-- ================================================= Item passives -->
         <section class="lab-section" id="items">
           <div class="lab-section-head">
-            <span class="lab-num">06</span>
+            <span class="lab-num">05</span>
             <h2>Item passives, all of them</h2>
             <div class="lab-cost">
               <span class="lab-pill needs">honesty item</span>
@@ -339,7 +410,7 @@
         <!-- ================================================= One loadout panel -->
         <section class="lab-section" id="loadout">
           <div class="lab-section-head">
-            <span class="lab-num">07</span>
+            <span class="lab-num">06</span>
             <h2>One panel for items, runes and summoners</h2>
             <div class="lab-cost">
               <span class="lab-pill needs">layout</span>
@@ -372,104 +443,27 @@
           </p>
         </section>
 
-        <!-- ================================================= Mana -->
-        <section class="lab-section" id="mana">
-          <div class="lab-section-head">
-            <span class="lab-num">08</span>
-            <h2>Mana, spent and regained</h2>
-            <div class="lab-cost">
-              <span class="lab-pill needs">honesty item</span>
-              <span class="lab-pill ready">costs are in the data</span>
-            </div>
-          </div>
-          <p class="lab-why">
-            The resource bar under Vi currently reads 865 / 865 for the whole combo,
-            because nothing spends mana. Data Dragon ships every ability's cost per rank
-            and the engine already reads that file for cooldowns, so the bar is showing a
-            number it could get right.
-          </p>
-          <p class="lab-why">
-            It matters more than it sounds. A combo that needs four abilities and has
-            mana for three is not a combo, and the app currently reports it as one. The
-            same check turns the bar into an answer: <strong>can you pay for it?</strong>
-          </p>
-          <p class="lab-caption">
-            <strong>What it needs.</strong> Deduct the cost at cast, carry current mana in
-            the per-step snapshot the sidebars already read, and refuse the cast when the
-            pool cannot cover it — with a stated reason, the way an ability on cooldown
-            already states one. Muramana and Manamune care about maximum mana, so this is
-            also the point at which those two stop being stat sticks.
-          </p>
-        </section>
-
-        <!-- ================================================= Regen -->
-        <section class="lab-section" id="regen">
-          <div class="lab-section-head">
-            <span class="lab-num">09</span>
-            <h2>Regeneration over the length of the combo</h2>
-            <div class="lab-cost">
-              <span class="lab-pill needs">honesty item</span>
-              <span class="lab-pill">small</span>
-            </div>
-          </div>
-          <p class="lab-why">
-            Health and mana regeneration are in the stat model and on the sheet — base
-            values from the champion, per-level growth, and whatever items add. What is
-            missing is time: nothing regenerates <em>during</em> a combo, so a
-            twelve-second sequence ends with exactly the mana it started with minus
-            nothing, and the target's regeneration never claws back the damage dealt to
-            it either.
-          </p>
-          <p class="lab-caption">
-            <strong>What it needs.</strong> One tick per second against the clock the
-            engine already advances, at a fifth of the per-five-seconds value, capped at
-            maximum. Small, and it only matters over long combos — which is exactly when
-            people mistrust the numbers, so it is worth having.
-          </p>
-        </section>
-
-        <!-- ================================================= Smite -->
-        <section class="lab-section" id="smite">
-          <div class="lab-section-head">
-            <span class="lab-num">10</span>
-            <h2>Smite, all of it</h2>
-            <div class="lab-cost">
-              <span class="lab-pill needs">honesty item</span>
-              <span class="lab-pill">in progress</span>
-            </div>
-          </div>
-          <p class="lab-why">
-            Base Smite is modelled as 900 true damage to a monster and a refusal against
-            champions, which is right. The upgrades are missing entirely, and the red one
-            is the one that belongs in a damage calculator: it can be pointed at a
-            champion, it deals a levelled amount of true damage, and it is a real part of
-            a jungler's burst.
-          </p>
-          <p class="lab-caption">
-            The picker offers what Riot marks as legal on Summoner's Rift, so the variants
-            need to reach it as well as reaching the engine — with their own icons, since
-            that is how anyone recognises which smite they took. The numbers are being
-            read out of the live game data rather than remembered, and the table in
-            <code>src/model/summoners.ts</code> is already shaped to take them as rows.
-          </p>
-        </section>
-
+        
+        
+        
         <!-- ================================================= Haste family -->
         <section class="lab-section" id="haste">
           <div class="lab-section-head">
-            <span class="lab-num">11</span>
-            <h2>The rest of the haste family</h2>
+            <span class="lab-num">07</span>
+            <h2>Haste for the ultimate alone</h2>
             <div class="lab-cost">
               <span class="lab-pill needs">honesty item</span>
               <span class="lab-pill">small</span>
             </div>
           </div>
           <p class="lab-why">
-            Riot scopes haste in both directions and says so in the item text. Basic
-            ability haste — Spear of Shojin's 25, and Legend: Haste's 1.5 a stack — now
-            shortens Q, W and E and leaves the ultimate alone. The other direction is
-            still missing: <strong>Ultimate Hunter</strong> grants haste to the ultimate
-            only, and nothing in the app can express that yet.
+            Basic ability haste is done — Shojin's 25 and Legend: Haste's 15 shorten
+            Q, W and E and leave the ultimate alone. The other direction is still
+            missing: <strong>Ultimate Hunter</strong> grants haste to the ultimate only,
+            and nothing in the app can express that yet. The shape is the same as the
+            change that landed: one more field, one more branch in the per-slot lookup,
+            and a test that a ninety-second ultimate moves for one source and not the
+            other.
           </p>
           <p class="lab-caption">
             The same shape as the basic-haste change: one more field, one more branch in
@@ -480,48 +474,11 @@
           </p>
         </section>
 
-        <!-- ================================================= Self-lock -->
-        <section class="lab-section" id="selflock">
-          <div class="lab-section-head">
-            <span class="lab-num">12</span>
-            <h2>What the caster is locked out of</h2>
-            <div class="lab-cost">
-              <span class="lab-pill needs">honesty item</span>
-              <span class="lab-pill needs">number to verify</span>
-            </div>
-          </div>
-          <p class="lab-why">
-            Some abilities cost the caster more than their cast time: Vi's ultimate takes
-            her along with it, and she cannot attack again until the animation lets her
-            go. The app currently charges the ultimate a dash-travel constant and then
-            allows the next attack immediately, which makes every R → attack sequence
-            land sooner than it can in game — and the attack timer, the shred window and
-            the whole clock after it inherit that error.
-          </p>
-          <p class="lab-why">
-            The distinction to get right is not "how long the cast takes" but
-            <strong>what the caster may do while it happens</strong>. Vi's Q already
-            separates the two in one direction — the cooldown starts on release, before
-            the dash finishes — so the shape exists: a cast timing with parts, where a
-            part can delay acting without delaying the cooldown. A lockout is that idea
-            in reverse: time after the effect in which the champion may not attack.
-          </p>
-          <p class="lab-caption">
-            <strong>What it needs.</strong> The number, from Riot's own data rather than a
-            feel — the champion bin file the app already parses carries the cast and
-            animation fields, and the honest version of this feature quotes the field it
-            came from, the way every ability value in the app already does. Then a part
-            in the cast timing marked as a lock, applied to the attack timer instead of
-            only to the clock. If the data turns out not to carry it, the number becomes a
-            stated assumption in the timing constants, editable and labelled as one —
-            never a silent constant.
-          </p>
-        </section>
-
+        
         <!-- ================================================= Champions -->
         <section class="lab-section" id="champions">
           <div class="lab-section-head">
-            <span class="lab-num">13</span>
+            <span class="lab-num">08</span>
             <h2>More than one champion</h2>
             <div class="lab-cost">
               <span class="lab-pill needs">large</span>
@@ -554,7 +511,7 @@
         <!-- ================================================= Windows -->
         <section class="lab-section" id="windows">
           <div class="lab-section-head">
-            <span class="lab-num">14</span>
+            <span class="lab-num">09</span>
             <h2>The windows: what the target can do while this happens</h2>
             <div class="lab-cost">
               <span class="lab-pill needs">for the duel</span>
@@ -563,9 +520,10 @@
           </div>
           <p class="lab-why">
             The timeline already knows every stretch of time a combo spends: charging,
-            dashing, locked in an animation, waiting on a cooldown. Turn that around and
-            it answers a question about the other side — <strong>when could they have
-            reacted, and to what?</strong> A 1.25-second charge is 1.25 seconds of
+            dashing, locked in an animation, waiting on a cooldown — and now also what
+            the target cannot do, since crowd control is recorded as a window with its
+            own lane. Turn that around and it answers a question about the other side —
+            <strong>when could they have reacted, and to what?</strong> A 1.25-second charge is 1.25 seconds of
             warning. A knock-up is a stretch in which they could not answer at all. The
             gaps between are the windows a Flash or a Cleanse fits into.
           </p>
@@ -607,10 +565,11 @@
                 and never spent.</em>
               </li>
               <li>
-                <b>No crowd control</b>
-                <span>Tenacity is summed and displayed and consumed by nothing.</span>
-                <em>Vi's knock-up has a duration in the timeline because it costs the
-                combo time, not because anything is stunned.</em>
+                <b>Crowd control is recorded, not resolved</b>
+                <span>Knock-ups and slows are windows on the timeline; tenacity is
+                summed and consumed by nothing.</span>
+                <em>Nothing acts against the windows yet, because the target does not
+                act at all. That arrives with the duel.</em>
               </li>
               <li>
                 <b>No map</b>

@@ -551,6 +551,15 @@ export function simulate(
   };
 
   function addEvent(event: Omit<TimelineEvent, 'id' | 'time' | 'seq'>): void {
+    /*
+     * Nothing is logged after the kill except the kill.
+     *
+     * The fight is over: an animation lock, a cooldown starting, a buff expiring
+     * — all true, all irrelevant, and all of it read as though the combo were
+     * still happening. The last line of the log is the one worth arriving at.
+     */
+    if (targetCurrentHealth <= 0 && event.kind !== 'kill') return;
+
     eventCounter += 1;
     sequence += 1;
     events.push({ ...event, id: `ev${eventCounter}`, seq: sequence, time, stepUid: currentStepUid });
@@ -651,7 +660,44 @@ export function simulate(
 
   /* ------------------------------------------------------------------ damage */
 
+  /**
+   * A damage instance that never happened, for the paths that must return one.
+   *
+   * Nothing reads it: it exists because `dealDamage` promises an instance and a
+   * dead target means there is none. Zeroes rather than a null so no caller has
+   * to guard, and it is never pushed into the timeline.
+   */
+  function noDamage(args: DealDamageArgs): DamageInstance {
+    sequence += 1;
+    return {
+      id: 'dmg-none',
+      seq: sequence,
+      time,
+      stepUid: currentStepUid,
+      sourceId: args.sourceId,
+      sourceLabel: args.sourceLabel,
+      sourceKind: args.sourceKind,
+      slot: args.slot,
+      type: args.type,
+      raw: 0,
+      mitigated: 0,
+      crit: false,
+      targetHpAfter: 0,
+      notes: ['the target was already dead'],
+    };
+  }
+
   function applyDamage(args: DealDamageArgs): DamageInstance {
+    /*
+     * Damage after the kill is not damage.
+     *
+     * Ignite keeps ticking, a burn keeps burning, and the scheduler happily
+     * delivers both into a corpse — which inflated every total, stretched the
+     * chart seconds past the moment that decided the fight, and made the DPS a
+     * rate over time nobody was fighting for.
+     */
+    if (targetCurrentHealth <= 0) return noDamage(args);
+
     const stats = currentStats();
     const shred = combinedShred();
 
@@ -739,7 +785,7 @@ export function simulate(
     if (healthBefore > 0 && targetCurrentHealth <= 0) {
       const overkill = Math.max(0, result.mitigated - healthBefore);
       addEvent({
-        kind: 'info',
+        kind: 'kill',
         label: 'Target eliminated',
         detail:
           overkill > 0.5
@@ -1291,14 +1337,6 @@ export function simulate(
      */
     if (targetCurrentHealth <= 0) {
       unusedSteps.push(...input.combo.slice(stepIndex).map((entry) => entry.uid));
-      addEvent({
-        kind: 'info',
-        label: 'Combo stopped',
-        detail:
-          input.combo.length - stepIndex === 1
-            ? 'the target was already dead — one step left unused'
-            : `the target was already dead — ${input.combo.length - stepIndex} steps left unused`,
-      });
       break;
     }
     currentStepUid = step.uid;
@@ -1346,9 +1384,15 @@ export function simulate(
     currentStepUid = undefined;
   }
 
-  // Let any scheduled damage-over-time finish before reporting.
-  const lastScheduled = scheduled.reduce((max, entry) => Math.max(max, entry.at), time);
-  advanceTo(lastScheduled);
+  /*
+   * Let scheduled damage-over-time finish — but only if there is anything left
+   * to hurt. With the target down, draining the queue would only move the clock,
+   * and the clock is what the chart's width and the DPS window are made of.
+   */
+  if (targetCurrentHealth > 0) {
+    const lastScheduled = scheduled.reduce((max, entry) => Math.max(max, entry.at), time);
+    advanceTo(lastScheduled);
+  }
 
 
   const totalRaw = instances.reduce((sum, instance) => sum + instance.raw, 0);
@@ -1384,7 +1428,14 @@ export function simulate(
     spans: [...spans].sort((a, b) => a.start - b.start || a.end - b.end),
     totalRaw,
     totalMitigated,
-    duration: time,
+    /*
+     * As long as the fight, not as long as the plan.
+     *
+     * With the target down, the clock kept running through the last cast's
+     * animation lock — which stretched the chart and diluted the damage per
+     * second over seconds in which nothing was at stake.
+     */
+    duration: killer ? killer.time : time,
     killTime: killer?.time ?? null,
     targetHpRemaining: targetCurrentHealth,
     shieldGained,

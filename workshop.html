@@ -78,30 +78,13 @@
       <!-- --------------------------------------------------------- Content -->
       <main class="lab-body">
         <header class="lab-hero">
-          <h1>Thirteen proposals for an analysis tool</h1>
+          <h1>Ideas for the calculator</h1>
           <p>
-            The calculator plays the combo out on a clock, which means it knows more
-            than it shows: when every hit lands, what weakened it, when an ability is
-            ready again, how much health is left. Nearly everything here already
-            exists <strong>as a number</strong> — it just has no form yet.
+            Proposals, what got built out of them, and what was scrapped — each with
+            the reason. Numbers in the mock-ups are real where the app already computes
+            them and marked <span class="lab-pill needs">invented numbers</span> where
+            they are not.
           </p>
-          <p>
-            So these are not color studies but <strong>tools</strong>: each one
-            answers a question you really do have while building a combo, and each
-            one says underneath what it would take to get there.
-          </p>
-          <div class="lab-disclaimer">
-            <div>
-              <strong>About the numbers.</strong> Everything the app already computes
-              today is shown here for real: Vi at level 11 with no items, target with
-              2,100 HP and 90 armor, combo Q (fully charged) → AA → E → AA → R → AA,
-              550 damage out of 1,005 raw. Numbers for analyses that do not exist yet
-              — item contributions, the time-to-kill matrix, the build comparison —
-              are <strong>plausibly invented</strong> and marked with
-              <span class="lab-pill needs">invented numbers</span>. No proposal here
-              claims to be calculating anything yet.
-            </div>
-          </div>
         </header>
 
         <!-- ================================================= 01 Timeline -->
@@ -109,7 +92,7 @@
           <div class="lab-section-head">
             <span class="lab-num">01</span>
             <h2>The combo as a timeline, not as a list</h2>
-            <div class="lab-cost">
+            <div class="lab-cost"><span class="lab-pill ready">built</span>
               <span class="lab-pill ready">data available</span>
             </div>
           </div>
@@ -329,7 +312,7 @@
           <div class="lab-section-head">
             <span class="lab-num">03</span>
             <h2>The health bar everyone knows from the game</h2>
-            <div class="lab-cost"><span class="lab-pill ready">data available</span></div>
+            <div class="lab-cost"><span class="lab-pill ready">partly built</span><span class="lab-pill ready">data available</span></div>
           </div>
           <p class="lab-why">
             “Target survives with 1,550 HP” is a number; <em>this</em> is a picture.
@@ -836,7 +819,7 @@
           <div class="lab-section-head">
             <span class="lab-num">12</span>
             <h2>The formula at the hit, not in a table of its own</h2>
-            <div class="lab-cost"><span class="lab-pill ready">data available</span></div>
+            <div class="lab-cost"><span class="lab-pill ready">built</span><span class="lab-pill ready">data available</span></div>
           </div>
           <p class="lab-why">
             The formula inspector is one of the best things about the project, but it
@@ -1245,7 +1228,7 @@
           <div class="lab-section-head">
             <span class="lab-num">20</span>
             <h2>Can you even pay for this combo?</h2>
-            <div class="lab-cost"><span class="lab-pill ready">data available</span></div>
+            <div class="lab-cost"><span class="lab-pill ready">built</span><span class="lab-pill ready">data available</span></div>
           </div>
           <p class="lab-why">
             Every cost is in the game data already — the bin file carries mana per
@@ -1366,7 +1349,7 @@
           <div class="lab-section-head">
             <span class="lab-num">23</span>
             <h2>Every timed effect as its own lane</h2>
-            <div class="lab-cost"><span class="lab-pill ready">data available</span></div>
+            <div class="lab-cost"><span class="lab-pill ready">built</span><span class="lab-pill ready">data available</span></div>
           </div>
           <p class="lab-why">
             Buffs and debuffs are the part of a fight that is invisible in a table of
@@ -2290,6 +2273,43 @@
                 <span>“E on its own deals no damage — add an attack after it.”</span>
                 <em>Out: the warning was correct and useless. If a combo says E, it
                 means the empowered attack, so E now carries that attack itself.</em>
+              </li>
+              <li>
+                <b>Subgrid for the three columns</b>
+                <span>CSS subgrid so the first panel of every column shared one row.</span>
+                <em>Out: a column spanning two auto rows makes the browser size those
+                rows from the column's own height, which stretched the analysis panel to
+                half the page. Replaced by one measurement — a ResizeObserver on the
+                analysis panel, published as a custom property — which holds the three
+                panels to the same height exactly.</em>
+              </li>
+              <li>
+                <b>The charge slider in the header row</b>
+                <span>Next to "Combo · 6 steps", editing the focused step.</span>
+                <em>Out: it was correct and it was in the wrong place. The slider now
+                floats above the card it belongs to, measured against it so both edges
+                line up, and takes no layout space at all — fixed positioning is outside
+                the strip's clipping box.</em>
+              </li>
+              <li>
+                <b>The crowd-control chip between the bars</b>
+                <span>"SLOWED 30% 2.00 s" under the target's health.</span>
+                <em>Out: it sat inside the health block and read as something the health
+                bar was saying. Crowd control is a stretch of time, so it lives where
+                stretches of time are drawn — its own lane on the timeline.</em>
+              </li>
+              <li>
+                <b>"Clear selection", and hover-to-focus</b>
+                <span>A button to drop the pinned step, and hover picking the moment.</span>
+                <em>Out: hovering rewrote every number on the way past, which makes a
+                click useless for reading a moment. Now only a click focuses, and a click
+                on empty timeline space lets go — no button needed.</em>
+              </li>
+              <li>
+                <b>"Combo stopped" as a timeline entry</b>
+                <span>A line saying how many steps went unused after the kill.</span>
+                <em>Out: the kill should be the last line of the log. The unused steps
+                are visible where they belong — greyed out in the combo strip.</em>
               </li>
             </ul>
           </div>

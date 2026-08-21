@@ -30,6 +30,7 @@ import type {
 import type { GameDataStatus } from '../hooks/usePatchData';
 import { ComboTimeline } from './ComboTimeline';
 import { CombatantBars } from './CombatantBars';
+import { HitFormulas } from './HitFormulas';
 import type { FightMoment } from './moment';
 import { DamageChart } from './DamageChart';
 import { Panel } from './components/Panel';
@@ -100,6 +101,7 @@ const EVENT_LABELS: Record<TimelineEvent['kind'], string> = {
   info: 'Info',
   warning: 'Note',
   wait: 'Idle',
+  kill: 'Kill',
 };
 
 type TimelineRow =
@@ -113,12 +115,20 @@ type TimelineRow =
  * resolutions. Stacked, they would fill the screen without telling anyone
  * more. One window, three tabs.
  */
-type ResultView = 'timeline' | 'details' | 'formulas';
+type ResultView = 'timeline' | 'details' | 'detailed' | 'sources';
 
+/**
+ * The three ways to read the same run, as the tabs name them.
+ *
+ * Two of them are the timeline — one drawn, one written — and saying so in the
+ * label saves the reader working out that they are looking at the same thing
+ * twice.
+ */
 const VIEW_TITLES: Record<ResultView, string> = {
-  timeline: 'Timeline',
-  details: 'Detail view',
-  formulas: 'Formula inspector',
+  timeline: 'Timeline - Gantt',
+  details: 'Timeline - List',
+  detailed: 'Detailed View',
+  sources: 'Damage sources',
 };
 
 const STATUS_TAGS: Record<GameDataStatus['state'], { label: string; tone: string }> = {
@@ -379,10 +389,11 @@ export function AnalysisPanel({
       <div className="analysis-rest">
       <Panel
         className="analysis-view"
-        title={VIEW_TITLES[view]}
+        // The panel keeps its own name; the tabs say which reading is open.
+        title="Detailed Analysis"
         actions={
           <div className="view-tabs">
-            {(['timeline', 'details', 'formulas'] as ResultView[]).map((entry) => (
+            {(['timeline', 'details', 'detailed', 'sources'] as ResultView[]).map((entry) => (
               <button
                 key={entry}
                 className={`view-tab${view === entry ? ' is-active' : ''}`}
@@ -414,14 +425,23 @@ export function AnalysisPanel({
         )}
 
 
-        {view === 'formulas' && (
-          <FormulaInspector
-            module={module}
-            moduleCtx={moduleCtx}
-            ranks={ranks}
-            abilities={abilities}
-            gameDataStatus={gameDataStatus}
-          />
+        {view === 'sources' && (
+          <>
+            <SourceBars analysis={analysis} />
+            <hr className="divider" />
+            <TypeSplit analysis={analysis} />
+          </>
+        )}
+
+        {view === 'detailed' && (
+          /*
+           * The first submodule: the formula at the hit.
+           *
+           * More will move in here — the crit spread, the mitigation chain, what
+           * a stat is worth — each one a reading of the run rather than a table
+           * of the build.
+           */
+          <HitFormulas analysis={analysis} pinnedStepUid={pinnedStepUid} />
         )}
 
         {view === 'details' && (
@@ -444,6 +464,8 @@ export function AnalysisPanel({
                   <tr
                     key={row.event.id}
                     className={`timeline-event-row${row.event.kind === 'wait' ? ' is-wait' : ''}${
+                      row.event.kind === 'kill' ? ' is-kill' : ''
+                    }${
                       linkedStepUid && row.event.stepUid === linkedStepUid ? ' is-linked' : ''
                     }${pinnedStepUid && row.event.stepUid === pinnedStepUid ? ' is-pinned' : ''}`}
                     onClick={() => onPinStep?.(row.event.stepUid ?? null)}
@@ -507,10 +529,21 @@ export function AnalysisPanel({
        * for. What is left in the middle is what only the middle can hold: where
        * the damage came from, over the whole combo.
        */}
-      <Panel className="analysis-sources" title="Damage sources">
-        <SourceBars analysis={analysis} />
-        <hr className="divider" />
-        <TypeSplit analysis={analysis} />
+      {/*
+       * The bottom window: where the numbers come from.
+       *
+       * The panel you consult rather than watch — provenance, formulas, and
+       * whatever general reading comes next. Nothing in it is about one moment of
+       * the combo, which is why it is not upstairs.
+       */}
+      <Panel className="analysis-sources" title="Reference">
+        <FormulaInspector
+          module={module}
+          moduleCtx={moduleCtx}
+          ranks={ranks}
+          abilities={abilities}
+          gameDataStatus={gameDataStatus}
+        />
       </Panel>
       </div>
     </div>

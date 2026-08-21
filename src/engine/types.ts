@@ -68,7 +68,7 @@ export interface TimelineEvent {
    * the one event that explains a gap in the timeline rather than something
    * that happened in it.
    */
-  kind: 'shield' | 'shred' | 'buff' | 'cast' | 'info' | 'warning' | 'wait';
+  kind: 'shield' | 'shred' | 'buff' | 'cast' | 'info' | 'warning' | 'wait' | 'kill';
 }
 
 export type AbilitySlot = 'P' | 'Q' | 'W' | 'E' | 'R';

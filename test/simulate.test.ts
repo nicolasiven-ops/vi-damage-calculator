@@ -332,8 +332,14 @@ describe('cooldowns', () => {
     // The first hit is enough, so the three attacks never happen.
     expect(result.unusedSteps.length).toBeGreaterThan(0);
     expect(result.instances.filter((entry) => entry.sourceKind === 'attack')).toHaveLength(0);
-    expect(result.events.some((event) => event.label === 'Target eliminated')).toBe(true);
-    expect(result.events.some((event) => event.label === 'Combo stopped')).toBe(true);
+    expect(result.events.some((event) => event.kind === 'kill')).toBe(true);
+    /*
+     * The kill is the last thing in the log: nothing lands after it, and the
+     * note about unused steps lives on the combo strip, not in the table.
+     */
+    const kill = result.events.find((event) => event.kind === 'kill')!;
+    const later = result.instances.filter((entry) => entry.seq > kill.seq);
+    expect(later).toHaveLength(0);
   });
 
   /**
