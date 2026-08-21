@@ -26,13 +26,6 @@
         <span class="lab-nav-sub">Where a feature is argued out</span>
         <ol>
           <li><a href="#close">What I would build first</a></li>
-          <li><a href="#solve">Solve for the stat</a></li>
-          <li><a href="#deriv">Which stat is worth most</a></li>
-          <li><a href="#gold">Damage per 1,000 gold</a></li>
-          <li><a href="#skill">Where the skill point goes</a></li>
-          <li><a href="#optimise">The best order</a></li>
-          <li><a href="#metronome">The attack metronome</a></li>
-          <li><a href="#reset">What a reset bought</a></li>
           <li><a href="#window">Fitting the windows</a></li>
           <li><a href="#spread">Crit as a spread</a></li>
           <li><a href="#burst">A window you choose</a></li>
@@ -71,358 +64,7 @@
           </p>
         </header>
 
-                                                                                                                        <!-- ============================================ 15 Breakpoint solver -->
-        <section class="lab-section" id="solve">
-          <div class="lab-section-head">
-            <span class="lab-num">15</span>
-            <h2>Solve for the stat, not for the damage</h2>
-            <div class="lab-cost"><span class="lab-pill ready">data available</span></div>
-          </div>
-          <p class="lab-why">
-            The question is never "how much damage does this do". It is "what do I
-            need for this to kill". Fix the target, fix the combo, and let the tool
-            search the one number you can still buy: how much bonus AD, how much
-            lethality, how many levels. The simulation runs in under a millisecond,
-            so a binary search over two hundred runs is free.
-          </p>
-          <div class="lab-stage plain">
-            <div class="solve">
-              <div class="solve-head">
-                <span>Kill <strong>Squishy (1,900 HP · 65 armor)</strong> with the current combo</span>
-                <span class="lab-pill needs">needs 1 of these</span>
-              </div>
-              <div class="lab-bars">
-                <div class="lab-bar">
-                  <span class="lab-bar-label">Bonus AD</span>
-                  <span class="lab-bar-track"><span style="width: 62%"></span><i style="left: 62%"></i></span>
-                  <span class="lab-bar-value mono">+18</span>
-                </div>
-                <div class="lab-bar">
-                  <span class="lab-bar-label">Lethality</span>
-                  <span class="lab-bar-track"><span style="width: 41%"></span><i style="left: 41%"></i></span>
-                  <span class="lab-bar-value mono">+11</span>
-                </div>
-                <div class="lab-bar">
-                  <span class="lab-bar-label">Champion level</span>
-                  <span class="lab-bar-track"><span style="width: 25%"></span><i style="left: 25%"></i></span>
-                  <span class="lab-bar-value mono">+1</span>
-                </div>
-                <div class="lab-bar out">
-                  <span class="lab-bar-label">Ability haste</span>
-                  <span class="lab-bar-track"><span style="width: 100%"></span></span>
-                  <span class="lab-bar-value mono">never</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <p class="lab-caption">
-            "Never" is the useful answer for haste: no amount of it makes this combo
-            kill, because nothing in it is waiting on a cooldown. A row that reports
-            impossibility is worth as much as one that reports a number.
-            <strong>Implementation:</strong> bisect on one field of
-            <code>bonusStats</code> between the current value and a ceiling, calling
-            <code>simulate</code> each step, stop when the target's health crosses
-            zero. Roughly 8 iterations per row.
-          </p>
-        </section>
-
-        <!-- =========================================== 16 Stat derivatives -->
-        <section class="lab-section" id="deriv">
-          <div class="lab-section-head">
-            <span class="lab-num">16</span>
-            <h2>Which stat is worth most right now</h2>
-            <div class="lab-cost"><span class="lab-pill ready">data available</span></div>
-          </div>
-          <p class="lab-why">
-            The same +10 of a stat is worth wildly different amounts depending on
-            what is already in the build and what the combo actually presses. Vi's Q
-            scales on bonus AD, her E on total AD, her W on neither — so the answer
-            changes with the order of the steps, not only with the items. This is the
-            derivative of the result with respect to each stat, measured rather than
-            reasoned.
-          </p>
-          <div class="lab-stage plain">
-            <div class="lab-bars wide">
-              <div class="lab-bar">
-                <span class="lab-bar-label">+10 bonus AD</span>
-                <span class="lab-bar-track"><span class="pos" style="width: 88%"></span></span>
-                <span class="lab-bar-value mono">+41</span>
-              </div>
-              <div class="lab-bar">
-                <span class="lab-bar-label">+10% armor pen</span>
-                <span class="lab-bar-track"><span class="pos" style="width: 63%"></span></span>
-                <span class="lab-bar-value mono">+29</span>
-              </div>
-              <div class="lab-bar">
-                <span class="lab-bar-label">+10 lethality</span>
-                <span class="lab-bar-track"><span class="pos" style="width: 47%"></span></span>
-                <span class="lab-bar-value mono">+22</span>
-              </div>
-              <div class="lab-bar">
-                <span class="lab-bar-label">+10% attack speed</span>
-                <span class="lab-bar-track"><span class="pos" style="width: 19%"></span></span>
-                <span class="lab-bar-value mono">+9</span>
-              </div>
-              <div class="lab-bar">
-                <span class="lab-bar-label">+10 ability power</span>
-                <span class="lab-bar-track"><span class="pos" style="width: 8%"></span></span>
-                <span class="lab-bar-value mono">+4</span>
-              </div>
-              <div class="lab-bar">
-                <span class="lab-bar-label">+10 ability haste</span>
-                <span class="lab-bar-track"><span style="width: 1%"></span></span>
-                <span class="lab-bar-value mono">0</span>
-              </div>
-            </div>
-          </div>
-          <p class="lab-caption">
-            Attack speed scoring low is the interesting part: this combo has two
-            attacks in it, so faster attacks change the clock but not the damage.
-            Add a third auto and the row jumps. <strong>Implementation:</strong> one
-            <code>simulate</code> per row with the stat nudged, difference against the
-            baseline. Six rows, six runs, once per build change.
-          </p>
-        </section>
-
-        <!-- ========================================= 17 Damage per 1000 gold -->
-        <section class="lab-section" id="gold">
-          <div class="lab-section-head">
-            <span class="lab-num">17</span>
-            <h2>Damage per 1,000 gold</h2>
-            <div class="lab-cost"><span class="lab-pill ready">data available</span></div>
-          </div>
-          <p class="lab-why">
-            An item is not good because it adds damage; it is good because it adds
-            more damage than the same gold spent elsewhere. Every purchasable item
-            can be tried in the free slot and ranked by what it adds to
-            <em>this</em> combo against <em>this</em> target, divided by its price.
-            That is a ranking no wiki can give you, because it depends on your combo.
-          </p>
-          <div class="lab-stage plain">
-            <div class="rank">
-              <div class="rank-row best">
-                <span class="rank-pos mono">1</span>
-                <span class="rank-icon"></span>
-                <span class="rank-name">Youmuu's Ghostblade<em>3,000 g</em></span>
-                <span class="rank-bar"><span style="width: 100%"></span></span>
-                <span class="rank-value mono">+63 <i>/1k</i></span>
-              </div>
-              <div class="rank-row">
-                <span class="rank-pos mono">2</span>
-                <span class="rank-icon"></span>
-                <span class="rank-name">Serylda's Grudge<em>3,200 g</em></span>
-                <span class="rank-bar"><span style="width: 81%"></span></span>
-                <span class="rank-value mono">+51 <i>/1k</i></span>
-              </div>
-              <div class="rank-row">
-                <span class="rank-pos mono">3</span>
-                <span class="rank-icon"></span>
-                <span class="rank-name">Black Cleaver<em>3,000 g</em></span>
-                <span class="rank-bar"><span style="width: 74%"></span></span>
-                <span class="rank-value mono">+47 <i>/1k</i></span>
-              </div>
-              <div class="rank-row">
-                <span class="rank-pos mono">4</span>
-                <span class="rank-icon"></span>
-                <span class="rank-name">Sundered Sky<em>3,100 g</em></span>
-                <span class="rank-bar"><span style="width: 55%"></span></span>
-                <span class="rank-value mono">+35 <i>/1k</i></span>
-              </div>
-              <div class="rank-foot">
-                <span class="lab-pill needs">passives not modelled count as stats only</span>
-              </div>
-            </div>
-          </div>
-          <p class="lab-caption">
-            The footer is not decoration. Half of these items have a passive this
-            calculator does not simulate, and a ranking that hides that is worse than
-            no ranking. <strong>Implementation:</strong> one <code>simulate</code> per
-            candidate — a few hundred runs, so debounce it and run it in an idle
-            callback, or restrict it to a class filter.
-          </p>
-        </section>
-
-        <!-- ============================================ 18 Skill point value -->
-        <section class="lab-section" id="skill">
-          <div class="lab-section-head">
-            <span class="lab-num">18</span>
-            <h2>Where the next skill point goes</h2>
-            <div class="lab-cost"><span class="lab-pill ready">data available</span></div>
-          </div>
-          <p class="lab-why">
-            Levelling order is one of the few decisions in the game that is pure
-            arithmetic, and it is usually taken from a guide. For a given combo the
-            answer is calculable: put the point in Q, in W, in E, run the combo three
-            times, compare. It also changes with the target — W's percentage of
-            maximum health is worth more against a tank than another 20 base damage
-            on Q ever is.
-          </p>
-          <div class="lab-stage plain">
-            <div class="skill">
-              <div class="skill-row best">
-                <span class="skill-key q">Q</span>
-                <span class="skill-name">Vault Breaker <em>rank 5 → 6 not possible</em></span>
-                <span class="skill-value mono">—</span>
-              </div>
-              <div class="skill-row best">
-                <span class="skill-key w">W</span>
-                <span class="skill-name">Denting Blows <em>rank 4 → 5</em></span>
-                <span class="skill-bar"><span style="width: 100%"></span></span>
-                <span class="skill-value mono">+31</span>
-              </div>
-              <div class="skill-row">
-                <span class="skill-key e">E</span>
-                <span class="skill-name">Relentless Force <em>rank 3 → 4</em></span>
-                <span class="skill-bar"><span style="width: 64%"></span></span>
-                <span class="skill-value mono">+20</span>
-              </div>
-              <div class="skill-row">
-                <span class="skill-key r">R</span>
-                <span class="skill-name">Cease and Desist <em>rank 2 → 3</em></span>
-                <span class="skill-bar"><span style="width: 84%"></span></span>
-                <span class="skill-value mono">+26</span>
-              </div>
-            </div>
-          </div>
-          <p class="lab-caption">
-            Against a 3,600 HP tank the W row roughly doubles and the R row halves.
-            Showing the recommendation without the target attached would be a lie of
-            omission. <strong>Implementation:</strong> four runs with one rank bumped.
-          </p>
-        </section>
-
-        <!-- ============================================= 19 Combo optimiser -->
-        <section class="lab-section" id="optimise">
-          <div class="lab-section-head">
-            <span class="lab-num">19</span>
-            <h2>The best order of the steps you already have</h2>
-            <div class="lab-cost"><span class="lab-pill ready">data available</span></div>
-          </div>
-          <p class="lab-why">
-            Order changes the result — that is the premise of the whole simulation.
-            So the tool should be able to search it. Take the steps in the bar, try
-            every legal permutation, respect cooldowns and charges, and report the
-            three best. Six steps are 720 orders; at a millisecond each that is a
-            blink.
-          </p>
-          <div class="lab-stage plain">
-            <div class="opt">
-              <div class="opt-row is-current">
-                <span class="opt-tag">yours</span>
-                <span class="opt-seq"><i class="q">Q</i><i class="aa">AA</i><i class="e">E</i><i class="r">R</i><i class="aa">AA</i></span>
-                <span class="opt-value mono">1,882</span>
-                <span class="opt-delta mono">—</span>
-              </div>
-              <div class="opt-row is-best">
-                <span class="opt-tag">best</span>
-                <span class="opt-seq"><i class="q">Q</i><i class="aa">AA</i><i class="aa">AA</i><i class="e">E</i><i class="r">R</i></span>
-                <span class="opt-value mono">1,974</span>
-                <span class="opt-delta mono pos">+92</span>
-              </div>
-              <div class="opt-row">
-                <span class="opt-tag">2nd</span>
-                <span class="opt-seq"><i class="r">R</i><i class="aa">AA</i><i class="aa">AA</i><i class="e">E</i><i class="q">Q</i></span>
-                <span class="opt-value mono">1,951</span>
-                <span class="opt-delta mono pos">+69</span>
-              </div>
-              <div class="opt-row">
-                <span class="opt-tag">fastest kill</span>
-                <span class="opt-seq"><i class="e">E</i><i class="q">Q</i><i class="aa">AA</i><i class="r">R</i><i class="aa">AA</i></span>
-                <span class="opt-value mono">2.71 s</span>
-                <span class="opt-delta mono pos">−0.55 s</span>
-              </div>
-            </div>
-          </div>
-          <p class="lab-caption">
-            Two objectives, because they disagree: most damage and fastest kill are
-            different orders, and which one matters depends on whether anyone is
-            shooting back. <strong>Implementation:</strong> permutations with early
-            pruning, and a warning when a permutation only wins by ignoring a
-            cooldown the simulation lets you break.
-          </p>
-        </section>
-
-                <!-- ========================================= 21 The attack metronome -->
-        <section class="lab-section" id="metronome">
-          <div class="lab-section-head">
-            <span class="lab-num">21</span>
-            <h2>The attack timer, made visible</h2>
-            <div class="lab-cost"><span class="lab-pill ready">data available</span></div>
-          </div>
-          <p class="lab-why">
-            Attack speed is the least intuitive number in the game: it does not make
-            damage bigger, it makes the gaps smaller, and the gaps are where combos
-            are won. Draw the cycle. Wind-up in one tone, the locked remainder in
-            another, dead time in a third — and mark every reset, because a reset is
-            the only thing that removes a gap entirely.
-          </p>
-          <div class="lab-stage plain">
-            <div class="metro">
-              <div class="metro-lane">
-                <span class="metro-windup" style="left: 0%; width: 6%"></span>
-                <span class="metro-lock" style="left: 6%; width: 22%"></span>
-                <span class="metro-reset" style="left: 28%" title="E resets the timer"></span>
-                <span class="metro-windup" style="left: 28%; width: 5%"></span>
-                <span class="metro-lock" style="left: 33%; width: 19%"></span>
-                <span class="metro-dead" style="left: 52%; width: 14%" title="1.02 s doing nothing"></span>
-                <span class="metro-windup" style="left: 66%; width: 5%"></span>
-                <span class="metro-lock" style="left: 71%; width: 19%"></span>
-              </div>
-              <div class="metro-axis">
-                <span>0 s</span><span>1 s</span><span>2 s</span><span>3 s</span>
-              </div>
-              <div class="metro-legend">
-                <span><i class="w"></i>wind-up</span>
-                <span><i class="l"></i>locked</span>
-                <span><i class="d"></i>dead time</span>
-                <span><i class="r"></i>reset</span>
-              </div>
-            </div>
-          </div>
-          <p class="lab-caption">
-            The dead stretch in the middle is the finding: 1.02 s where the combo is
-            waiting on a cooldown with an attack available. That is an auto nobody
-            threw. <strong>Implementation:</strong> the simulation already records
-            spans; this is a second lane over the same data.
-          </p>
-        </section>
-
-        <!-- =========================================== 22 What a reset saved -->
-        <section class="lab-section" id="reset">
-          <div class="lab-section-head">
-            <span class="lab-num">22</span>
-            <h2>What the reset actually bought</h2>
-            <div class="lab-cost"><span class="lab-pill ready">data available</span></div>
-          </div>
-          <p class="lab-why">
-            Vi's E resets the attack timer, and every guide says to weave it between
-            autos. Nobody says how much that is worth in this build. Run the combo
-            twice, once with the reset honoured and once without, and the difference
-            is the answer — in damage and in seconds.
-          </p>
-          <div class="lab-stage plain">
-            <div class="lab-kv">
-              <div class="lab-kv-row">
-                <span>Combo as built</span><span class="mono">1,882 in 3.26 s</span>
-              </div>
-              <div class="lab-kv-row">
-                <span>Same steps, reset ignored</span><span class="mono">1,882 in 3.94 s</span>
-              </div>
-              <div class="lab-kv-row is-total">
-                <span>The reset is worth</span>
-                <span class="mono pos">0.68 s · +21% DPS</span>
-              </div>
-            </div>
-          </div>
-          <p class="lab-caption">
-            The damage is identical and the time is not, which is exactly the point:
-            a reset buys tempo, not damage, and tempo only turns into damage if the
-            fight lasts. <strong>Implementation:</strong> a flag on the simulation
-            input that suppresses <code>resetsAutoAttack</code>, and one extra run.
-          </p>
-        </section>
-
-                <!-- ========================================== 24 Shred window fitting -->
+                                                                                                                                                                                                <!-- ========================================== 24 Shred window fitting -->
         <section class="lab-section" id="window">
           <div class="lab-section-head">
             <span class="lab-num">24</span>
@@ -1220,6 +862,34 @@
           </p>
           <div class="lab-stage plain">
             <ul class="lab-scrap">
+              <li>
+                <b>What the reset actually bought (22)</b>
+                <span>Measure an attack-speed reset in damage: run the combo with and without
+                the reset that E or a cancelled animation grants, and show the difference as
+                its own figure.</span>
+                <em>Out. A charming measurement of a mechanic that is already visible on the
+                timeline as a cancelled attack timer. Watch for it coming back as "reset
+                value", "animation cancel efficiency", or a tile that prices one mechanic
+                out of the combo it belongs to.</em>
+              </li>
+              <li>
+                <b>Where the next skill point goes (18)</b>
+                <span>Simulate the combo once per candidate rank-up and report which of the
+                four abilities buys the most damage with the next point.</span>
+                <em>Out: nobody skills by calculator. The order is habit, it is the same
+                every game, and the one point of choice is a matchup call rather than an
+                arithmetic one. Watch for it coming back as "rank efficiency", a
+                skill-order recommendation, or a per-point damage table.</em>
+              </li>
+              <li>
+                <b>The attack timer, made visible (21)</b>
+                <span>A metronome under the combo: ticks at the attack interval, showing
+                where an auto could have fitted between the casts, so wasted attack
+                windows become visible.</span>
+                <em>Out. The timeline already draws the attack timer behind each step, and
+                a second rhythmic reading of the same thing is noise. Watch for it coming
+                back as "attack rhythm", a beat track, or "missed autos".</em>
+              </li>
               <li>
                 <b>Everything on one screen (13)</b>
                 <span>A proposed layout: the combo pinned at the top, one switchable
