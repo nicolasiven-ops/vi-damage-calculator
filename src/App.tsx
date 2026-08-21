@@ -26,6 +26,7 @@ import { ComboBuilder } from './ui/ComboBuilder';
 import { ItemPanel } from './ui/ItemPanel';
 import { RunePanel } from './ui/RunePanel';
 import { SettingsPanel } from './ui/SettingsPanel';
+import { LoadoutNotes } from './ui/LoadoutNotes';
 import { TargetPanel } from './ui/TargetPanel';
 import { imageUrls } from './data/ddragon';
 
@@ -374,8 +375,16 @@ export default function App() {
           linkedStepUid={linkedStepUid}
           pinnedStepUid={pinnedStepUid}
           onHoverStep={setHoveredStepUid}
+          onPinStep={(uid) => setPinnedStepUid((current) => (current === uid ? null : uid))}
         />
       </div>
+
+      {/*
+       * Simulation settings have no side. They are neither the attacker nor the
+       * target, and a fourth panel in one column is exactly what made the two
+       * columns stop matching — so this one opens from its tab instead of
+       * living in a sidebar.
+       */}
 
       {/*
        * Below the pinned top: configuration on the left, the numbers on the
@@ -424,6 +433,20 @@ export default function App() {
             />
           </div>
 
+          <div className="config-slot" data-tab="sim" id="config-sim">
+            <SettingsPanel
+              side="attacker"
+              critMode={build.critMode}
+              timings={build.timings}
+              target={build.target}
+              onChange={patchBuild}
+            />
+          </div>
+
+          <div className="config-slot" data-tab="champion">
+            <LoadoutNotes loadout={build} items={items} title="Vi notes" />
+          </div>
+
         </aside>
 
         <main className="app-main">
@@ -431,6 +454,8 @@ export default function App() {
           <AnalysisPanel
             analysis={analysis}
             target={effectiveTarget}
+            attackerName={VI_MODULE.displayName}
+            attackerStats={stats}
             module={VI_MODULE}
             moduleCtx={moduleCtx}
             abilities={abilities}
@@ -500,21 +525,20 @@ export default function App() {
             />
           </div>
 
-          <div className="config-slot" data-tab="target">
-            <p className="field-hint">
-              On the target, items and runes count for their stats only — health, armour, magic
-              resistance. Nothing they <em>do</em> is simulated: the target is hit, it never acts.
-            </p>
-          </div>
-
-          <div className="config-slot" data-tab="sim" id="config-sim">
+          <div className="config-slot" data-tab="sim">
             <SettingsPanel
+              side="target"
               critMode={build.critMode}
               timings={build.timings}
               target={build.target}
               onChange={patchBuild}
             />
           </div>
+
+          <div className="config-slot" data-tab="target">
+            <LoadoutNotes loadout={build.targetLoadout} items={items} title="Target notes" />
+          </div>
+
         </aside>
       </div>
 

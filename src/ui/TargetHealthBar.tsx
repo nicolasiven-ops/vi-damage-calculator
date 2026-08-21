@@ -21,11 +21,18 @@ interface Props {
   startingHealth: number;
   /** The step in focus, from hover anywhere or from the pinned selection. */
   linkedStepUid?: string | null;
+  /**
+   * Render only the bar.
+   *
+   * Inside a combatant rail the surrounding frame already carries the name and
+   * the numbers, and repeating them under the rail said everything twice.
+   */
+  bare?: boolean;
 }
 
 const int = (value: number): string => Math.round(value).toLocaleString('en-US');
 
-export function TargetHealthBar({ analysis, startingHealth, linkedStepUid }: Props) {
+export function TargetHealthBar({ analysis, startingHealth, linkedStepUid, bare }: Props) {
   const total = Math.max(1, startingHealth);
   const instances = analysis.curve.map((point) => point.instance);
 
@@ -59,7 +66,6 @@ export function TargetHealthBar({ analysis, startingHealth, linkedStepUid }: Pro
   });
 
   const healthLeft = Math.max(0, total - consumed);
-  const kills = analysis.killTime !== null;
 
   /** Health the target still had when the focused step was done. */
   const focusedHealthLeft =
@@ -68,17 +74,13 @@ export function TargetHealthBar({ analysis, startingHealth, linkedStepUid }: Pro
       : null;
 
   return (
-    <div className="hpbar-wrap">
-      <div className="hpbar-head">
-        <span className="hpbar-title">Target health</span>
-        <span className="hpbar-value mono">
-          {focusedHealthLeft !== null
-            ? `${int(focusedHealthLeft)} / ${int(total)} at this step`
-            : kills
-              ? `dead · ${int(analysis.overkill)} overkill`
-              : `${int(healthLeft)} / ${int(total)} left`}
-        </span>
-      </div>
+    <div className={`hpbar-wrap${bare ? ' bare' : ''}`}>
+      {!bare && (
+        <div className="hpbar-head">
+          <span className="hpbar-title">Target health</span>
+          <span className="hpbar-value mono">{healthNote(analysis, total, focusedHealthLeft)}</span>
+        </div>
+      )}
 
       <div className="hpbar" role="img" aria-label={`Target health: ${int(healthLeft)} of ${int(total)} remaining`}>
         {segments.map((segment) => (
@@ -97,4 +99,15 @@ export function TargetHealthBar({ analysis, startingHealth, linkedStepUid }: Pro
       </div>
     </div>
   );
+}
+
+/** The bar's status line: at this step, dead with overkill, or what is left. */
+function healthNote(
+  analysis: ComboAnalysis,
+  total: number,
+  focusedHealthLeft: number | null,
+): string {
+  if (focusedHealthLeft !== null) return `${int(focusedHealthLeft)} / ${int(total)} at this step`;
+  if (analysis.killTime !== null) return `dead · ${int(analysis.overkill)} overkill`;
+  return `${int(Math.max(0, analysis.targetHpRemaining))} / ${int(total)} left`;
 }

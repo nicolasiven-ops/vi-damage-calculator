@@ -52,6 +52,17 @@
   --status-warn: #d9a441;
   --status-danger: #e04b4b;
 
+  /* Health and resource bars, taken from the in-game HUD: ally green, enemy
+     red, resource blue. Anyone who has played reads these without a legend. */
+  --bar-health-ally: #1faa4b;
+  --bar-health-ally-dim: #0e4a22;
+  --bar-health-enemy: #d0463c;
+  --bar-health-enemy-dim: #4a1a16;
+  --bar-resource: #1f8fd0;
+  --bar-resource-dim: #0d3550;
+  --bar-shield: #dfe6ea;
+  --bar-track: #06111d;
+
   /* Damage-type series — validated for this surface, see DamageChart.tsx */
   --series-physical: #d95926;
   --series-magic: #3987e5;

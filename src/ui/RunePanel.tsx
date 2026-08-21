@@ -7,7 +7,6 @@
  * one is badged with whether it is modelled, and the panel says so plainly.
  */
 
-import { useMemo } from 'react';
 import { imageUrls } from '../data/ddragon';
 import type { DDragonRune, DDragonRuneTree } from '../data/types';
 import { SHARD_DEFINITIONS, getRuneDefinition, isRuneModelled } from '../model/runes';
@@ -22,6 +21,25 @@ interface Props {
 }
 
 /** Stat shard rows. Data Dragon does not describe these, so they are fixed. */
+/**
+ * The shard icons Riot ships, under the same image root as the rune icons.
+ *
+ * Names in three rows of buttons filled the panel with text for a choice that
+ * is made by symbol in the client; these are the symbols people already know.
+ */
+const SHARD_ICONS: Record<number, string> = {
+  5008: 'StatModsAdaptiveForceIcon',
+  5005: 'StatModsAttackSpeedIcon',
+  5007: 'StatModsCDRScalingIcon',
+  5010: 'StatModsMovementSpeedIcon',
+  5001: 'StatModsHealthScalingIcon',
+  5011: 'StatModsHealthPlusIcon',
+  5013: 'StatModsTenacityIcon',
+};
+
+const shardIcon = (id: number): string =>
+  imageUrls.rune(`perk-images/StatMods/${SHARD_ICONS[id] ?? 'StatModsAdaptiveForceIcon'}.png`);
+
 const SHARD_ROWS: { label: string; ids: number[] }[] = [
   { label: 'Offense', ids: [5008, 5005, 5007] },
   { label: 'Flex', ids: [5008, 5010, 5001] },
@@ -32,21 +50,7 @@ export function RunePanel({ trees, loadout, offline, onChange }: Props) {
   const primary = trees.find((tree) => tree.id === loadout.primaryTreeId) ?? null;
   const secondary = trees.find((tree) => tree.id === loadout.secondaryTreeId) ?? null;
 
-  const selectedCount = useMemo(
-    () =>
-      [loadout.keystoneId, ...loadout.primaryRuneIds, ...loadout.secondaryRuneIds, ...loadout.shardIds].filter(
-        (id) => id !== null,
-      ).length,
-    [loadout],
-  );
 
-  const unmodelled = useMemo(
-    () =>
-      [loadout.keystoneId, ...loadout.primaryRuneIds, ...loadout.secondaryRuneIds]
-        .filter((id): id is number => typeof id === 'number')
-        .filter((id) => !isRuneModelled(id)),
-    [loadout],
-  );
 
   if (offline || trees.length === 0) {
     return (
@@ -117,7 +121,6 @@ export function RunePanel({ trees, loadout, offline, onChange }: Props) {
       title="Runes"
       actions={
         <div className="rune-header-actions">
-          <span className="tag">{selectedCount} selected</span>
           <button
             className="btn subtle"
             onClick={() =>
@@ -219,7 +222,6 @@ export function RunePanel({ trees, loadout, offline, onChange }: Props) {
         <div className="rune-rows">
           {SHARD_ROWS.map((row, rowIndex) => (
             <div className="rune-row" key={row.label}>
-              <span className="rune-row-label">{row.label}</span>
               <div className="rune-row-items">
                 {row.ids.map((shardId, columnIndex) => {
                   const definition = SHARD_DEFINITIONS.find((entry) => entry.id === shardId);
@@ -228,9 +230,11 @@ export function RunePanel({ trees, loadout, offline, onChange }: Props) {
                       key={`${shardId}-${columnIndex}`}
                       className={`shard${loadout.shardIds[rowIndex] === shardId ? ' selected' : ''}`}
                       onClick={() => pickShard(rowIndex, shardId)}
-                      title={definition?.note}
+                      title={`${definition?.name ?? shardId}${definition?.note ? `
+${definition.note}` : ''}`}
+                      aria-label={definition?.name ?? String(shardId)}
                     >
-                      {definition?.name ?? shardId}
+                      <img src={shardIcon(shardId)} alt="" />
                     </button>
                   );
                 })}
@@ -239,14 +243,6 @@ export function RunePanel({ trees, loadout, offline, onChange }: Props) {
           ))}
         </div>
       </div>
-
-      {unmodelled.length > 0 && (
-        <p className="rune-warning">
-          <span className="tag warn">not modelled</span> {unmodelled.length}{' '}
-          {unmodelled.length === 1 ? 'selected rune has' : 'selected runes have'} no effect in the
-          simulation — {unmodelled.length === 1 ? 'it is' : 'they are'} not included in the result.
-        </p>
-      )}
     </Panel>
   );
 }
@@ -261,8 +257,7 @@ interface RowProps {
 
 function RuneRow({ label, runes, isSelected, onPick, large }: RowProps) {
   return (
-    <div className="rune-row">
-      <span className="rune-row-label">{label}</span>
+    <div className="rune-row" aria-label={label}>
       <div className="rune-row-items">
         {runes.map((rune) => {
           const modelled = isRuneModelled(rune.id);

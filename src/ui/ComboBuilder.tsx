@@ -62,6 +62,13 @@ interface Props {
   pinnedStepUid?: string | null;
   /** Report the step under the cursor, so the analysis can point back. */
   onHoverStep?: (uid: string | null) => void;
+  /**
+   * Toggle the focused step.
+   *
+   * The card is where you point at a press, so clicking one focuses that
+   * moment and the stats, the health bar and the timeline follow it.
+   */
+  onPinStep?: (uid: string | null) => void;
 }
 
 const PRESETS: { name: string; description: string; build: () => ComboStep[] }[] = [
@@ -118,6 +125,7 @@ export function ComboBuilder({
   linkedStepUid,
   pinnedStepUid,
   onHoverStep,
+  onPinStep,
 }: Props) {
   const [showPresets, setShowPresets] = useState(false);
 
@@ -233,14 +241,12 @@ export function ComboBuilder({
             <span className="chip-letter">AA</span>
             <span className="chip-key">Attack</span>
           </button>
-          <button
-            className="action-chip neutral"
-            onClick={() => add(makeStep({ kind: 'wait', seconds: 0.5 }))}
-            title="Add a wait"
-          >
-            <span className="chip-letter">⏱</span>
-            <span className="chip-key">Wait</span>
-          </button>
+          {/*
+           * No "wait" chip. A combo is what you press, and the clock between
+           * presses is the simulation's job — an idle step is a way to fake a
+           * timing the engine already derives. Existing waits in a stored combo
+           * still render and still work.
+           */}
           <button
             className="action-chip neutral"
             onClick={() => add(makeStep({ kind: 'summoner', summonerId: 'SummonerDot' }))}
@@ -286,6 +292,7 @@ export function ComboBuilder({
                     linked={linkedStepUid === entry.uid}
                     pinned={pinnedStepUid === entry.uid}
                     onHover={(hovering) => onHoverStep?.(hovering ? entry.uid : null)}
+                    onPin={() => onPinStep?.(entry.uid)}
                     onRemove={() => remove(entry.uid)}
                     onUpdate={(patch) => update(entry.uid, patch)}
                   />
@@ -311,6 +318,7 @@ interface StepProps {
   /** True while a click in the analysis holds this step. */
   pinned: boolean;
   onHover: (hovering: boolean) => void;
+  onPin: () => void;
   onRemove: () => void;
   onUpdate: (patch: Partial<ComboStep>) => void;
 
@@ -323,6 +331,7 @@ function SortableStep({
   linked,
   pinned,
   onHover,
+  onPin,
   onRemove,
   onUpdate,
 }: StepProps) {
@@ -350,7 +359,12 @@ function SortableStep({
    * The controls inside it stop the pointer from reaching the drag sensor, so the
    * charge slider still slides and the remove button still clicks.
    */
-  const stopDrag = { onPointerDown: (event: React.PointerEvent) => event.stopPropagation() };
+  const stopDrag = {
+    onPointerDown: (event: React.PointerEvent) => event.stopPropagation(),
+    // Removing a step or moving its charge slider is not a request to focus
+    // that step, so those clicks stop here.
+    onClick: (event: React.MouseEvent) => event.stopPropagation(),
+  };
 
   return (
     <li
@@ -361,9 +375,10 @@ function SortableStep({
       }${pinned ? ' is-pinned' : ''}`}
       onMouseEnter={() => onHover(true)}
       onMouseLeave={() => onHover(false)}
+      onClick={onPin}
       {...attributes}
       {...listeners}
-      aria-label={`${descriptor.label} — drag to reorder`}
+      aria-label={`${descriptor.label} — click to focus, drag to reorder`}
     >
       <div className="combo-card-grip">
         {icon ? (

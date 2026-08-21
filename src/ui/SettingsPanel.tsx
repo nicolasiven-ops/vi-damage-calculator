@@ -11,6 +11,15 @@ import { DEFAULT_TIMINGS } from '../engine/types';
 import { Panel } from './components/Panel';
 
 interface Props {
+  /**
+   * Which side this panel belongs to.
+   *
+   * Both sidebars carry one, and each shows what applies to its own side: the
+   * attacker decides how crits are counted and how long its animations take,
+   * the target how hurt it already is and what soaks damage on top of
+   * resistances.
+   */
+  side: 'attacker' | 'target';
   critMode: CritMode;
   timings: TimingConfig;
   /**
@@ -32,7 +41,16 @@ const CRIT_LABELS: Record<CritMode, string> = {
   never: 'Never crit',
 };
 
-export function SettingsPanel({ critMode, timings, target, onChange }: Props) {
+export function SettingsPanel({ side, critMode, timings, target, onChange }: Props) {
+  if (side === 'target') {
+    return (
+      <Panel title="Simulation" tight>
+        <span className="field-label">Target situation</span>
+        <TargetSituation target={target} onChange={onChange} />
+      </Panel>
+    );
+  }
+
   return (
     <Panel title="Simulation" tight>
       <div className="field">
@@ -64,20 +82,7 @@ export function SettingsPanel({ critMode, timings, target, onChange }: Props) {
         </span>
       </div>
 
-      <div className="field-row three">
-        <label className="field">
-          <span className="field-hint">Attack wind-up</span>
-          <input
-            type="number"
-            step={0.01}
-            min={0}
-            max={0.6}
-            value={timings.attackWindup}
-            onChange={(event) =>
-              onChange({ timings: { ...timings, attackWindup: Number(event.target.value) } })
-            }
-          />
-        </label>
+      <div className="field-row">
         <label className="field">
           <span className="field-hint">Dash travel time</span>
           <input
@@ -113,71 +118,6 @@ export function SettingsPanel({ critMode, timings, target, onChange }: Props) {
         Reset timings
       </button>
 
-      <hr className="divider" />
-
-      <span className="field-label">Target situation</span>
-
-      <label className="field">
-        <span className="field-hint">Current health</span>
-        <div className="input-with-suffix">
-          <input
-            type="number"
-            min={1}
-            max={100}
-            value={Math.round(target.currentHealthPercent * 100)}
-            onChange={(event) =>
-              onChange({
-                target: {
-                  ...target,
-                  currentHealthPercent: clamp(Number(event.target.value) / 100, 0.01, 1),
-                },
-              })
-            }
-          />
-          <span className="input-suffix">%</span>
-        </div>
-      </label>
-
-      <div className="field-row">
-        <label className="field">
-          <span className="field-hint">Damage reduction</span>
-          <div className="input-with-suffix">
-            <input
-              type="number"
-              min={0}
-              max={90}
-              value={Math.round(target.percentDamageReduction * 100)}
-              onChange={(event) =>
-                onChange({
-                  target: {
-                    ...target,
-                    percentDamageReduction: clamp(Number(event.target.value) / 100, 0, 0.9),
-                  },
-                })
-              }
-            />
-            <span className="input-suffix">%</span>
-          </div>
-          <span className="field-hint">Exhaust, Randuin’s Omen …</span>
-        </label>
-        <label className="field">
-          <span className="field-hint">Flat reduction</span>
-          <input
-            type="number"
-            min={0}
-            value={Math.round(target.flatDamageReduction * 10) / 10}
-            onChange={(event) =>
-              onChange({
-                target: {
-                  ...target,
-                  flatDamageReduction: Math.max(0, Number(event.target.value)),
-                },
-              })
-            }
-          />
-          <span className="field-hint">Doran’s Shield, Bone Plating …</span>
-        </label>
-      </div>
     </Panel>
   );
 }
@@ -185,4 +125,84 @@ export function SettingsPanel({ critMode, timings, target, onChange }: Props) {
 function clamp(value: number, min: number, max: number): number {
   if (!Number.isFinite(value)) return min;
   return Math.min(max, Math.max(min, value));
+}
+
+/**
+ * How hurt the target already is, and what soaks damage on top of resistances.
+ *
+ * Its own component because it is the target side of a panel both sides share.
+ */
+function TargetSituation({
+  target,
+  onChange,
+}: {
+  target: TargetConfig;
+  onChange: Props['onChange'];
+}) {
+  return (
+    <>
+
+    <label className="field">
+      <span className="field-hint">Current health</span>
+      <div className="input-with-suffix">
+        <input
+          type="number"
+          min={1}
+          max={100}
+          value={Math.round(target.currentHealthPercent * 100)}
+          onChange={(event) =>
+            onChange({
+              target: {
+                ...target,
+                currentHealthPercent: clamp(Number(event.target.value) / 100, 0.01, 1),
+              },
+            })
+          }
+        />
+        <span className="input-suffix">%</span>
+      </div>
+    </label>
+
+    <div className="field-row">
+      <label className="field">
+        <span className="field-hint">Damage reduction</span>
+        <div className="input-with-suffix">
+          <input
+            type="number"
+            min={0}
+            max={90}
+            value={Math.round(target.percentDamageReduction * 100)}
+            onChange={(event) =>
+              onChange({
+                target: {
+                  ...target,
+                  percentDamageReduction: clamp(Number(event.target.value) / 100, 0, 0.9),
+                },
+              })
+            }
+          />
+          <span className="input-suffix">%</span>
+        </div>
+        <span className="field-hint">Exhaust, Randuin’s Omen …</span>
+      </label>
+      <label className="field">
+        <span className="field-hint">Flat reduction</span>
+        <input
+          type="number"
+          min={0}
+          value={Math.round(target.flatDamageReduction * 10) / 10}
+          onChange={(event) =>
+            onChange({
+              target: {
+                ...target,
+                flatDamageReduction: Math.max(0, Number(event.target.value)),
+              },
+            })
+          }
+        />
+        <span className="field-hint">Doran’s Shield, Bone Plating …</span>
+      </label>
+    </div>
+    </>
+  );
 }

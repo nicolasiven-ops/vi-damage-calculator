@@ -26,13 +26,21 @@ export interface LoadoutState {
   shardIds: (number | null)[];
 }
 
+/**
+ * Data Dragon tree ids. Stable for years, and pre-selecting two of them means
+ * the rune panel always has its rows — no empty state that is half the height
+ * of the filled one and knocks the two columns out of step.
+ */
+const DOMINATION = 8100;
+const PRECISION = 8000;
+
 export function emptyLoadout(): LoadoutState {
   return {
     itemIds: ['', '', '', '', '', ''],
     keystoneId: null,
-    primaryTreeId: null,
+    primaryTreeId: DOMINATION,
     primaryRuneIds: [null, null, null],
-    secondaryTreeId: null,
+    secondaryTreeId: PRECISION,
     secondaryRuneIds: [null, null],
     shardIds: [null, null, null],
   };
@@ -112,9 +120,9 @@ export function defaultBuild(): BuildState {
     ranks: { P: 1, Q: 5, W: 4, E: 3, R: 2 },
     itemIds: ['', '', '', '', '', ''],
     keystoneId: null,
-    primaryTreeId: null,
+    primaryTreeId: DOMINATION,
     primaryRuneIds: [null, null, null],
-    secondaryTreeId: null,
+    secondaryTreeId: PRECISION,
     secondaryRuneIds: [null, null],
     shardIds: [null, null, null],
     target: { ...DEFAULT_TARGET },

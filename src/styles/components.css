@@ -1103,11 +1103,10 @@
   gap: var(--space-2);
 }
 
+/* No label column any more: the rows are self-evident in place, and 64px of
+   caption was the difference between four keystones on one line and two. */
 .rune-row {
-  display: grid;
-  grid-template-columns: 64px 1fr;
-  gap: var(--space-2);
-  align-items: center;
+  display: block;
 }
 
 .rune-row-label {
@@ -1117,10 +1116,21 @@
   color: var(--text-muted);
 }
 
+/* One line, always. A keystone row that wraps reads as two groups of choices
+   when it is one, so the icons give way instead of the line breaking. */
 .rune-row-items {
   display: flex;
-  gap: var(--space-2);
-  flex-wrap: wrap;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+
+.rune-row-items > .rune {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 52px;
+  aspect-ratio: 1;
+  height: auto;
+  width: auto;
 }
 
 .rune {
@@ -2347,4 +2357,170 @@ code {
 .mode-toggle:hover {
   border-color: var(--gold-400);
   color: var(--gold-100);
+}
+
+/* ============================================== combatant bars (LoL-style)
+
+   Two of these face each other over the tiles: the champion on the left, what
+   it is hitting on the right. Same frame, same heights, colour from the HUD. */
+
+.combatant-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5);
+  padding-bottom: var(--space-2);
+}
+
+.combatant {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.combatant-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.combatant-name {
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold-200);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.combatant-numbers {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  flex: none;
+}
+
+/* The rails. Fills are anchored left, so they empty towards the left. */
+.bar-track {
+  position: relative;
+  overflow: hidden;
+  background: var(--bar-track);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+}
+
+.bar-track.health {
+  height: 24px;
+}
+
+.bar-track.resource {
+  height: 14px;
+}
+
+.bar-track.resource.empty {
+  opacity: 0.35;
+}
+
+.bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  transition: width 140ms ease;
+}
+
+.side-ally .bar-fill.health {
+  background: linear-gradient(180deg, var(--bar-health-ally), var(--bar-health-ally-dim));
+}
+
+.side-enemy .bar-fill.health {
+  background: linear-gradient(180deg, var(--bar-health-enemy), var(--bar-health-enemy-dim));
+}
+
+.bar-fill.resource {
+  background: linear-gradient(180deg, var(--bar-resource), var(--bar-resource-dim));
+}
+
+/* Shield rides on top of health, the way the client stacks it. */
+.bar-fill.shield {
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(223, 230, 234, 0.85) 0 4px,
+    rgba(223, 230, 234, 0.55) 4px 8px
+  );
+  mix-blend-mode: screen;
+}
+
+/* The numbers sit on the rail, centred, with a shadow so they stay readable
+   over both the filled and the empty part. */
+.bar-caption {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
+  text-shadow: 0 1px 2px rgba(1, 10, 19, 0.95);
+  pointer-events: none;
+}
+
+.bar-caption.muted {
+  color: var(--text-muted);
+  font-size: 9.5px;
+}
+
+.combatant-resource {
+  font-size: 10px;
+  color: var(--bar-resource);
+}
+
+.combatant-resource.muted {
+  color: var(--text-muted);
+}
+
+/* The target's rail is filled by its per-hit bar, which brings its own box. */
+/* The target fills its rail with the per-hit bar, which has to give up its own
+   frame to sit inside one. */
+.bar-track.health > .hpbar-wrap.bare {
+  position: absolute;
+  inset: 0;
+  min-width: 0;
+  max-width: none;
+  gap: 0;
+}
+
+.hpbar-wrap.bare .hpbar {
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+/* ------------------------------------------------------- verdict as a tile */
+
+.tile.verdict-kill {
+  border-color: rgba(31, 170, 75, 0.45);
+}
+
+.tile.verdict-kill .tile-value {
+  color: var(--bar-health-ally);
+}
+
+.tile.verdict-survive {
+  border-color: rgba(208, 70, 60, 0.45);
+}
+
+.tile.verdict-survive .tile-value {
+  color: var(--bar-health-enemy);
+}
+
+/* ------------------------------------------ custom target's definition block */
+
+/* Sits where the champion mode shows abilities, so both modes keep the same
+   three sections and the two columns stay level. */
+.target-definition {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }

@@ -189,12 +189,20 @@ a {
   opacity: 0.7;
 }
 
+/*
+ * One height for every header, whatever it carries.
+ *
+ * A panel whose heading is a dropdown and a mode switch was six pixels taller
+ * than one with a plain title, which is enough to knock two columns of panels
+ * out of step all the way down.
+ */
 .panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
+  min-height: 46px;
+  padding: 0 var(--space-4);
   border-bottom: 1px solid var(--line-soft);
 }
 

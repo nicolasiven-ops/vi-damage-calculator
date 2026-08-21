@@ -262,13 +262,19 @@ export function TargetPanel({ state, stats, champions, profile, version, onChang
           {stats && <StatSheet stats={stats} />}
 
           <span className="field-hint">
-            Base stats at level {target.level}, without items. Of these, health and the two
-            resistances are what the simulation uses — the target never acts.
+            At level {target.level}, with the items and runes below. Of these, health and the two
+            resistances are what the simulation uses: on a target, gear counts for its stats
+            only — nothing it <em>does</em> is simulated, the target never acts.
           </span>
         </>
       ) : (
+        /*
+         * Custom mode keeps the champion panel's three sections so the two
+         * columns stay in step: head, then what defines the target where the
+         * abilities would be, then the same stat sheet showing the result.
+         */
         <>
-          <div className="field-row">
+          <div className="target-definition">
             <label className="field">
               <span className="field-label">Maximum health</span>
               <input
@@ -288,9 +294,6 @@ export function TargetPanel({ state, stats, champions, profile, version, onChang
                 onChange={(event) => patchTarget({ armor: Number(event.target.value) })}
               />
             </label>
-          </div>
-
-          <div className="field-row">
             <label className="field">
               <span className="field-label">Magic resistance</span>
               <input
@@ -299,7 +302,7 @@ export function TargetPanel({ state, stats, champions, profile, version, onChang
                 onChange={(event) => patchTarget({ magicResist: Number(event.target.value) })}
               />
             </label>
-            <label className="field">
+            <div className="field">
               <span className="field-label">Unit type</span>
               <div className="segmented">
                 {(['champion', 'minion', 'monster'] as const).map((type) => (
@@ -312,12 +315,31 @@ export function TargetPanel({ state, stats, champions, profile, version, onChang
                   </button>
                 ))}
               </div>
-            </label>
+              <span className="field-hint">
+                Decides caps such as the 300 damage cap on Denting Blows.
+              </span>
+            </div>
           </div>
 
-          <span className="field-hint">
-            The unit type decides caps such as the 300 damage cap on Denting Blows.
-          </span>
+          <hr className="divider" />
+
+          {/*
+           * The same sheet the other side shows, filled with what is known. A
+           * typed target has no champion behind it, so the rows that would come
+           * from one say so instead of inventing a number.
+           */}
+          <div className="stat-sheet">
+            <StatRow label="Attack Damage" value="—" detail="no champion behind a typed target" />
+            <StatRow label="Health" value={Math.round(target.maxHealth).toLocaleString('en-US')} />
+            <StatRow label="Attack Speed" value="—" />
+            <StatRow label="Ability Haste" value="—" />
+            <StatRow label="Armor Penetration" value="—" />
+            <StatRow label="Ability Power" value="—" />
+            <StatRow label="Armor" value={round1(target.armor).toString()} />
+            <StatRow label="Magic Resistance" value={round1(target.magicResist).toString()} />
+            <StatRow label="Critical Strike" value="—" />
+            <StatRow label="Mana" value="—" />
+          </div>
         </>
       )}
     </Panel>
@@ -348,4 +370,15 @@ function abilityOf(
 
 function round1(value: number): number {
   return Math.round(value * 10) / 10;
+}
+
+/** One row of the shared stat sheet, for values that are not derived. */
+function StatRow({ label, value, detail }: { label: string; value: string; detail?: string }) {
+  return (
+    <div className="stat-row">
+      <span className="stat-label">{label}</span>
+      <span className="stat-value mono">{value}</span>
+      {detail && <span className="stat-detail">{detail}</span>}
+    </div>
+  );
 }

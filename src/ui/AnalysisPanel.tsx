@@ -31,12 +31,17 @@ import type { GameDataStatus } from '../hooks/usePatchData';
 import { ComboTimeline } from './ComboTimeline';
 import { StatsView } from './StatsView';
 import { TargetHealthBar } from './TargetHealthBar';
+import type { ChampionStats } from '../model/stats';
+import { CombatantBars } from './CombatantBars';
 import { DamageChart } from './DamageChart';
 import { Panel } from './components/Panel';
 
 interface Props {
   analysis: ComboAnalysis;
   target: TargetConfig;
+  /** The attacker, for the bars that face the target. */
+  attackerName: string;
+  attackerStats: ChampionStats;
   module: ChampionModule;
   moduleCtx: ChampionModuleContext;
   /** Abilities with names resolved from Data Dragon. */
@@ -98,18 +103,10 @@ type TimelineRow =
  */
 type ResultView = 'timeline' | 'details' | 'formulas';
 
-/** The lower window's two views; Stats leads — see the note at its panel. */
-type BottomView = 'stats' | 'sources';
-
 const VIEW_TITLES: Record<ResultView, string> = {
   timeline: 'Timeline',
   details: 'Detail view',
   formulas: 'Formula inspector',
-};
-
-const BOTTOM_TITLES: Record<BottomView, string> = {
-  stats: 'Stats',
-  sources: 'Damage sources',
 };
 
 const STATUS_TAGS: Record<GameDataStatus['state'], { label: string; tone: string }> = {
@@ -123,6 +120,8 @@ const STATUS_TAGS: Record<GameDataStatus['state'], { label: string; tone: string
 export function AnalysisPanel({
   analysis,
   target,
+  attackerName,
+  attackerStats,
   module,
   moduleCtx,
   abilities,
@@ -135,7 +134,6 @@ export function AnalysisPanel({
   onPinStep,
 }: Props) {
   const [view, setView] = useState<ResultView>('timeline');
-  const [bottomView, setBottomView] = useState<BottomView>('stats');
 
   /**
    * Damage and non-damage events in one chronological list.
@@ -157,31 +155,51 @@ export function AnalysisPanel({
   }, [analysis.curve, analysis.events]);
 
   const startingHealth = target.maxHealth * target.currentHealthPercent;
-  const kills = analysis.killTime !== null;
 
   return (
     <div className="analysis">
       <Panel className="analysis-main" title="Analysis">
-        <div className={`verdict ${kills ? 'kill' : 'survive'}`}>
-          <span className="verdict-icon">{kills ? '✦' : '◇'}</span>
-          <div className="verdict-body">
-            <strong>
-              {kills
-                ? `Target dies after ${analysis.killTime!.toFixed(2)} s`
-                : `Target survives with ${Math.round(analysis.targetHpRemaining).toLocaleString('en-US')} HP`}
-            </strong>
-            <span>
-              {kills
-                ? `${Math.round(analysis.overkill).toLocaleString('en-US')} damage of overkill — the combo has room to spare.`
-                : `${Math.round(analysis.missingDamage).toLocaleString('en-US')} damage short.`}
-            </span>
-          </div>
+        {/*
+         * The two combatants, facing each other across the row.
+         *
+         * The attacker's health does not move — nothing hits back in this
+         * simulation — so its bar carries the shield the combo generates, which
+         * is the only thing that does change on that side.
+         */}
+        <div className="combatant-row">
+          <CombatantBars
+            name={attackerName}
+            side="ally"
+            health={{ current: attackerStats.maxHealth, max: attackerStats.maxHealth }}
+            shield={analysis.shieldGained}
+            resource={
+              attackerStats.maxMana > 0
+                ? {
+                    current: attackerStats.maxMana,
+                    max: attackerStats.maxMana,
+                    label: 'mana',
+                  }
+                : null
+            }
+            note={
+              analysis.shieldGained > 0
+                ? `${Math.round(attackerStats.maxHealth).toLocaleString('en-US')} + ${Math.round(analysis.shieldGained).toLocaleString('en-US')} shield`
+                : undefined
+            }
+          />
 
-          {/* The same verdict as a picture, in the space the text leaves free. */}
-          <TargetHealthBar
-            analysis={analysis}
-            startingHealth={startingHealth}
-            linkedStepUid={linkedStepUid}
+          <CombatantBars
+            name={target.name}
+            side="enemy"
+            health={{ current: analysis.targetHpRemaining, max: startingHealth }}
+            resource={null}
+            healthFill={
+              <TargetHealthBar
+                analysis={analysis}
+                startingHealth={startingHealth}
+                linkedStepUid={linkedStepUid}
+              />
+            }
           />
         </div>
 
@@ -195,6 +213,25 @@ export function AnalysisPanel({
          * post-mitigation or it is mitigated, and both are worth their own tile.
          */}
         <div className="tile-grid">
+          {/*
+           * The verdict leads, because it is the answer to the question the
+           * page exists for. The bars above show the same thing as a picture;
+           * this is it as a sentence you can read in one glance.
+           */}
+          <Tile
+            className={analysis.killTime !== null ? 'verdict-kill' : 'verdict-survive'}
+            label={analysis.killTime !== null ? 'Target dies' : 'Target survives'}
+            value={
+              analysis.killTime !== null
+                ? `${analysis.killTime.toFixed(2)} s`
+                : `${Math.round(analysis.targetHpRemaining).toLocaleString('en-US')} HP`
+            }
+            detail={
+              analysis.killTime !== null
+                ? `${Math.round(analysis.overkill).toLocaleString('en-US')} overkill — room to spare`
+                : `${Math.round(analysis.missingDamage).toLocaleString('en-US')} damage short`
+            }
+          />
           <Tile
             label="Total damage"
             value={Math.round(analysis.totalMitigated).toLocaleString('en-US')}
@@ -215,20 +252,6 @@ export function AnalysisPanel({
             label="Mitigated"
             value={Math.round(analysis.absorbed).toLocaleString('en-US')}
             detail={`${((1 - analysis.throughput) * 100).toFixed(0)}% stopped by resistances`}
-          />
-          <Tile
-            label="Damage instances"
-            value={String(analysis.hitCount)}
-            detail={
-              analysis.largestHit
-                ? `largest: ${Math.round(analysis.largestHit.mitigated).toLocaleString('en-US')} (${analysis.largestHit.sourceLabel})`
-                : undefined
-            }
-          />
-          <Tile
-            label="Effective health"
-            value={Math.round(analysis.effectiveHealth.vsThisCombo).toLocaleString('en-US')}
-            detail={`against this damage mix`}
           />
         </div>
 
@@ -402,38 +425,27 @@ export function AnalysisPanel({
        * run — what the numbers were when that hit landed. The source breakdown is
        * a summary of the whole combo and does not change while you explore it.
        */}
-      <Panel
-        className="analysis-sources"
-        title={BOTTOM_TITLES[bottomView]}
-        actions={
-          <div className="view-tabs">
-            {(['stats', 'sources'] as BottomView[]).map((entry) => (
-              <button
-                key={entry}
-                className={`view-tab${bottomView === entry ? ' is-active' : ''}`}
-                aria-pressed={bottomView === entry}
-                onClick={() => setBottomView(entry)}
-              >
-                {BOTTOM_TITLES[entry]}
-              </button>
-            ))}
-          </div>
-        }
-      >
-        {bottomView === 'stats' ? (
-          <StatsView
-            analysis={analysis}
-            combo={combo}
-            abilities={abilities}
-            pinnedStepUid={pinnedStepUid}
-          />
-        ) : (
-          <>
-            <SourceBars analysis={analysis} />
-            <hr className="divider" />
-            <TypeSplit analysis={analysis} />
-          </>
-        )}
+      {/*
+       * Two windows rather than two tabs in one.
+       *
+       * They answer different questions and get read together: the stats say
+       * what the numbers were at a moment, the sources say where the damage came
+       * from over the whole combo. Making them share a window meant one was
+       * always hidden behind the other.
+       */}
+      <Panel className="analysis-stats" title="Stats">
+        <StatsView
+          analysis={analysis}
+          combo={combo}
+          abilities={abilities}
+          pinnedStepUid={pinnedStepUid}
+        />
+      </Panel>
+
+      <Panel className="analysis-sources" title="Damage sources">
+        <SourceBars analysis={analysis} />
+        <hr className="divider" />
+        <TypeSplit analysis={analysis} />
       </Panel>
     </div>
   );
@@ -556,14 +568,16 @@ function Tile({
   value,
   detail,
   hero,
+  className,
 }: {
   label: string;
   value: string;
   detail?: string;
   hero?: boolean;
+  className?: string;
 }) {
   return (
-    <div className={`tile${hero ? ' hero' : ''}`}>
+    <div className={`tile${hero ? ' hero' : ''}${className ? ` ${className}` : ''}`}>
       <span className="tile-label">{label}</span>
       <span className="tile-value mono">{value}</span>
       {detail && <span className="tile-detail">{detail}</span>}
