@@ -26,10 +26,6 @@
         <span class="lab-nav-sub">Where a feature is argued out</span>
         <ol>
           <li><a href="#close">What I would build first</a></li>
-          <li><a href="#window">Fitting the windows</a></li>
-          <li><a href="#spread">Crit as a spread</a></li>
-          <li><a href="#burst">A window you choose</a></li>
-          <li><a href="#sweep">Six targets at once</a></li>
           <li><a href="#patchdiff">What the patch did</a></li>
           <li><a href="#trust">How much is assumed</a></li>
           <li><a href="#waste">What was wasted</a></li>
@@ -64,194 +60,7 @@
           </p>
         </header>
 
-                                                                                                                                                                                                <!-- ========================================== 24 Shred window fitting -->
-        <section class="lab-section" id="window">
-          <div class="lab-section-head">
-            <span class="lab-num">24</span>
-            <h2>Fitting the combo into its own windows</h2>
-            <div class="lab-cost"><span class="lab-pill ready">data available</span></div>
-          </div>
-          <p class="lab-why">
-            Once the lanes exist, the tool can do the arithmetic itself: how much of
-            the combo's damage lands inside the armour shred, and what it would be
-            worth to move the rest in. This is the difference between a picture that
-            shows a problem and a tool that names it.
-          </p>
-          <div class="lab-stage plain">
-            <div class="fit">
-              <div class="fit-ring">
-                <svg viewBox="0 0 120 120" width="120" height="120" aria-hidden="true">
-                  <circle cx="60" cy="60" r="48" fill="none" stroke="var(--surface-3)" stroke-width="14" />
-                  <circle
-                    cx="60" cy="60" r="48" fill="none"
-                    stroke="var(--series-physical)" stroke-width="14"
-                    stroke-dasharray="301.6" stroke-dashoffset="96"
-                    transform="rotate(-90 60 60)"
-                  />
-                </svg>
-                <span class="fit-ring-value mono">68%</span>
-              </div>
-              <div class="fit-body">
-                <p><strong>68% of the damage lands inside the shred window.</strong></p>
-                <div class="lab-kv">
-                  <div class="lab-kv-row"><span>Inside</span><span class="mono">1,280</span></div>
-                  <div class="lab-kv-row"><span>Outside</span><span class="mono">602</span></div>
-                  <div class="lab-kv-row is-total">
-                    <span>If the last auto moved in</span><span class="mono pos">+37</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <p class="lab-caption">
-            Deliberately a ring and not a bar: this is one share of one whole, which
-            is the one job a ring does better than a bar.
-            <strong>Implementation:</strong> intersect each damage instance's
-            timestamp with the shred spans, sum both sides, then re-simulate with the
-            straggler moved to price the suggestion.
-          </p>
-        </section>
-
-        <!-- ============================================ 25 Crit as a spread -->
-        <section class="lab-section" id="spread">
-          <div class="lab-section-head">
-            <span class="lab-num">25</span>
-            <h2>Crit is a coin, not a constant</h2>
-            <div class="lab-cost"><span class="lab-pill ready">data available</span></div>
-          </div>
-          <p class="lab-why">
-            The expected value is the right number to compare builds with, and the
-            wrong number to plan a kill with. At 40% crit chance and three attacks
-            there are eight outcomes; "1,882" is the average of them and happens in
-            none. Show the band, and show where the kill threshold falls inside it —
-            that is the difference between "this kills" and "this kills 62% of the
-            time".
-          </p>
-          <div class="lab-stage plain">
-            <div class="spread">
-              <div class="spread-scale">
-                <span class="spread-band" style="left: 12%; width: 64%"></span>
-                <span class="spread-median" style="left: 44%"></span>
-                <span class="spread-threshold" style="left: 58%"><em>kill</em></span>
-              </div>
-              <div class="spread-axis">
-                <span>1,540<i>p10</i></span>
-                <span>1,882<i>median</i></span>
-                <span>2,310<i>p90</i></span>
-              </div>
-              <p class="spread-verdict">
-                Kills in <strong>62%</strong> of rolls · needs the third auto to crit
-              </p>
-            </div>
-          </div>
-          <p class="lab-caption">
-            Exact, not sampled: with a handful of crit-capable hits the distribution
-            is a small binomial, so it can be enumerated rather than simulated a
-            thousand times. <strong>Implementation:</strong> run the simulation in
-            <code>never</code> mode, collect the crit-capable instances, enumerate the
-            2^n outcomes with their probabilities. Falls back to sampling above ~16
-            attacks.
-          </p>
-        </section>
-
-        <!-- =========================================== 26 The burst window -->
-        <section class="lab-section" id="burst">
-          <div class="lab-section-head">
-            <span class="lab-num">26</span>
-            <h2>Damage inside a window you choose</h2>
-            <div class="lab-cost"><span class="lab-pill ready">data available</span></div>
-          </div>
-          <p class="lab-why">
-            "Burst in one second" used to be a tile here and it was removed for a
-            good reason: nobody chose that second. But the question behind it is
-            real — how much lands before the enemy can react, before the support
-            arrives, before the shield expires. So let the window be dragged, and
-            report what is inside it.
-          </p>
-          <div class="lab-stage plain">
-            <div class="win">
-              <div class="win-track">
-                <span class="win-sel" style="left: 18%; width: 34%">
-                  <i class="win-grip left"></i><i class="win-grip right"></i>
-                </span>
-                <span class="win-hit" style="left: 20%; height: 70%"></span>
-                <span class="win-hit" style="left: 28%; height: 34%"></span>
-                <span class="win-hit" style="left: 38%; height: 92%"></span>
-                <span class="win-hit" style="left: 40%; height: 48%"></span>
-                <span class="win-hit dim" style="left: 62%; height: 40%"></span>
-                <span class="win-hit dim" style="left: 78%; height: 66%"></span>
-              </div>
-              <div class="win-read">
-                <span class="mono">0.60 s → 1.72 s</span>
-                <span class="mono strong">1,204 damage</span>
-                <span class="mono">64% of the combo · 1,075 DPS</span>
-              </div>
-            </div>
-          </div>
-          <p class="lab-caption">
-            Snapping matters more than smoothness: the handles should click to hit
-            timestamps, because "between these two autos" is the window people
-            actually mean. <strong>Implementation:</strong> two numbers of local
-            state and a filter over <code>analysis.curve</code>. No new engine work.
-          </p>
-        </section>
-
-        <!-- ========================================= 27 Against everything -->
-        <section class="lab-section" id="sweep">
-          <div class="lab-section-head">
-            <span class="lab-num">27</span>
-            <h2>The same combo against six targets at once</h2>
-            <div class="lab-cost"><span class="lab-pill ready">data available</span></div>
-          </div>
-          <p class="lab-why">
-            Tuning against one target teaches you about that target. The build
-            question is almost always comparative: does this hold up against the
-            tank as well as against the carry? Six small multiples, same scale, same
-            combo — and the answer is a shape rather than a number.
-          </p>
-          <div class="lab-stage plain">
-            <div class="sweep">
-              <div class="sweep-card kills">
-                <span class="sweep-name">Squishy</span>
-                <span class="sweep-bar"><span style="width: 100%"></span></span>
-                <span class="sweep-verdict mono">dies 1.9 s</span>
-              </div>
-              <div class="sweep-card kills">
-                <span class="sweep-name">Bruiser</span>
-                <span class="sweep-bar"><span style="width: 78%"></span></span>
-                <span class="sweep-verdict mono">dies 3.3 s</span>
-              </div>
-              <div class="sweep-card">
-                <span class="sweep-name">Tank</span>
-                <span class="sweep-bar"><span style="width: 52%"></span></span>
-                <span class="sweep-verdict mono">48% left</span>
-              </div>
-              <div class="sweep-card kills">
-                <span class="sweep-name">Minion</span>
-                <span class="sweep-bar"><span style="width: 100%"></span></span>
-                <span class="sweep-verdict mono">dies 0.4 s</span>
-              </div>
-              <div class="sweep-card">
-                <span class="sweep-name">Dragon</span>
-                <span class="sweep-bar"><span style="width: 41%"></span></span>
-                <span class="sweep-verdict mono">59% left</span>
-              </div>
-              <div class="sweep-card">
-                <span class="sweep-name">Baron</span>
-                <span class="sweep-bar"><span style="width: 16%"></span></span>
-                <span class="sweep-verdict mono">84% left</span>
-              </div>
-            </div>
-          </div>
-          <p class="lab-caption">
-            The minion card is a reminder that the 300 damage cap on W exists: the
-            bar is full because everything overkills, not because the combo is good
-            at it. <strong>Implementation:</strong> six runs on the preset targets,
-            recomputed with the build. Cheap enough to keep permanently on screen.
-          </p>
-        </section>
-
-        <!-- =============================================== 28 Patch diff -->
+                                                                                                                                                                                                                                <!-- =============================================== 28 Patch diff -->
         <section class="lab-section" id="patchdiff">
           <div class="lab-section-head">
             <span class="lab-num">28</span>
@@ -862,6 +671,26 @@
           </p>
           <div class="lab-stage plain">
             <ul class="lab-scrap">
+              <li>
+                <b>Damage inside a window you choose (26)</b>
+                <span>A draggable window over the timeline that totals the damage inside it,
+                so you can ask "how much in the first 1.5 seconds" or "how much while the
+                stun holds".</span>
+                <em>Out. The old "burst (1 s)" tile was removed for the same reason: a window
+                nobody chose answers nothing, and one you drag is a measurement you have to
+                take yourself. Watch for it coming back as a brush selection, a burst window,
+                or "damage in the first N seconds".</em>
+              </li>
+              <li>
+                <b>Fitting the combo into its own windows (24)</b>
+                <span>Treat every buff and debuff as a window and check the combo against
+                them: does the third attack still land inside the shred, does the ultimate
+                fall inside the attack-speed buff, and shift the steps until they all fit.</span>
+                <em>Out. The timeline already shows the windows and the hits together, and
+                a solver that shuffles steps to fit them is the combo search under another
+                name. Watch for it coming back as "window alignment", "uptime fitting", or
+                anything that optimises when to press rather than what to press.</em>
+              </li>
               <li>
                 <b>What the reset actually bought (22)</b>
                 <span>Measure an attack-speed reset in damage: run the combo with and without
