@@ -472,11 +472,7 @@ class ViRuntime implements ChampionRuntime {
       notes: [`${base.value.toFixed(0)} base + ${pct(adRatio.value)} bonus AD`],
     });
 
-    ctx.addEvent({
-      kind: 'info',
-      label: 'Knock-up',
-      detail: `target is airborne for ${num(knockup.value)} s`,
-    });
+    ctx.applyCrowdControl({ label: 'Airborne', durationSeconds: knockup.value });
 
     this.tryPassive(ctx);
   }

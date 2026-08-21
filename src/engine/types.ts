@@ -96,7 +96,11 @@ export type TimelineLane =
   | 'idle'
   | 'proc'
   | 'buff'
-  | 'debuff';
+  | 'debuff'
+  /** What the target is unable to do, and for how long. */
+  | 'cc'
+  /** Health and resource going back up while the combo runs. */
+  | 'sustain';
 
 /**
  * What a timed effect does, which is what its colour means.
@@ -209,10 +213,26 @@ export interface TargetConfig {
   bonusHealth: number;
   /** Set when the target is a minion or monster, which caps some effects. */
   unitType: 'champion' | 'minion' | 'monster';
+  /**
+   * Health regained per five seconds, the way the game states it.
+   *
+   * The game applies a tenth of it every half second, which over a ten-second
+   * combo against a Dr. Mundo is a hundred health the calculator was pretending
+   * did not exist. Optional: a hand-typed target has no regeneration unless the
+   * number is given.
+   */
+  healthRegenPerFive?: number;
 }
 
 export interface AttackerConfig {
   championId: string;
+  /**
+   * The summoner spells taken, by Data Dragon id.
+   *
+   * Not only for casting them: the upgraded Smites carry a jungle pet's buff,
+   * which is in force from the first second whether or not Smite is ever cast.
+   */
+  summonerIds?: string[];
   level: number;
   /** Rank 0 means unlearned. */
   ranks: Record<AbilitySlot, number>;
@@ -297,6 +317,8 @@ export interface StatSnapshot {
     effectiveArmor: number;
     baseMagicResist: number;
     effectiveMagicResist: number;
+    /** Crowd control on the target at this instant, with what is left of it. */
+    crowdControl: { label: string; secondsLeft: number }[];
   };
   /** Timed effects in force right now, attacker-side and target-side. */
   active: { label: string; detail: string }[];
@@ -307,6 +329,8 @@ export interface StatSnapshot {
 }
 
 export interface SimulationResult {
+  /** Health the target regenerated while the combo ran. */
+  targetRegenerated: number;
   instances: DamageInstance[];
   events: TimelineEvent[];
   /** One entry per combo step, plus the state before the first — see StatSnapshot. */

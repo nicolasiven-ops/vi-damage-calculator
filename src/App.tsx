@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DEFAULT_LOCALE } from './data/ddragon';
 import { analyse } from './engine/analysis';
 import { simulate } from './engine/simulate';
@@ -243,6 +243,8 @@ export default function App() {
       bonusHealth: Math.round(targetStats.bonusHealth),
       armor: Math.round(targetStats.armor * 10) / 10,
       magicResist: Math.round(targetStats.magicResist * 10) / 10,
+      // The champion's own regeneration, which the simulation now ticks.
+      healthRegenPerFive: Math.round(targetStats.healthRegen * 10) / 10,
     };
   }, [build.target, build.targetMode, targetStats]);
 
@@ -265,6 +267,7 @@ export default function App() {
           itemIds: activeItemIds(build),
           runeIds: activeRuneIds(build),
           shardIds: activeShardIds(build),
+          summonerIds: activeSummonerIds(build),
           manualStats: build.manualStats,
         },
         championBaseStats: baseStats,
@@ -317,6 +320,7 @@ export default function App() {
           effectiveArmor: effectiveTarget.armor,
           baseMagicResist: effectiveTarget.magicResist,
           effectiveMagicResist: effectiveTarget.magicResist,
+          crowdControl: [],
         },
       }),
     [analysis, linkedStepUid, stats, effectiveTarget],
@@ -340,11 +344,45 @@ export default function App() {
     const primal = PRIMAL_SMITES.map((variant) => ({
       id: variant.id,
       name: `Primal Smite · ${variant.pet}`,
+      // The strip has room for a word, and the pet is the word people use.
+      shortName: variant.pet,
       iconUrl: imageUrls.gameDataSpell(variant.iconFile),
       cooldownBurn: '15',
     }));
     return [...fromPatch, ...primal].sort((a, b) => a.name.localeCompare(b.name));
   }, [bundle]);
+
+  /**
+   * The height of the analysis panel, published as a custom property.
+   *
+   * The two panels that name the sides are held to it, so the three tops and the
+   * three bottoms line up whatever the build does. Measured rather than
+   * declared: the analysis panel's height depends on the target's health bars,
+   * the tile row and the chart, none of which is a constant.
+   */
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const body = bodyRef.current;
+    if (!body) return;
+    /*
+     * The panel is looked up on every measurement, not captured once.
+     *
+     * React replaces the analysis panel whenever the combo becomes empty and
+     * back again; an observer holding the old node measures a detached element,
+     * which reports zero — and a zero here collapses the panel it is applied to.
+     * A zero is never a real answer, so it is ignored rather than published.
+     */
+    const measure = (): void => {
+      const head = body.querySelector('.analysis-main');
+      if (!(head instanceof HTMLElement)) return;
+      const height = Math.round(head.getBoundingClientRect().height);
+      if (height > 0) body.style.setProperty('--analysis-head', `${height}px`);
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(body);
+    measure();
+    return () => observer.disconnect();
+  }, []);
 
   /** Spell names by id, for the notes panels. */
   const summonerNames = useMemo(
@@ -364,7 +402,11 @@ export default function App() {
       activeSummonerIds(build)
         .map((id) => summonerOptions.find((option) => option.id === id))
         .filter((option): option is SummonerOption => option !== undefined)
-        .map((option) => ({ id: option.id, name: option.name, iconUrl: option.iconUrl })),
+        .map((option) => ({
+          id: option.id,
+          name: option.shortName ?? option.name,
+          iconUrl: option.iconUrl,
+        })),
     [build, summonerOptions],
   );
 
@@ -477,7 +519,7 @@ export default function App() {
        * highlight one; below 1280px they go back to switching, because a
        * 380px column plus a readable analysis does not fit.
        */}
-      <div className="app-body">
+      <div className="app-body" ref={bodyRef}>
         <aside className="app-config" data-active={configTab ?? ''} aria-label="Build">
           <div className="config-slot" data-tab="champion" id="config-champion">
             {stats && (
@@ -499,6 +541,10 @@ export default function App() {
             )}
           </div>
 
+          {/* Everything below the champion panel, as one block: the three
+              columns share a grid row for their first panel and a second row
+              for the rest, which is what keeps the two sides level. */}
+          <div className="config-rest">
           <div className="config-slot" data-tab="items" id="config-items">
             <ItemPanel
               items={items}
@@ -547,6 +593,7 @@ export default function App() {
             />
           </div>
 
+          </div>
         </aside>
 
         <main className="app-main">
@@ -555,6 +602,15 @@ export default function App() {
             analysis={analysis}
             target={effectiveTarget}
             moment={moment}
+            targetResource={
+              build.targetMode === 'champion' && targetStats && targetStats.maxMana > 0
+                ? {
+                    current: targetStats.maxMana,
+                    max: targetStats.maxMana,
+                    label: targetProfile.profile?.partype?.toLowerCase() ?? 'mana',
+                  }
+                : null
+            }
             attackerName={VI_MODULE.displayName}
             module={VI_MODULE}
             moduleCtx={moduleCtx}
@@ -624,6 +680,9 @@ export default function App() {
            * the stats count for a target, which the note says out loud — a
            * Randuin's on the target soaks nothing here, its 65 armour does.
            */}
+          {/* The same grouping as the other side, so both columns have one
+              first panel and one block below it. */}
+          <div className="config-rest">
           <div className="config-slot" data-tab="target">
             <ItemPanel
               items={items}
@@ -672,6 +731,7 @@ export default function App() {
             />
           </div>
 
+          </div>
         </aside>
       </div>
 

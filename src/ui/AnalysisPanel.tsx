@@ -63,6 +63,14 @@ interface Props {
    * chances to disagree about which step is in focus.
    */
   moment: FightMoment;
+  /**
+   * The target's resource pool, when it has one.
+   *
+   * Nothing spends it — the target never acts — but leaving the rail empty said
+   * "no resource" about a champion who has one, and the two sides of the row are
+   * supposed to be the same frame.
+   */
+  targetResource?: { current: number; max: number; label: string } | null;
   linkedStepUid?: string | null;
   /** The step pinned by clicking, which outlives the cursor. */
   pinnedStepUid?: string | null;
@@ -132,6 +140,7 @@ export function AnalysisPanel({
   combo,
   gameDataStatus,
   moment,
+  targetResource,
   linkedStepUid,
   pinnedStepUid,
   onPinStep,
@@ -171,6 +180,28 @@ export function AnalysisPanel({
    * snapshot and the other from here, so the percentage below them is a ratio of
    * two numbers measured the same way.
    */
+  /**
+   * The crowd control worth showing next to the bars.
+   *
+   * A snapshot is a point in time, and Vi's knock-up ends at exactly the moment
+   * her own lock does — so at the instant the focused step is measured, the
+   * airborne window has just closed and a point-in-time reading shows nothing.
+   * What a reader wants is the window the step opened, so with a step in focus
+   * this reports what that step applied and for how long; otherwise it reports
+   * whatever is still running at the end.
+   */
+  const crowdControl = useMemo(() => {
+    if (moment.stepUid) {
+      return analysis.spans
+        .filter((span) => span.lane === 'cc' && span.stepUid === moment.stepUid)
+        .map((span) => ({ label: span.label, seconds: span.fullSeconds }));
+    }
+    return moment.target.crowdControl.map((entry) => ({
+      label: entry.label,
+      seconds: entry.secondsLeft,
+    }));
+  }, [analysis, moment]);
+
   const figures = useMemo(() => {
     const whole = {
       raw: analysis.totalRaw,
@@ -243,7 +274,8 @@ export function AnalysisPanel({
             side="enemy"
             health={{ current: moment.target.currentHealth, max: moment.target.maxHealth }}
             lost={moment.targetLostNow}
-            resource={null}
+            resource={targetResource ?? null}
+            crowdControl={crowdControl}
           />
         </div>
 
@@ -309,7 +341,9 @@ export function AnalysisPanel({
           />
         </div>
 
-        {(analysis.shieldGained > 0 || analysis.healingDone > 0) && (
+        {(analysis.shieldGained > 0 ||
+          analysis.healingDone > 0 ||
+          analysis.targetRegenerated > 0.5) && (
           <div className="sustain-row">
             {analysis.shieldGained > 0 && (
               <span className="sustain-chip">
@@ -324,6 +358,16 @@ export function AnalysisPanel({
                 <span className="tag good">Healing</span>
                 <span className="mono">
                   {Math.round(analysis.healingDone).toLocaleString('en-US')}
+                </span>
+              </span>
+            )}
+            {/* The target's own regeneration, which works against every number
+                to its left. */}
+            {analysis.targetRegenerated > 0.5 && (
+              <span className="sustain-chip">
+                <span className="tag warn">Target regenerated</span>
+                <span className="mono">
+                  {Math.round(analysis.targetRegenerated).toLocaleString('en-US')}
                 </span>
               </span>
             )}
@@ -349,6 +393,9 @@ export function AnalysisPanel({
         )}
       </Panel>
 
+      {/* Everything under the verdict, as one block: the three columns share
+          a grid row for their first panel and a second row for the rest. */}
+      <div className="analysis-rest">
       <Panel
         className="analysis-view"
         title={VIEW_TITLES[view]}
@@ -484,6 +531,7 @@ export function AnalysisPanel({
         <hr className="divider" />
         <TypeSplit analysis={analysis} />
       </Panel>
+      </div>
     </div>
   );
 }

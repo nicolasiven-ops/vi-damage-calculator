@@ -295,6 +295,9 @@ function buildRows(page: PageId, now: Reading, previous: StatComparison | null):
       return [
         health,
         row('Health Regeneration', (r) => r.stats.healthRegen, one),
+        // Next to health regeneration, where it is read: the two answer the same
+        // question about two different pools.
+        row('Resource Regeneration', (r) => r.stats.manaRegen, one),
         row('Tenacity', (r) => r.stats.tenacity, pct),
         ...(live.shield !== undefined ? [row('Shield', (r) => r.live.shield ?? 0, int)] : []),
       ];
@@ -302,7 +305,6 @@ function buildRows(page: PageId, now: Reading, previous: StatComparison | null):
     case 'utility':
       return [
         row('Mana', (r) => r.stats.maxMana),
-        row('Mana Regeneration', (r) => r.stats.manaRegen, one),
         // Its own row rather than folded into Ability Haste: it does not touch
         // the ultimate, and a single number would say it does.
         row('Basic Ability Haste', (r) => r.stats.basicAbilityHaste),

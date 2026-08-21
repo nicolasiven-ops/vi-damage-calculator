@@ -411,6 +411,24 @@ const LEGEND_ALACRITY: RuneDefinition = {
   stats: () => ({ attackSpeed: 0.15 }),
 };
 
+/**
+ * Legend: Haste — the reason `basicAbilityHaste` exists as its own stat.
+ *
+ * Riot's own text scopes it: "Gain 1.5 basic ability haste for every Legend
+ * stack (max 10 stacks)". Fully stacked that is 15, and it does not shorten the
+ * ultimate. Counted as fully stacked, the way Legend: Alacrity is — stacks come
+ * from takedowns, which a duel against a stationary target does not produce, so
+ * the alternative is counting it as zero and quietly under-reporting a rune the
+ * build paid for.
+ */
+const LEGEND_HASTE: RuneDefinition = {
+  id: 9105,
+  name: 'Legend: Haste',
+  modelled: true,
+  note: 'Counted as fully stacked: +15 basic ability haste, which shortens Q, W and E and not R.',
+  stats: () => ({ basicAbilityHaste: 15 }),
+};
+
 const TRANSCENDENCE: RuneDefinition = {
   id: 8210,
   name: 'Transcendence',
@@ -509,6 +527,7 @@ const ALL: RuneDefinition[] = [
   CUT_DOWN,
   LAST_STAND,
   LEGEND_ALACRITY,
+  LEGEND_HASTE,
   TRANSCENDENCE,
   GATHERING_STORM,
   ABSOLUTE_FOCUS,

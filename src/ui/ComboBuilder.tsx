@@ -11,7 +11,7 @@
  * that produced it, which is what makes the strip readable as a cause.
  */
 
-import { useMemo } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   DndContext,
   KeyboardSensor,
@@ -112,9 +112,6 @@ export function ComboBuilder({
     onChange((current) => reorderStep(current, String(active.id), String(over.id)));
   }
 
-  /** The step whose settings the header row is editing. */
-  const focused = combo.find((entry) => entry.uid === pinnedStepUid) ?? null;
-
   function add(step: ComboStep): void {
     onChange((current) => [...current, step]);
   }
@@ -140,54 +137,6 @@ export function ComboBuilder({
             ? ` · ${durationSeconds.toFixed(2)} s`
             : ''}
         </span>
-        {/*
-         * The charge slider belongs to the step you clicked, and sits here
-         * rather than on the card.
-         *
-         * Over the card it covered the icon that says which step it is; above
-         * the card it needed a lane of empty strip to fly out into. Here it is
-         * on the line that already describes the combo, next to the step count,
-         * and the cards keep one shape.
-         */}
-        {focused && focused.action.kind === 'ability' && focused.chargeSeconds !== undefined && (
-          <label className="combo-charge">
-            <span className="combo-charge-label">
-              <span>Charge</span>
-              <span className="mono">{focused.chargeSeconds.toFixed(2)} s</span>
-            </span>
-            <input
-              type="range"
-              min={0}
-              max={chargeMax(focused, abilities)}
-              step={0.05}
-              value={focused.chargeSeconds}
-              onChange={(event) =>
-                update(focused.uid, { chargeSeconds: Number(event.target.value) })
-              }
-            />
-          </label>
-        )}
-        {focused && focused.action.kind === 'wait' && (
-          <label className="combo-charge">
-            <span className="combo-charge-label">
-              <span>Duration</span>
-              <span className="mono">{focused.action.seconds.toFixed(2)} s</span>
-            </span>
-            <input
-              type="range"
-              min={0.1}
-              max={5}
-              step={0.1}
-              value={focused.action.seconds}
-              onChange={(event) =>
-                update(focused.uid, {
-                  action: { kind: 'wait', seconds: Number(event.target.value) },
-                })
-              }
-            />
-          </label>
-        )}
-
         <div className="combo-bar-spacer" />
         <button
           className="btn subtle danger"
@@ -290,6 +239,8 @@ export function ComboBuilder({
                     pinned={pinnedStepUid === entry.uid}
                     onPin={() => onPinStep?.(entry.uid)}
                     onRemove={() => remove(entry.uid)}
+                    onUpdate={(patch) => update(entry.uid, patch)}
+                    chargeMaxSeconds={chargeMax(entry, abilities)}
                   />
                 ))}
               </ol>
@@ -315,7 +266,10 @@ interface StepProps {
   pinned: boolean;
   onPin: () => void;
   onRemove: () => void;
-
+  /** Editing this step's own numbers: charge length, wait length. */
+  onUpdate: (patch: Partial<ComboStep>) => void;
+  /** How long this one can be held, when it can be held at all. */
+  chargeMaxSeconds: number;
 }
 
 function SortableStep({
@@ -327,10 +281,22 @@ function SortableStep({
   pinned,
   onPin,
   onRemove,
+  onUpdate,
+  chargeMaxSeconds,
 }: StepProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: step.uid,
   });
+
+  /*
+   * The card is measured as well as sorted, so the floating control can be
+   * placed against it. dnd-kit wants the node; so do we.
+   */
+  const card = useRef<HTMLLIElement | null>(null);
+  const holdRefs = (element: HTMLLIElement | null): void => {
+    setNodeRef(element);
+    card.current = element;
+  };
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -368,7 +334,7 @@ function SortableStep({
 
   return (
     <li
-      ref={setNodeRef}
+      ref={holdRefs}
       style={style}
       className={`combo-card ${descriptor.className}${isDragging ? ' dragging' : ''}${
         linked ? ' is-linked' : ''
@@ -387,12 +353,96 @@ function SortableStep({
         <span className="combo-label">{descriptor.label}</span>
       </div>
 
+      {pinned && step.action.kind === 'ability' && step.chargeSeconds !== undefined && (
+        <FloatingControl anchor={card}>
+          <span className="combo-charge-label">
+            <span>Charge</span>
+            <span className="mono">{step.chargeSeconds.toFixed(2)} s</span>
+          </span>
+          <input
+            type="range"
+            min={0}
+            max={chargeMaxSeconds}
+            step={0.05}
+            value={step.chargeSeconds}
+            onChange={(event) => onUpdate({ chargeSeconds: Number(event.target.value) })}
+          />
+        </FloatingControl>
+      )}
+
+      {pinned && step.action.kind === 'wait' && (
+        <FloatingControl anchor={card}>
+          <span className="combo-charge-label">
+            <span>Duration</span>
+            <span className="mono">{step.action.seconds.toFixed(2)} s</span>
+          </span>
+          <input
+            type="range"
+            min={0.1}
+            max={5}
+            step={0.1}
+            value={step.action.seconds}
+            onChange={(event) =>
+              onUpdate({ action: { kind: 'wait', seconds: Number(event.target.value) } })
+            }
+          />
+        </FloatingControl>
+      )}
+
       <div className="combo-card-tools" {...stopDrag}>
         <button className="combo-tool remove" onClick={onRemove} aria-label="Remove">
           ×
         </button>
       </div>
     </li>
+  );
+}
+
+/**
+ * A control that hovers above its card and occupies no layout at all.
+ *
+ * The strip scrolls sideways, which makes it a clipping box: anything drawn
+ * outside it disappears, so a popover inside a card was either cut off or had to
+ * be paid for with a lane of empty strip. Fixed positioning is outside that box
+ * entirely — measured against the card, redrawn when anything moves, and taking
+ * no space whatsoever.
+ */
+function FloatingControl({
+  anchor,
+  children,
+}: {
+  anchor: React.RefObject<HTMLElement | null>;
+  children: React.ReactNode;
+}) {
+  const [spot, setSpot] = useState<{ left: number; top: number } | null>(null);
+
+  useLayoutEffect(() => {
+    function place(): void {
+      const element = anchor.current;
+      if (!element) return;
+      const box = element.getBoundingClientRect();
+      setSpot({ left: box.left + box.width / 2, top: box.top - 8 });
+    }
+    place();
+    // Capture phase: the strip's own scrolling does not bubble.
+    window.addEventListener('scroll', place, true);
+    window.addEventListener('resize', place);
+    return () => {
+      window.removeEventListener('scroll', place, true);
+      window.removeEventListener('resize', place);
+    };
+  }, [anchor]);
+
+  if (!spot) return null;
+  return (
+    <div
+      className="combo-charge floating"
+      style={{ left: spot.left, top: spot.top }}
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={(event) => event.stopPropagation()}
+    >
+      {children}
+    </div>
   );
 }
 

@@ -45,6 +45,15 @@ export interface SimContext {
   readonly rank: (slot: AbilitySlot) => number;
 
   dealDamage(args: DealDamageArgs): DamageInstance;
+  /**
+   * Damage that lands later — a burn, a bleed, a delayed detonation.
+   *
+   * It keeps the identity of the step that caused it, so a burn started by the
+   * third attack is still credited to that attack when it ticks two seconds
+   * later. Ignite works the same way inside the engine; this is the same
+   * facility offered to items, runes and pet buffs.
+   */
+  scheduleDamage(args: DealDamageArgs & { afterSeconds: number }): void;
   /** Percent shred is a fraction (0.2 === -20% armor). */
   applyArmorShred(args: {
     percent?: number;
@@ -75,6 +84,15 @@ export interface SimContext {
     durationSeconds: number;
     label: string;
   }): void;
+  /**
+   * Crowd control on the target: what it cannot do, and for how long.
+   *
+   * The simulation does not model the target acting, so this changes no number —
+   * it is recorded because a combo is unreadable without it. A knock-up is the
+   * reason the next two hits land unanswered, and a timeline that shows the hits
+   * but not the airborne window is showing half the story.
+   */
+  applyCrowdControl(args: { label: string; durationSeconds: number }): void;
   addEvent(event: Omit<TimelineEvent, 'id' | 'time' | 'seq'>): void;
   warn(message: string): void;
 }

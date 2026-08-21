@@ -550,16 +550,24 @@
  * then above the card, which needed a lane of empty strip to fly out into. On
  * the line that already describes the combo it covers nothing and moves nothing.
  */
+.combo-charge.floating {
+  position: fixed;
+  z-index: 40;
+  /* Anchored at the card's top centre; the element hangs above that point. */
+  transform: translate(-50%, -100%);
+  box-shadow: var(--shadow-pop);
+}
+
 .combo-charge {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: var(--space-3);
-  padding: 4px 10px;
+  gap: var(--space-2);
+  padding: 3px 6px;
   border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--surface-2);
-  min-width: 210px;
+  border-radius: 2px;
+  background: var(--surface-raised);
+  width: 168px;
 }
 
 .combo-charge input[type='range'] {
@@ -569,8 +577,8 @@
 
 .combo-charge-label {
   display: flex;
-  gap: 6px;
-  font-size: 11px;
+  gap: 4px;
+  font-size: 10px;
   white-space: nowrap;
 }
 
@@ -2077,15 +2085,18 @@
 }
 
 /*
- * The timeline is as long as the combo needs it to be — a slow rotation runs to
- * dozens of rows. It scrolls inside its own panel rather than stretching the
- * page, and the header stays put while it does.
+ * The tables are as long as the combo needs them to be, and they are shown in
+ * full.
+ *
+ * They used to scroll inside the panel to keep the page short, which meant the
+ * last hits of a long combo were hidden behind a scrollbar inside a page that
+ * scrolls anyway — two scrollbars for one list. The page's own is enough.
  */
 .analysis-view .table-scroll {
-  max-height: 58vh;
-  overflow-y: auto;
+  overflow-y: visible;
 }
 
+/* Sticky against the page now, not against a box that no longer scrolls. */
 .analysis-view .timeline-table thead th {
   position: sticky;
   top: 0;
@@ -2540,6 +2551,45 @@ code {
     rgba(223, 230, 234, 0.55) 4px 8px
   );
   mix-blend-mode: screen;
+}
+
+/*
+ * Crowd control, on its own rail under the health.
+ *
+ * Read as a state rather than as a quantity: what the target is under, and how
+ * much of it is left. The gradient runs the way the effect does — solid where it
+ * bites, fading towards the moment it lets go.
+ */
+.cc-rail {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.cc-chip {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 2px;
+  border: 1px solid rgba(208, 70, 60, 0.5);
+  background: linear-gradient(
+    90deg,
+    rgba(208, 70, 60, 0.45),
+    rgba(208, 70, 60, 0.12) 70%,
+    transparent
+  );
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+}
+
+.cc-time {
+  font-size: 10px;
+  color: var(--text-secondary);
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 /* The numbers sit on the rail, centred, with a shadow so they stay readable

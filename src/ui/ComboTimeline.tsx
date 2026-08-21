@@ -104,10 +104,16 @@ const GROUP_LANES: { title: string; lane: TimelineLane; label: string }[] = [
   { title: 'Procs', lane: 'proc', label: 'Item & rune damage' },
   { title: 'Buffs', lane: 'buff', label: 'On Vi' },
   { title: 'Debuffs', lane: 'debuff', label: 'On the target' },
+  // What the target cannot do, and what it is getting back — the two things
+  // that happen to the target without being damage.
+  { title: 'Crowd control', lane: 'cc', label: 'The target cannot act' },
+  { title: 'Sustain', lane: 'sustain', label: 'Health going back up' },
 ];
 
 function groupLaneColor(lane: TimelineLane): string {
   if (lane === 'proc') return 'var(--gold-300)';
+  if (lane === 'cc') return 'var(--status-bad)';
+  if (lane === 'sustain') return 'var(--status-good)';
   if (lane === 'debuff') return 'var(--series-physical)';
   return 'var(--blue-200)';
 }
@@ -428,7 +434,11 @@ export function ComboTimeline({
         className={`gantt-span kind-${span.kind}${timer ? ' is-timer' : ''}${
           linked ? ' is-linked' : ''
         }${pinned ? ' is-pinned' : ''}`}
-        onClick={() => onPinStep?.(span.stepUid ?? null)}
+        onClick={(event) => {
+          // Stops the chart's own "clicked nothing" handler from undoing this.
+          event.stopPropagation();
+          onPinStep?.(span.stepUid ?? null);
+        }}
       >
         <title>
           {`${span.label} · ${formatSeconds(span.start)}–${formatSeconds(
@@ -506,6 +516,14 @@ export function ComboTimeline({
         aria-label={`Combo timeline over ${formatSeconds(analysis.duration)} seconds, ${rows.length} rows`}
         onMouseMove={(event) => setCursorTime(timeAt(event))}
         onMouseLeave={() => setCursorTime(null)}
+        /*
+         * Clicking nothing clears the selection.
+         *
+         * The rows and the hits stop the click before it gets here, so this only
+         * fires on the empty parts of the chart — which is the gesture people
+         * already expect from a canvas: click away to let go.
+         */
+        onClick={() => onPinStep?.(null)}
       >
         <defs>
           {/* Charge time is hatched: nothing happens during it except waiting. */}
@@ -575,7 +593,10 @@ export function ComboTimeline({
               y={row.top + row.tierPad + ROW_HEIGHT / 2 + 4}
               textAnchor="end"
               fill={row.color}
-              onClick={() => onPinStep?.(stepUidOf(row.key) ?? null)}
+              onClick={(event) => {
+                event.stopPropagation();
+                onPinStep?.(stepUidOf(row.key) ?? null);
+              }}
             >
               {row.label}
             </text>
@@ -605,7 +626,10 @@ export function ComboTimeline({
               <g
                 key={instance.id}
                 className={`gantt-hit${linked ? ' is-linked' : ''}${pinned ? ' is-pinned' : ''}`}
-                onClick={() => onPinStep?.(instance.stepUid ?? null)}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onPinStep?.(instance.stepUid ?? null);
+                }}
               >
                 <title>
                   {`${instance.sourceLabel} · ${formatSeconds(instance.time)} s\n${Math.round(

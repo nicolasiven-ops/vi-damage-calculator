@@ -16,6 +16,7 @@ import type { ResolvedItem } from '../model/items';
 import { getItemEffect } from '../model/itemEffects';
 import { SHARD_DEFINITIONS, getRuneDefinition, isRuneModelled } from '../model/runes';
 import { summonerGap, summonerRider } from '../model/summoners';
+import { petEffectFor } from '../model/petEffects';
 import type { LoadoutState } from '../state/build';
 import { activeItemIds, activeRuneIds, activeShardIds, activeSummonerIds } from '../state/build';
 import { Panel } from './components/Panel';
@@ -84,7 +85,7 @@ export function LoadoutNotes({ loadout, items, summoners, runeTrees, title }: Pr
   const summonerNotes = activeSummonerIds(loadout)
     .map((id) => ({
       name: summoners[id] ?? id.replace(/^Summoner/, ''),
-      gap: summonerGap(id) ?? summonerRider(id),
+      gap: petEffectFor(id)?.note ?? summonerGap(id) ?? summonerRider(id),
     }))
     .filter((entry): entry is { name: string; gap: string } => entry.gap !== null);
 

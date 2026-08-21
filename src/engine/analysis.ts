@@ -79,6 +79,8 @@ export interface ComboAnalysis {
   largestHit: DamageInstance | null;
   shieldGained: number;
   healingDone: number;
+  /** Health the target regenerated while the combo ran. */
+  targetRegenerated: number;
   warnings: string[];
   /**
    * Everything that happened but dealt no damage: casts and their timing,
@@ -218,6 +220,7 @@ export function analyse(
     largestHit,
     shieldGained: result.shieldGained,
     healingDone: result.healingDone,
+    targetRegenerated: result.targetRegenerated,
     warnings: [...result.warnings, ...hardLimitWarnings(attacker)],
     events: result.events,
     spans: result.spans,

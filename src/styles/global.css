@@ -131,6 +131,32 @@ a {
     grid-column: 3;
     grid-row: 1;
   }
+
+  /*
+   * The panel that names each side is exactly as tall as the analysis beside it.
+   *
+   * Subgrid was the obvious way and it is not this one: a column spanning two
+   * auto rows makes the browser size those rows from the column's own height,
+   * which stretched the analysis panel to half the page. So the height is
+   * measured — one ResizeObserver on the analysis panel, one custom property —
+   * and the two side panels are held to it. Content stays top-aligned inside.
+   */
+  .app-body[style*='--analysis-head'] .app-config > .config-slot:first-child > .panel,
+  .app-body[style*='--analysis-head'] .app-config-target > .config-slot:first-child > .panel {
+    height: var(--analysis-head);
+  }
+}
+
+/*
+ * Below three columns the rows are not shared, so the wrappers are plain
+ * stacks — nothing to line up against.
+ */
+.config-rest,
+.analysis-rest {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
 }
 
 /*

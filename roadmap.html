@@ -34,6 +34,7 @@
           <li><a href="#formula">The formula at the hit</a></li>
           <li class="lab-nav-break">Honest simulation</li>
           <li><a href="#items">Item passives, all of them</a></li>
+          <li><a href="#loadout">One panel for the loadout</a></li>
           <li><a href="#mana">Mana, spent and regained</a></li>
           <li><a href="#regen">Regeneration over time</a></li>
           <li><a href="#smite">Smite, all four of them</a></li>
@@ -335,10 +336,46 @@
           </p>
         </section>
 
+        <!-- ================================================= One loadout panel -->
+        <section class="lab-section" id="loadout">
+          <div class="lab-section-head">
+            <span class="lab-num">07</span>
+            <h2>One panel for items, runes and summoners</h2>
+            <div class="lab-cost">
+              <span class="lab-pill needs">layout</span>
+              <span class="lab-pill ready">no new data</span>
+            </div>
+          </div>
+          <p class="lab-why">
+            Three panels stacked down the sidebar is three panels' worth of height
+            for three things you never look at simultaneously. One panel with a
+            switch at the top — items, runes, summoners — costs the height of the
+            tallest of them once, and the sidebar stops being a scroll.
+          </p>
+          <p class="lab-why">
+            The item half then gets the room it needs. It is currently a strip of six
+            slots and a picker that opens under them: narrow, one column, and a
+            search box doing the work a grid should do. Instead: <strong>a fixed-height
+            grid showing every item at once</strong>, filtered by class, and you drag
+            the one you want onto the slot you want it in. The six slots stay where
+            they are; what changes is that choosing stops being a search and becomes
+            a look.
+          </p>
+          <p class="lab-caption">
+            <strong>What it needs.</strong> The switch is the shape the analysis
+            column already uses for its three views, so it exists. Drag-and-drop
+            exists too — the combo strip is built on dnd-kit — so an item tile is a
+            draggable and a slot is a drop target, which also gives dragging between
+            two slots for free. The fixed height is the part to get right: it has to
+            hold the grid at the widths the sidebar actually gets, which means the
+            tiles size to the column rather than the column to the tiles.
+          </p>
+        </section>
+
         <!-- ================================================= Mana -->
         <section class="lab-section" id="mana">
           <div class="lab-section-head">
-            <span class="lab-num">07</span>
+            <span class="lab-num">08</span>
             <h2>Mana, spent and regained</h2>
             <div class="lab-cost">
               <span class="lab-pill needs">honesty item</span>
@@ -368,7 +405,7 @@
         <!-- ================================================= Regen -->
         <section class="lab-section" id="regen">
           <div class="lab-section-head">
-            <span class="lab-num">08</span>
+            <span class="lab-num">09</span>
             <h2>Regeneration over the length of the combo</h2>
             <div class="lab-cost">
               <span class="lab-pill needs">honesty item</span>
@@ -394,7 +431,7 @@
         <!-- ================================================= Smite -->
         <section class="lab-section" id="smite">
           <div class="lab-section-head">
-            <span class="lab-num">09</span>
+            <span class="lab-num">10</span>
             <h2>Smite, all of it</h2>
             <div class="lab-cost">
               <span class="lab-pill needs">honesty item</span>
@@ -420,7 +457,7 @@
         <!-- ================================================= Haste family -->
         <section class="lab-section" id="haste">
           <div class="lab-section-head">
-            <span class="lab-num">10</span>
+            <span class="lab-num">11</span>
             <h2>The rest of the haste family</h2>
             <div class="lab-cost">
               <span class="lab-pill needs">honesty item</span>
@@ -446,7 +483,7 @@
         <!-- ================================================= Self-lock -->
         <section class="lab-section" id="selflock">
           <div class="lab-section-head">
-            <span class="lab-num">11</span>
+            <span class="lab-num">12</span>
             <h2>What the caster is locked out of</h2>
             <div class="lab-cost">
               <span class="lab-pill needs">honesty item</span>
@@ -484,7 +521,7 @@
         <!-- ================================================= Champions -->
         <section class="lab-section" id="champions">
           <div class="lab-section-head">
-            <span class="lab-num">12</span>
+            <span class="lab-num">13</span>
             <h2>More than one champion</h2>
             <div class="lab-cost">
               <span class="lab-pill needs">large</span>
@@ -517,7 +554,7 @@
         <!-- ================================================= Windows -->
         <section class="lab-section" id="windows">
           <div class="lab-section-head">
-            <span class="lab-num">13</span>
+            <span class="lab-num">14</span>
             <h2>The windows: what the target can do while this happens</h2>
             <div class="lab-cost">
               <span class="lab-pill needs">for the duel</span>

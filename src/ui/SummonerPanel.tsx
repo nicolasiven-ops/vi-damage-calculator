@@ -21,6 +21,8 @@ import type { LoadoutState } from '../state/build';
 export interface SummonerOption {
   id: string;
   name: string;
+  /** What the combo strip calls it, where there is room for one word. */
+  shortName?: string;
   iconUrl: string;
   cooldownBurn: string;
 }

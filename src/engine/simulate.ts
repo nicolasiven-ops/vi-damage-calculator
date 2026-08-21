@@ -12,6 +12,7 @@
  */
 
 import { getItemEffect, itemAmplifiers, itemRuntimes, type ItemRuntime } from '../model/itemEffects';
+import { petEffects } from '../model/petEffects';
 import { runeAmplifiers, runeRuntimes, type HitInfo, type RuneRuntime } from '../model/runes';
 import {
   cooldownMultiplier,
@@ -89,6 +90,9 @@ interface ChargeState {
 /** Guards against runaway combos if a step somehow never advances the clock. */
 const MAX_SIMULATED_SECONDS = 120;
 
+/** The game applies regeneration in half-second steps. */
+const REGEN_TICK = 0.5;
+
 /** Stats that raise damage output. Everything else a buff grants is survival. */
 const OFFENSIVE_STATS: (keyof StatBlock)[] = [
   'attackDamage',
@@ -153,6 +157,15 @@ export function simulate(
   let nextAttackReadyAt = 0;
   let shieldGained = 0;
   let healingDone = 0;
+  /**
+   * Health the target regenerated, kept apart from the attacker's own healing.
+   *
+   * Both are "healing" and they belong to opposite sides of the fight; one
+   * number for the two would read as sustain the attacker got.
+   */
+  let targetRegenerated = 0;
+  const regenPerTick = Math.max(0, input.target.healthRegenPerFive ?? 0) / 10;
+  let lastRegenAt = 0;
   let instanceCounter = 0;
   let eventCounter = 0;
   let spanCounter = 0;
@@ -205,6 +218,8 @@ export function simulate(
   const shreds: ArmorShred[] = [];
   const tempStats: TempStats[] = [];
   const targetAmps: TargetAmp[] = [];
+  /** Crowd control on the target: label and when it ends. */
+  const crowdControl: { label: string; expiresAt: number }[] = [];
   const scheduled: ScheduledEvent[] = [];
   const cooldowns = new Map<AbilitySlot, number>();
   const chargeStates = new Map<AbilitySlot, ChargeState>();
@@ -247,6 +262,9 @@ export function simulate(
           percentPenetration: stats.armorPenPercent,
           flatPenetration: stats.flatArmorPen,
         }),
+        crowdControl: crowdControl
+          .filter((entry) => entry.expiresAt > time + 0.0005)
+          .map((entry) => ({ label: entry.label, secondsLeft: entry.expiresAt - time })),
         baseMagicResist: input.target.magicResist,
         effectiveMagicResist: effectiveResistance({
           base: input.target.magicResist,
@@ -285,6 +303,13 @@ export function simulate(
     ...input.attacker.shardIds,
   ]);
   const items: { id: string; runtime: ItemRuntime }[] = itemRuntimes(input.attacker.itemIds);
+  /*
+   * The jungle pet's buff is not an item and not a cast: it is simply there
+   * because of the Smite you took, so it is built from the picked spells and
+   * runs on the same hooks the items use.
+   */
+  const pets = petEffects(input.attacker.summonerIds ?? []);
+  const petRuntimes = pets.map((pet) => pet.createRuntime?.()).filter(Boolean) as ItemRuntime[];
   const amplifierRunes = runeAmplifiers([...input.attacker.runeIds, ...input.attacker.shardIds]);
   const amplifierItems = itemAmplifiers(input.attacker.itemIds);
 
@@ -329,9 +354,31 @@ export function simulate(
       if (next.at > clamped) break;
       scheduled.shift();
       time = Math.max(time, next.at);
+      regenerate();
       next.run();
     }
     time = Math.max(time, clamped);
+    regenerate();
+  }
+
+  /**
+   * The target's regeneration, accrued as the clock moves.
+   *
+   * The game applies a tenth of the per-five-seconds figure every half second.
+   * Accrued rather than scheduled: a scheduled tick is an event, and events out
+   * to the simulation horizon would make every combo report itself as two
+   * minutes long. This only ever adds health for time the combo actually spent.
+   */
+  function regenerate(): void {
+    if (regenPerTick <= 0) return;
+    const ticks = Math.floor((time - lastRegenAt) / REGEN_TICK);
+    if (ticks <= 0) return;
+    lastRegenAt += ticks * REGEN_TICK;
+    // The dead do not heal, and nothing regenerates past full.
+    if (targetCurrentHealth <= 0 || targetCurrentHealth >= targetMaxHealth) return;
+    const healed = Math.min(ticks * regenPerTick, targetMaxHealth - targetCurrentHealth);
+    targetCurrentHealth += healed;
+    targetRegenerated += healed;
   }
 
   function advance(seconds: number): void {
@@ -444,6 +491,31 @@ export function simulate(
       addEvent({ kind: 'buff', label, detail });
       // Same treatment as shreds and shields: it has a window, so it gets a bar.
       addEffectSpan(`amp:${label}`, label, detail, time + durationSeconds, 'debuff');
+    },
+
+    scheduleDamage({ afterSeconds, ...damage }) {
+      const owner = currentStepUid;
+      scheduled.push({
+        at: time + Math.max(0, afterSeconds),
+        run: () => attributedTo(owner, () => applyDamage(damage)),
+      });
+    },
+
+    applyCrowdControl({ label, durationSeconds }) {
+      const until = time + durationSeconds;
+      crowdControl.push({ label, expiresAt: until });
+      const detail = `${seconds(durationSeconds)} s`;
+      addEvent({ kind: 'info', label, detail: `target is ${label.toLowerCase()} for ${detail}` });
+      addSpan({
+        lane: 'cc',
+        kind: 'effect',
+        start: time,
+        end: until,
+        label,
+        detail: `target cannot act · ${detail}`,
+        effectKind: 'debuff',
+        effectOrigin: 'champion',
+      });
     },
 
     addEvent(event) {
@@ -646,6 +718,7 @@ export function simulate(
         asGear(() => {
           for (const { runtime } of runes) runtime.onHitLanded?.(ctx, hit);
           for (const { runtime } of items) runtime.onHitLanded?.(ctx, hit);
+          for (const runtime of petRuntimes) runtime.onHitLanded?.(ctx, hit);
         });
       } finally {
         procDepth -= 1;
@@ -1115,6 +1188,9 @@ export function simulate(
 
   // The state before anything happens, so the first step has something to be a
   // change *from*.
+  // What the pet gives you before anything is pressed.
+  for (const pet of pets) pet.onStart?.(ctx);
+
   takeSnapshot(-1);
 
   for (const [stepIndex, step] of input.combo.entries()) {
@@ -1176,6 +1252,25 @@ export function simulate(
   const totalMitigated = instances.reduce((sum, instance) => sum + instance.mitigated, 0);
   const killer = instances.find((instance) => instance.targetHpAfter <= 0);
 
+  /*
+   * One bar for the whole regenerated amount, not one per tick.
+   *
+   * Twenty ticks would be twenty bars saying the same thing; what a reader wants
+   * is the window it happened over and the total it came to.
+   */
+  if (targetRegenerated > 0.5) {
+    addSpan({
+      lane: 'sustain',
+      kind: 'effect',
+      start: 0,
+      end: time,
+      label: 'Target regenerates',
+      detail: `+${targetRegenerated.toFixed(0)} health over ${seconds(time)} s`,
+      effectKind: 'defense',
+      effectOrigin: 'champion',
+    });
+  }
+
   return {
     instances,
     events,
@@ -1190,6 +1285,7 @@ export function simulate(
     targetHpRemaining: targetCurrentHealth,
     shieldGained,
     healingDone,
+    targetRegenerated,
     warnings,
   };
 }
