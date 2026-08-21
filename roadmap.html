@@ -33,7 +33,7 @@
           <li><a href="#worth">What a stat is worth</a></li>
           <li><a href="#sweep">Against more than one target</a></li>
           <li><a href="#ttk">Who is it enough against</a></li>
-          <li><a href="#contrib">What each item contributes</a></li>
+          <li><a href="#target">A target that builds itself</a></li>
           <li class="lab-nav-break">Making the numbers readable</li>
           <li><a href="#cmd">Typing a combo</a></li>
           <li><a href="#spread">The crit spread</a></li>
@@ -88,6 +88,15 @@
           </p>
           <div class="lab-stage plain">
             <ul class="lab-scrap">
+              <li>
+                <b>What each item really contributes</b>
+                <span>Was ITM here.</span>
+                <em>The Ledger's Item value: each item taken out of the build, the same
+                combo re-run, and the difference reported as that item's contribution —
+                plus the same damage priced per 1,000 gold, and a line naming the one item
+                whose removal breaks the kill. Items whose passive is not modelled yet are
+                marked, because their number is then a floor and not an answer.</em>
+              </li>
               <li>
                 <b>The combo as a timeline</b>
                 <span>Workshop 01.</span>
@@ -356,8 +365,8 @@
             or what an item bundles alongside the stat you wanted. It answers "what would
             pure damage against <em>him</em> look like", which is a sharper question than
             any build guide answers and still not the whole of building. Pairing it with
-            <a href="#contrib">what each item contributes</a> closes that gap: one says
-            what the ideal mixture is, the other what the shop can actually sell you.
+            the Ledger's <a href="#shipped">Item value</a> closes that gap: one says what
+            the ideal mixture is, the other what the shop actually sold you.
           </p>
         </section>
 
@@ -388,29 +397,88 @@
           </p>
         </section>
 
-        <!-- ================================================= Item contributions -->
-        <section class="lab-section" id="contrib">
+        <!-- ================================================= A target that builds itself -->
+        <section class="lab-section" id="target">
           <div class="lab-section-head">
-            <span class="lab-num">ITM</span>
-            <h2>What each item really contributes</h2>
+            <span class="lab-num">TGT</span>
+            <h2>A target that builds itself</h2>
             <div class="lab-cost">
-              <span class="lab-pill ready">engine is ready</span>
-              <span class="lab-pill needs">needs item passives</span>
+              <span class="lab-pill ready">no new engine</span>
+              <span class="lab-pill needs">needs estimates, honestly labelled</span>
             </div>
           </div>
           <p class="lab-why">
-            Take an item out, run the same combo, and the difference is what that item
-            did — measured rather than reasoned, and including everything the item does
-            indirectly: the attack speed that fits an extra auto into the window, the
-            haste that brings an ability back, the shred that makes every later hit
-            land harder. Divided by its gold, it answers what a build guide cannot.
+            A <strong>Build</strong> button next to the target's level. One click and the
+            enemy stops being a set of empty slots: gold estimated for that level, items
+            bought in an order somebody would actually buy them, a rune page for that
+            champion, skill points spent the way they get spent, shards and summoners
+            picked. Everything editable afterwards — it is a starting point, not a verdict.
+          </p>
+          <p class="lab-why">
+            This is the feature that unlocks the others. <a href="#sweep">Several targets
+            at once</a>, <a href="#ttk">the grid of who this combo is enough against</a>
+            and <a href="#solver">the cheapest kill</a> all need a *reasonable* opponent,
+            and typing six items and a rune page by hand for each of them is exactly the
+            friction that stops anyone from using them. A default nobody has to build is
+            worth more than a better default nobody reaches.
+          </p>
+
+          <h3 class="lab-sub">The chain of estimates, each one visible</h3>
+          <p class="lab-why">
+            Every link is either published data or an assumption, and the panel says which
+            is which. A tool that quietly invents an opponent's gold is worse than one that
+            asks — so the estimate is shown as a chain you can see and overrule at any
+            link, not as a number that appears from nowhere.
+          </p>
+          <div class="lab-stage plain">
+            <div class="lab-kv">
+              <div class="lab-kv-row">
+                <span>Level → minutes into the game</span>
+                <span class="mono">assumption, adjustable</span>
+              </div>
+              <div class="lab-kv-row">
+                <span>Minutes → gold</span>
+                <span class="mono">passive income + farm rate + a kill share</span>
+              </div>
+              <div class="lab-kv-row">
+                <span>Gold → items</span>
+                <span class="mono">an ordered core per archetype, from item.json's own recipes</span>
+              </div>
+              <div class="lab-kv-row">
+                <span>Champion → runes, shards, summoners</span>
+                <span class="mono">one default page per archetype</span>
+              </div>
+              <div class="lab-kv-row">
+                <span>Level → skill points</span>
+                <span class="mono">the ultimate at 6/11/16, the rest maxed in order</span>
+              </div>
+              <div class="lab-kv-row is-total">
+                <span>Out falls</span>
+                <span class="mono">a target you would recognise from a game</span>
+              </div>
+            </div>
+          </div>
+
+          <h3 class="lab-sub">What is published and what is not</h3>
+          <p class="lab-why">
+            Riot publishes the shop — every item, its recipe, its cost — and the champion's
+            own numbers, which is the half that has to be exact. Riot does not publish what
+            a jungler has by minute fourteen, and neither does anyone else in a form worth
+            trusting. So the gold estimate is a model, it is labelled a model, and it is one
+            slider: "roughly this far into the game". Anything derived from it inherits the
+            label — the panel should read <em>≈ 8,400 g</em>, never <em>8,400 g</em>.
           </p>
           <p class="lab-caption">
-            <strong>What it needs.</strong> Six extra runs per render, which is nothing,
-            and the item passives to be modelled first — otherwise the measurement
-            faithfully reports that a stat stick is all an item is. It shares its
-            arithmetic with <a href="#worth">what a stat is worth</a>: same loop, one
-            level of aggregation up.
+            <strong>What it needs.</strong> A per-archetype table of build orders and rune
+            pages — bruiser, mage, marksman, tank, assassin, enchanter — which is the only
+            hand-maintained part and the reason this is not free; the recipe graph does the
+            rest, since "spend 8,400 g sensibly" is a walk down an ordered list with
+            components filling the remainder. Data Dragon's own <code>recommended</code>
+            blocks are the tempting shortcut and the wrong one: they are stale enough to
+            suggest items that no longer exist, and a default that recommends a removed
+            item is worse than no default. Every generated choice keeps a note saying it was
+            generated, so a target nobody edited never gets mistaken for a target somebody
+            scouted.
           </p>
         </section>
 
