@@ -5,6 +5,7 @@
   "type": "module",
   "description": "Timeline-based damage calculator for League of Legends champions, starting with Vi.",
   "scripts": {
+    "gen:items": "node scripts/gen-items.mjs",
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
