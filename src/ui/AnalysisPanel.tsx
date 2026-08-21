@@ -435,13 +435,15 @@ export function AnalysisPanel({
 
         {view === 'detailed' && (
           /*
-           * The first submodule: the formula at the hit.
-           *
-           * More will move in here — the crit spread, the mitigation chain, what
-           * a stat is worth — each one a reading of the run rather than a table
-           * of the build.
+           * Empty again, on purpose: the formula cards moved into a window of
+           * their own, and this is the room the next readings move into.
            */
-          <HitFormulas analysis={analysis} pinnedStepUid={pinnedStepUid} />
+          <div className="detailed-view">
+            <p className="empty-note">
+              Room for the next readings — the crit spread, what a stat is worth, the
+              windows the target had. The numbers behind them already exist.
+            </p>
+          </div>
         )}
 
         {view === 'details' && (
@@ -529,6 +531,17 @@ export function AnalysisPanel({
        * for. What is left in the middle is what only the middle can hold: where
        * the damage came from, over the whole combo.
        */}
+      {/*
+       * The inspector: one card per hit, two lines each.
+       *
+       * Its own window because it is the answer to a different question than the
+       * timeline's — not when did this happen but why is it this number — and
+       * because the cards want the full width.
+       */}
+      <Panel className="analysis-inspector" title="Formula Inspector">
+        <HitFormulas analysis={analysis} pinnedStepUid={pinnedStepUid} />
+      </Panel>
+
       {/*
        * The bottom window: where the numbers come from.
        *

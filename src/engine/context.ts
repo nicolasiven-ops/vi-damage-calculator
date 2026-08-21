@@ -6,6 +6,7 @@
  * one place and makes every champion behave consistently.
  */
 
+import type { DamageTerm } from './types';
 import type { ChampionStats, StatBlock } from '../model/stats';
 import type {
   AbilitySlot,
@@ -32,6 +33,13 @@ export interface DealDamageArgs {
   /** Whether this counts as ability damage for runes and Blast Shield. */
   isAbilityDamage?: boolean;
   notes?: string[];
+  /**
+   * The addends behind `amount`, for the inspector.
+   *
+   * Optional, and worth supplying wherever the number has a shape: a hit that
+   * can explain itself is the difference between a calculator and an oracle.
+   */
+  build?: DamageTerm[];
 }
 
 export interface SimContext {
@@ -163,6 +171,8 @@ export interface BasicAttackModifier {
   label?: string;
   slot?: AbilitySlot;
   notes?: string[];
+  /** The addends behind the replacement, for the inspector. */
+  build?: DamageTerm[];
 }
 
 /** Hooks a champion module can implement. All are optional. */

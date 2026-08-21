@@ -459,6 +459,15 @@ class ViRuntime implements ChampionRuntime {
       type: 'physical',
       amount,
       isAbilityDamage: true,
+      build: [
+        { label: 'base', amount: base, detail: `charged ${(ratio * 100).toFixed(0)}%`, source: maxBase.source },
+        {
+          label: 'bonus AD',
+          amount: adRatio * ctx.stats.bonusAttackDamage,
+          detail: `${pct(adRatio)} of ${ctx.stats.bonusAttackDamage.toFixed(0)}`,
+          source: maxRatio.source,
+        },
+      ],
       notes: [
         `charged ${(ratio * 100).toFixed(0)}% (${charge.toFixed(2)} s of ${num(window)} s)`,
         `${base.toFixed(0)} base + ${pct(adRatio)} bonus AD`,
@@ -509,6 +518,15 @@ class ViRuntime implements ChampionRuntime {
       type: 'physical',
       amount: base.value + adRatio.value * ctx.stats.bonusAttackDamage,
       isAbilityDamage: true,
+      build: [
+        { label: 'base', amount: base.value, source: base.source },
+        {
+          label: 'bonus AD',
+          amount: adRatio.value * ctx.stats.bonusAttackDamage,
+          detail: `${pct(adRatio.value)} of ${ctx.stats.bonusAttackDamage.toFixed(0)}`,
+          source: adRatio.source,
+        },
+      ],
       notes: [`${base.value.toFixed(0)} base + ${pct(adRatio.value)} bonus AD`],
     });
 
@@ -542,6 +560,25 @@ class ViRuntime implements ChampionRuntime {
       replacementDamage: total,
       label: this.label('E', 'Relentless Force'),
       slot: 'E' as AbilitySlot,
+      build: [
+        { label: 'base', amount: base.value, source: base.source },
+        {
+          label: 'total AD',
+          amount: adRatio.value * ctx.stats.totalAttackDamage,
+          detail: `${pct(adRatio.value)} of ${ctx.stats.totalAttackDamage.toFixed(0)}`,
+          source: adRatio.source,
+        },
+        ...(ctx.stats.abilityPower > 0
+          ? [
+              {
+                label: 'ability power',
+                amount: apRatio.value * ctx.stats.abilityPower,
+                detail: `${pct(apRatio.value)} of ${ctx.stats.abilityPower.toFixed(0)}`,
+                source: apRatio.source,
+              },
+            ]
+          : []),
+      ],
       notes: [
         `${base.value.toFixed(0)} base + ${pct(adRatio.value)} total AD` +
           (ctx.stats.abilityPower > 0 ? ` + ${pct(apRatio.value)} AP` : ''),

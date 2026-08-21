@@ -766,6 +766,8 @@ export function simulate(
       mitigated: result.mitigated,
       crit: (args.canCrit ?? false) && input.critMode === 'always',
       targetHpAfter: targetCurrentHealth,
+      build: args.build,
+      reduction: result.steps,
       notes: [
         ...(args.notes ?? []),
         `effective ${args.type === 'magic' ? 'MR' : 'armor'}: ${result.effectiveResistance.toFixed(1)}`,
@@ -876,6 +878,27 @@ export function simulate(
       amount: withBonus * critFactor,
       canCrit: true,
       triggersOnHit: true,
+      /*
+       * An unmodified attack is one term — the attack damage itself — and that
+       * is worth saying out loud rather than leaving the inspector with a bare
+       * number and nothing to point at.
+       */
+      build: modifier?.build ?? [
+        {
+          label: 'attack damage',
+          amount: baseAmount,
+          detail: `${statsAtHit.baseAttackDamage.toFixed(0)} base + ${statsAtHit.bonusAttackDamage.toFixed(0)} bonus`,
+        },
+        ...(critFactor !== 1
+          ? [
+              {
+                label: 'crit factor',
+                amount: baseAmount * (critFactor - 1),
+                detail: `×${critFactor.toFixed(3)} at ${(statsAtHit.critChance * 100).toFixed(0)}% chance`,
+              },
+            ]
+          : []),
+      ],
       notes: [
         ...(modifier?.notes ?? []),
         `${seconds(windup)} s wind-up` +

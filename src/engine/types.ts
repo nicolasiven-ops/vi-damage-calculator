@@ -4,6 +4,7 @@
 
 import type { DDragonChampionStats } from '../data/types';
 import type { ChampionStats, StatBlock } from '../model/stats';
+import type { ReductionStep } from './damage';
 
 export type DamageType = 'physical' | 'magic' | 'true';
 
@@ -50,6 +51,31 @@ export interface DamageInstance {
   /** Target health remaining after this instance. */
   targetHpAfter: number;
   notes: string[];
+  /**
+   * How the raw number was built, term by term.
+   *
+   * The champion supplies it at the moment of casting: base, ratio × stat,
+   * charge scaling. Absent for damage nobody itemised — a rune proc that is
+   * simply a number has nothing to break apart.
+   */
+  build?: DamageTerm[];
+  /** The chain from raw to landed, as the engine applied it. */
+  reduction?: ReductionStep[];
+}
+
+/**
+ * One addend of a raw damage figure.
+ *
+ * `amount` is what it contributed; `detail` says what shape produced it, and
+ * `source` where that came from — which is what makes the inspector an audit
+ * rather than a restatement.
+ */
+export interface DamageTerm {
+  label: string;
+  amount: number;
+  /** e.g. "150% of 0 bonus AD". */
+  detail?: string;
+  source?: 'gamedata' | 'ddragon' | 'registry';
 }
 
 /** Non-damage timeline events worth showing (shields, shreds, buffs). */

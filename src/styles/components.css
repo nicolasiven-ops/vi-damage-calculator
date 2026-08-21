@@ -2702,23 +2702,24 @@ code {
 }
 
 /*
- * One card per hit: what was rolled, what reduced it, what landed.
+ * One card per hit: what built the number, what took it apart, what landed.
  *
- * Cards rather than a table because each one is read on its own — the question
- * is always about a single number that looked wrong.
+ * Cards rather than a table, because each one is read on its own — the question
+ * is always about a single number that looked wrong. Two lines and a result, in
+ * the order the engine worked.
  */
 .hit-formulas {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
   gap: var(--space-3);
 }
 
 .hit-card {
   display: grid;
-  gap: 6px;
-  padding: var(--space-3);
+  gap: 7px;
+  padding: var(--space-3) var(--space-4);
   border: 1px solid var(--line);
-  border-left: 2px solid var(--gold-500);
+  border-left: 3px solid var(--series-true);
   border-radius: var(--radius);
   background: linear-gradient(180deg, var(--surface-2), var(--surface-1));
 }
@@ -2726,34 +2727,74 @@ code {
 .hit-card-head {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
   gap: var(--space-2);
-  font-size: 12.5px;
+  font-size: 13px;
 }
 
 .hit-card-head b {
-  color: var(--gold-100);
+  color: var(--text-primary);
   font-weight: 600;
 }
 
-.hit-card-head span {
+.hit-time {
+  color: var(--text-muted);
   font-size: 11px;
+  margin-right: auto;
+}
+
+/* Where the numbers came from, in the corner the eye reaches first. */
+.hit-source {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 2px;
+  border: 1px solid var(--line);
   color: var(--text-muted);
 }
 
-.hit-expr {
+.hit-source.src-gamedata {
+  border-color: rgba(10, 200, 185, 0.45);
+  color: var(--status-good);
+}
+
+.hit-source.src-registry {
+  border-color: var(--gold-600);
+  color: var(--gold-300);
+}
+
+/* The two lines: build-up, then reduction. */
+.hit-line {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--text-secondary);
+  gap: 5px 8px;
+  font-size: 12.5px;
+  padding: 6px 8px;
+  border-radius: var(--radius);
+  background: var(--surface-void, rgba(4, 8, 16, 0.5));
 }
 
-.hit-raw,
-.hit-factor {
-  color: var(--text-primary);
+.hit-build {
+  box-shadow: inset 2px 0 0 var(--gold-500);
+}
+
+.hit-reduce {
+  box-shadow: inset 2px 0 0 var(--series-physical);
+}
+
+.hit-term {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.hit-term em {
+  font-style: normal;
   font-weight: 600;
+  color: var(--text-primary);
+  border-bottom: 1px dotted var(--line);
+  cursor: help;
 }
 
 .hit-op {
@@ -2762,18 +2803,32 @@ code {
   color: var(--text-muted);
 }
 
+.hit-eq {
+  margin-left: auto;
+  font-weight: 600;
+  color: var(--gold-100);
+}
+
 .hit-result {
-  font-size: 13px;
-  color: var(--text-secondary);
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.hit-eq-final {
+  font-family: var(--font-mono);
+  color: var(--text-muted);
 }
 
 .hit-result .mono {
-  font-size: 17px;
-  color: var(--status-good);
+  font-size: 20px;
   font-weight: 600;
+  color: var(--series-true);
 }
 
 .hit-lost {
+  margin-left: auto;
+  font-size: 10.5px;
   color: var(--text-muted);
 }
 
