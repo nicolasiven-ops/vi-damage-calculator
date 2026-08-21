@@ -3,6 +3,12 @@
  *
  * Order is not cosmetic here — the simulation replays the list on a clock, so
  * moving the third auto in front of the ultimate genuinely changes the numbers.
+ *
+ * It lives as a pinned strip above the analysis rather than a panel in a column,
+ * because it is the one thing you never want out of view: every number below it
+ * is a consequence of this list, and editing the list while its result is
+ * off-screen is editing blind. Hovering a row of the timeline lights up the card
+ * that produced it, which is what makes the strip readable as a cause.
  */
 
 import { useMemo, useState } from 'react';
@@ -18,7 +24,7 @@ import {
 import { restrictToParentElement } from '@dnd-kit/modifiers';
 import {
   SortableContext,
-  rectSortingStrategy,
+  horizontalListSortingStrategy,
   sortableKeyboardCoordinates,
   useSortable,
 } from '@dnd-kit/sortable';
@@ -26,8 +32,7 @@ import { CSS } from '@dnd-kit/utilities';
 import type { AbilitySlot, ComboStep } from '../engine/types';
 import type { AbilityMeta } from '../model/champions/types';
 import { step as makeStep } from '../state/build';
-import { reorderStep, shiftStep } from '../state/combo';
-import { Panel } from './components/Panel';
+import { reorderStep } from '../state/combo';
 
 interface Props {
   combo: ComboStep[];
@@ -49,12 +54,20 @@ interface Props {
    */
   onChange: (update: (current: ComboStep[]) => ComboStep[]) => void;
   learnedRanks: Record<AbilitySlot, number>;
+  /** How long the combo takes once simulated, for the strip's own summary. */
+  durationSeconds?: number;
+  /** The step the analysis is currently pointing at, if any. */
+  linkedStepUid?: string | null;
+  /** The step held by a click in the analysis, shown more strongly. */
+  pinnedStepUid?: string | null;
+  /** Report the step under the cursor, so the analysis can point back. */
+  onHoverStep?: (uid: string | null) => void;
 }
 
 const PRESETS: { name: string; description: string; build: () => ComboStep[] }[] = [
   {
-    name: 'Standard-Engage',
-    description: 'Q (voll) → AA → E → R → AA',
+    name: 'Standard engage',
+    description: 'Q (full) → AA → E → R → AA',
     build: () => [
       makeStep({ kind: 'ability', slot: 'Q' }, 1.25),
       makeStep({ kind: 'attack' }),
@@ -64,7 +77,7 @@ const PRESETS: { name: string; description: string; build: () => ComboStep[] }[]
     ],
   },
   {
-    name: 'Ult-Engage',
+    name: 'Ult engage',
     description: 'R → AA → E → Q → AA',
     build: () => [
       makeStep({ kind: 'ability', slot: 'R' }),
@@ -75,8 +88,8 @@ const PRESETS: { name: string; description: string; build: () => ComboStep[] }[]
     ],
   },
   {
-    name: 'Voller Burst',
-    description: 'Alles inklusive Entzünden, bis W dreifach proct',
+    name: 'Full burst',
+    description: 'Everything including Ignite, until W procs twice',
     build: () => [
       makeStep({ kind: 'ability', slot: 'Q' }, 1.25),
       makeStep({ kind: 'attack' }),
@@ -89,13 +102,23 @@ const PRESETS: { name: string; description: string; build: () => ComboStep[] }[]
     ],
   },
   {
-    name: 'Nur Auto-Attacks',
-    description: '6 Basisangriffe — Referenz für reine DPS',
+    name: 'Auto-attacks only',
+    description: '6 basic attacks — the pure-DPS baseline',
     build: () => Array.from({ length: 6 }, () => makeStep({ kind: 'attack' })),
   },
 ];
 
-export function ComboBuilder({ combo, abilities, spellIcons, onChange, learnedRanks }: Props) {
+export function ComboBuilder({
+  combo,
+  abilities,
+  spellIcons,
+  onChange,
+  learnedRanks,
+  durationSeconds,
+  linkedStepUid,
+  pinnedStepUid,
+  onHoverStep,
+}: Props) {
   const [showPresets, setShowPresets] = useState(false);
 
   const sensors = useSensors(
@@ -128,29 +151,30 @@ export function ComboBuilder({ combo, abilities, spellIcons, onChange, learnedRa
     );
   }
 
-  function move(uid: string, direction: -1 | 1): void {
-    onChange((current) => shiftStep(current, uid, direction));
-  }
 
   return (
-    <Panel
-      index="01"
-      title="Combo"
-      actions={
-        <div className="combo-header-actions">
-          <button className="btn subtle" onClick={() => setShowPresets((value) => !value)}>
-            Vorlagen
-          </button>
-          <button
-            className="btn subtle danger"
-            onClick={() => onChange(() => [])}
-            disabled={combo.length === 0}
-          >
-            Leeren
-          </button>
-        </div>
-      }
-    >
+    <div className="combo-bar">
+      <div className="combo-bar-head">
+        <h2 className="combo-bar-title">Combo</h2>
+        <span className="combo-bar-meta mono">
+          {combo.length} {combo.length === 1 ? 'step' : 'steps'}
+          {durationSeconds !== undefined && combo.length > 0
+            ? ` · ${durationSeconds.toFixed(2)} s`
+            : ''}
+        </span>
+        <div className="combo-bar-spacer" />
+        <button className="btn subtle" onClick={() => setShowPresets((value) => !value)}>
+          Presets
+        </button>
+        <button
+          className="btn subtle danger"
+          onClick={() => onChange(() => [])}
+          disabled={combo.length === 0}
+        >
+          Clear
+        </button>
+      </div>
+
       {showPresets && (
         <div className="preset-grid">
           {PRESETS.map((preset) => (
@@ -169,9 +193,9 @@ export function ComboBuilder({ combo, abilities, spellIcons, onChange, learnedRa
         </div>
       )}
 
-      <div className="action-palette">
-        <span className="field-label">Hinzufügen</span>
-        <div className="action-chips">
+      <div className="combo-bar-track">
+        <div className="action-palette">
+          <div className="action-chips">
           {castable.map((ability) => {
             const unlearned = (learnedRanks[ability.slot] ?? 0) < 1;
             return (
@@ -188,8 +212,8 @@ export function ComboBuilder({ combo, abilities, spellIcons, onChange, learnedRa
                 }
                 title={
                   unlearned
-                    ? `${ability.name} ist nicht gelernt`
-                    : `${ability.name} hinzufügen`
+                    ? `${ability.name} is not learned`
+                    : `Add ${ability.name}`
                 }
               >
                 {spellIcons[ability.slot] ? (
@@ -201,67 +225,77 @@ export function ComboBuilder({ combo, abilities, spellIcons, onChange, learnedRa
               </button>
             );
           })}
-          <button className="action-chip slot-aa" onClick={() => add(makeStep({ kind: 'attack' }))}>
+          <button
+            className="action-chip slot-aa"
+            onClick={() => add(makeStep({ kind: 'attack' }))}
+            title="Add a basic attack"
+          >
             <span className="chip-letter">AA</span>
-            <span className="chip-key">Angriff</span>
+            <span className="chip-key">Attack</span>
           </button>
           <button
             className="action-chip neutral"
             onClick={() => add(makeStep({ kind: 'wait', seconds: 0.5 }))}
+            title="Add a wait"
           >
             <span className="chip-letter">⏱</span>
-            <span className="chip-key">Warten</span>
+            <span className="chip-key">Wait</span>
           </button>
           <button
             className="action-chip neutral"
             onClick={() => add(makeStep({ kind: 'summoner', summonerId: 'SummonerDot' }))}
+            title="Add Ignite"
           >
             <span className="chip-letter">🔥</span>
-            <span className="chip-key">Entzünden</span>
+            <span className="chip-key">Ignite</span>
           </button>
           <button
             className="action-chip neutral"
             onClick={() => add(makeStep({ kind: 'summoner', summonerId: 'SummonerSmite' }))}
+            title="Add Smite"
           >
             <span className="chip-letter">⚡</span>
-            <span className="chip-key">Schmettern</span>
+            <span className="chip-key">Smite</span>
           </button>
+          </div>
         </div>
+
+        {combo.length === 0 ? (
+          <p className="empty-note">
+            Noch keine Schritte. Links eine Aktion anklicken oder eine Vorlage laden — danach
+            lassen sich die Karten per Drag &amp; Drop umsortieren.
+          </p>
+        ) : (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+            modifiers={[restrictToParentElement]}
+          >
+            <SortableContext
+              items={combo.map((entry) => entry.uid)}
+              strategy={horizontalListSortingStrategy}
+            >
+              <ol className="combo-strip" onMouseLeave={() => onHoverStep?.(null)}>
+                {combo.map((entry) => (
+                  <SortableStep
+                    key={entry.uid}
+                    step={entry}
+                    abilities={abilities}
+                    spellIcons={spellIcons}
+                    linked={linkedStepUid === entry.uid}
+                    pinned={pinnedStepUid === entry.uid}
+                    onHover={(hovering) => onHoverStep?.(hovering ? entry.uid : null)}
+                    onRemove={() => remove(entry.uid)}
+                    onUpdate={(patch) => update(entry.uid, patch)}
+                  />
+                ))}
+              </ol>
+            </SortableContext>
+          </DndContext>
+        )}
       </div>
-
-      <hr className="divider" />
-
-      {combo.length === 0 ? (
-        <p className="empty-note">
-          Noch keine Schritte. Oben eine Aktion anklicken oder eine Vorlage laden — danach lassen
-          sich die Karten per Drag &amp; Drop umsortieren.
-        </p>
-      ) : (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-          modifiers={[restrictToParentElement]}
-        >
-          <SortableContext items={combo.map((entry) => entry.uid)} strategy={rectSortingStrategy}>
-            <ol className="combo-list">
-              {combo.map((entry, index) => (
-                <SortableStep
-                  key={entry.uid}
-                  step={entry}
-                  index={index}
-                  abilities={abilities}
-                  spellIcons={spellIcons}
-                  onRemove={() => remove(entry.uid)}
-                  onUpdate={(patch) => update(entry.uid, patch)}
-                  onMove={(direction) => move(entry.uid, direction)}
-                />
-              ))}
-            </ol>
-          </SortableContext>
-        </DndContext>
-      )}
-    </Panel>
+    </div>
   );
 }
 
@@ -269,22 +303,28 @@ export function ComboBuilder({ combo, abilities, spellIcons, onChange, learnedRa
 
 interface StepProps {
   step: ComboStep;
-  index: number;
+
   abilities: AbilityMeta[];
   spellIcons: Partial<Record<AbilitySlot, string>>;
+  /** True while the analysis is pointing at this step. */
+  linked: boolean;
+  /** True while a click in the analysis holds this step. */
+  pinned: boolean;
+  onHover: (hovering: boolean) => void;
   onRemove: () => void;
   onUpdate: (patch: Partial<ComboStep>) => void;
-  onMove: (direction: -1 | 1) => void;
+
 }
 
 function SortableStep({
   step,
-  index,
   abilities,
   spellIcons,
+  linked,
+  pinned,
+  onHover,
   onRemove,
   onUpdate,
-  onMove,
 }: StepProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: step.uid,
@@ -299,14 +339,33 @@ function SortableStep({
   const descriptor = describeStep(step, abilities);
   const icon = step.action.kind === 'ability' ? spellIcons[step.action.slot] : undefined;
 
+  /*
+   * The whole card is the drag handle.
+   *
+   * It used to be a grip strip along the top, with arrow buttons for moving a
+   * step one place — two mechanisms for one job, and the arrows were the clumsier
+   * one. Dragging the card itself is the direct version, so the arrows are gone
+   * and the card follows the pointer.
+   *
+   * The controls inside it stop the pointer from reaching the drag sensor, so the
+   * charge slider still slides and the remove button still clicks.
+   */
+  const stopDrag = { onPointerDown: (event: React.PointerEvent) => event.stopPropagation() };
+
   return (
     <li
       ref={setNodeRef}
       style={style}
-      className={`combo-card ${descriptor.className}${isDragging ? ' dragging' : ''}`}
+      className={`combo-card ${descriptor.className}${isDragging ? ' dragging' : ''}${
+        linked ? ' is-linked' : ''
+      }${pinned ? ' is-pinned' : ''}`}
+      onMouseEnter={() => onHover(true)}
+      onMouseLeave={() => onHover(false)}
+      {...attributes}
+      {...listeners}
+      aria-label={`${descriptor.label} — drag to reorder`}
     >
-      <div className="combo-card-grip" {...attributes} {...listeners} aria-label="Schritt verschieben">
-        <span className="combo-index mono">{index + 1}</span>
+      <div className="combo-card-grip">
         {icon ? (
           <img src={icon} alt="" className="combo-icon" />
         ) : (
@@ -316,9 +375,9 @@ function SortableStep({
       </div>
 
       {step.action.kind === 'ability' && step.chargeSeconds !== undefined && (
-        <label className="combo-charge">
+        <label className="combo-charge" {...stopDrag}>
           <span className="combo-charge-label">
-            Ladung <span className="mono">{step.chargeSeconds.toFixed(2)} s</span>
+            Charge <span className="mono">{step.chargeSeconds.toFixed(2)} s</span>
           </span>
           <input
             type="range"
@@ -332,9 +391,9 @@ function SortableStep({
       )}
 
       {step.action.kind === 'wait' && (
-        <label className="combo-charge">
+        <label className="combo-charge" {...stopDrag}>
           <span className="combo-charge-label">
-            Dauer <span className="mono">{step.action.seconds.toFixed(2)} s</span>
+            Duration <span className="mono">{step.action.seconds.toFixed(2)} s</span>
           </span>
           <input
             type="range"
@@ -349,14 +408,8 @@ function SortableStep({
         </label>
       )}
 
-      <div className="combo-card-tools">
-        <button className="combo-tool" onClick={() => onMove(-1)} aria-label="Nach vorn">
-          ‹
-        </button>
-        <button className="combo-tool" onClick={() => onMove(1)} aria-label="Nach hinten">
-          ›
-        </button>
-        <button className="combo-tool remove" onClick={onRemove} aria-label="Entfernen">
+      <div className="combo-card-tools" {...stopDrag}>
+        <button className="combo-tool remove" onClick={onRemove} aria-label="Remove">
           ×
         </button>
       </div>
@@ -379,16 +432,16 @@ function describeStep(
       };
     }
     case 'attack':
-      return { label: 'Basisangriff', glyph: 'AA', className: 'slot-aa' };
+      return { label: 'Basic attack', glyph: 'AA', className: 'slot-aa' };
     case 'wait':
-      return { label: 'Warten', glyph: '⏱', className: 'neutral' };
+      return { label: 'Wait', glyph: '⏱', className: 'neutral' };
     case 'summoner':
       return {
-        label: step.action.summonerId === 'SummonerDot' ? 'Entzünden' : 'Schmettern',
+        label: step.action.summonerId === 'SummonerDot' ? 'Ignite' : 'Smite',
         glyph: step.action.summonerId === 'SummonerDot' ? '🔥' : '⚡',
         className: 'neutral',
       };
     case 'item':
-      return { label: 'Item-Aktiv', glyph: '◆', className: 'neutral' };
+      return { label: 'Item active', glyph: '◆', className: 'neutral' };
   }
 }

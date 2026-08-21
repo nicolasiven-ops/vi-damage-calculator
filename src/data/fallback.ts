@@ -20,7 +20,7 @@ const VI: DDragonChampionSummary = {
   id: 'Vi',
   key: '254',
   name: 'Vi',
-  title: 'die Sheriffin von Piltover',
+  title: 'the Piltover Enforcer',
   tags: ['Fighter', 'Assassin'],
   image: { full: 'Vi.png', sprite: 'champion4.png', group: 'champion' },
   stats: {
@@ -49,7 +49,7 @@ const VI: DDragonChampionSummary = {
 
 export const OFFLINE_BUNDLE: PatchBundle = {
   version: OFFLINE_SNAPSHOT_PATCH,
-  locale: 'de_DE',
+  locale: 'en_US',
   offline: true,
   champions: { Vi: VI },
   items: {},

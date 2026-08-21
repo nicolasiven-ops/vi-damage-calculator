@@ -1,18 +1,24 @@
 /* =========================================================== header & footer */
 
+/*
+ * The header scrolls away on purpose.
+ *
+ * Only one strip earns a permanent seat at the top, and it is the combo — the
+ * patch selector and the brand are things you touch once a session. What stays
+ * pinned is what the numbers below it depend on.
+ */
 .app-header {
   border-bottom: 1px solid var(--line);
   background: linear-gradient(180deg, rgba(10, 20, 40, 0.95), rgba(1, 10, 19, 0.85));
-  backdrop-filter: blur(8px);
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 20;
 }
 
 .app-header-inner {
   width: min(1680px, 100%);
   margin: 0 auto;
-  padding: var(--space-3) var(--space-5);
+  /* Tight: this row is permanently on screen now. */
+  padding: var(--space-2) var(--space-5);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -43,11 +49,32 @@
   line-height: 1.1;
 }
 
+/*
+ * The tagline only appears when there is room for it.
+ *
+ * Everything in this row is permanently on screen and competes for width with
+ * the config tabs; below 1500 px the tabs' values are worth more than a subtitle
+ * that repeats what the page already is.
+ */
 .brand-sub {
+  display: none;
   font-size: 11px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--text-secondary);
+}
+
+@media (min-width: 1500px) {
+  .brand-sub {
+    display: block;
+  }
+}
+
+/* Too narrow for values: the tabs fall back to labels only. */
+@media (max-width: 1200px) {
+  .config-tab-value {
+    display: none;
+  }
 }
 
 .app-header-controls {
@@ -133,8 +160,7 @@
 /* ================================================================== combo */
 
 .combo-header-actions,
-.rune-header-actions,
-.analysis-header-actions {
+.rune-header-actions {
   display: flex;
   gap: var(--space-2);
 }
@@ -236,13 +262,276 @@
   letter-spacing: 0.03em;
 }
 
-.combo-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+/* ------------------------------------------------------ pinned combo strip */
+
+/*
+ * Everything that must not move while you read the analysis: the config tabs
+ * and the combo itself. Sticky at the very top, since the header above it is
+ * allowed to scroll out of the way.
+ */
+.workbench-top {
+  position: sticky;
+  top: 0;
+  z-index: 25;
+  background: linear-gradient(180deg, var(--surface-1), rgba(1, 10, 19, 0.97));
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.workbench-top > .combo-bar {
+  width: min(1680px, 100%);
+  margin: 0 auto;
+  padding-left: var(--space-5);
+  padding-right: var(--space-5);
+}
+
+/* The tabs share the header row; see the note on AppHeader's `tabs` prop. */
+.config-tabs {
   display: flex;
   flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-right: auto;
+}
+
+.config-tab {
+  display: flex;
+  align-items: baseline;
   gap: var(--space-2);
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
+}
+
+.config-tab:hover {
+  border-color: var(--gold-500);
+  color: var(--text-primary);
+}
+
+.config-tab.is-open {
+  background: var(--surface-3);
+  border-color: var(--gold-500);
+  color: var(--gold-100);
+}
+
+.config-tab-label {
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* The tab carries its own value, so closing the drawer costs no information. */
+.config-tab-value {
+  font-size: 11px;
+  color: var(--gold-200);
+}
+
+.config-tab-caret {
+  font-size: 9px;
+  color: var(--text-muted);
+}
+
+.config-drawer {
+  width: min(1680px, 100%);
+  margin: 0 auto;
+  padding: var(--space-4) var(--space-5) 0;
+}
+
+.combo-bar {
+  padding-bottom: var(--space-3);
+}
+
+.combo-bar-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+}
+
+.combo-bar-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--gold-100);
+}
+
+.combo-bar-meta {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.combo-bar-spacer {
+  flex: 1;
+}
+
+.combo-bar-track {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+/*
+ * In the strip the palette is glyphs only, in one row.
+ *
+ * A pinned bar pays for its height out of the analysis below it, so the chip
+ * captions go — Q, E, R and AA need no gloss, and the three symbols keep their
+ * tooltips. Two rows of labelled chips cost 60 px of permanently visible space
+ * to explain buttons that explain themselves.
+ */
+.combo-bar-track .action-palette {
+  flex: 0 0 auto;
+  padding-right: var(--space-3);
+  border-right: 1px solid var(--line-soft);
+}
+
+.combo-bar-track .action-chips {
+  flex-wrap: nowrap;
+  gap: var(--space-1);
+}
+
+.combo-bar-track .action-chip {
+  padding: 4px 6px;
+  min-width: 30px;
+  justify-content: center;
+}
+
+.combo-bar-track .chip-key {
+  display: none;
+}
+
+.combo-strip {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 var(--space-1);
+  display: flex;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+/*
+ * Compact cards, because the strip is always on screen.
+ *
+ * The reorder/remove buttons only appear on hover: they are needed while you
+ * edit and never while you read, and giving them a permanent row made every
+ * card 20 px taller than the information in it.
+ */
+.combo-strip .combo-card {
+  flex: 0 0 auto;
+  width: 152px;
+  /* One height for every card: the charge slider is an overlay, not a row. */
+  padding: 6px;
+  gap: 0;
+  justify-content: center;
+  cursor: grab;
+  touch-action: none;
+}
+
+.combo-strip .combo-card:active {
+  cursor: grabbing;
+}
+
+/* The card being dragged rides above the others and tilts a little. */
+.combo-strip .combo-card.dragging {
+  cursor: grabbing;
+  transform-origin: center;
+  box-shadow: var(--shadow-pop);
+}
+
+/*
+ * The icon carries the card's height, the name gets two lines.
+ *
+ * At 22 px the icon was a bullet point next to a truncated name — "Relentless…"
+ * tells you which ability only if you already knew. The icon is now the tallest
+ * thing in the card and the name may wrap, because recognising the step at a
+ * glance is the whole job of this strip.
+ */
+.combo-strip .combo-icon,
+.combo-strip .combo-glyph {
+  width: 36px;
+  height: 36px;
+}
+
+.combo-strip .combo-glyph {
+  font-size: 13px;
+}
+
+.combo-strip .combo-card-grip {
+  align-items: center;
+  min-height: 36px;
+}
+
+.combo-strip .combo-label {
+  font-size: 12px;
+  line-height: 1.2;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+/*
+ * The charge slider appears on hover, laid over the card rather than added to it.
+ *
+ * In the flow it made the one chargeable step taller than every other card, and
+ * revealing it on hover would then have pushed the whole analysis down under the
+ * cursor. As an overlay the card keeps one height, and the row below it never
+ * moves.
+ */
+.combo-strip .combo-charge {
+  position: absolute;
+  left: 5px;
+  right: 5px;
+  bottom: 4px;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 2px 4px;
+  border-radius: 2px;
+  background: var(--surface-raised);
+  box-shadow: 0 0 0 1px var(--line);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 90ms ease;
+}
+
+.combo-strip .combo-card:hover .combo-charge,
+.combo-strip .combo-card:focus-within .combo-charge {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.combo-strip .combo-charge input[type='range'] {
+  flex: 1;
+  min-width: 0;
+}
+
+.combo-strip .combo-charge-label {
+  font-size: 10px;
+}
+
+/* The unit is redundant next to a slider; the number is not. */
+.combo-strip .combo-charge-label > :not(.mono) {
+  display: none;
+}
+
+.combo-strip .combo-card-tools {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: var(--surface-3);
+  border-radius: 2px;
+  opacity: 0;
+  transition: opacity 90ms ease;
+}
+
+.combo-strip .combo-card:hover .combo-card-tools,
+.combo-strip .combo-card:focus-within .combo-card-tools {
+  opacity: 1;
 }
 
 .combo-card {
@@ -265,24 +554,58 @@
   opacity: 0.95;
 }
 
+/*
+ * The cause-and-effect link, shown on both ends.
+ *
+ * Hovering a timeline row lights the card that produced it; hovering a card
+ * lights its rows. Same treatment on both sides, so it reads as one connection
+ * rather than two unrelated hover states.
+ */
+.combo-card.is-linked {
+  border-color: var(--gold-300);
+  box-shadow: inset 0 0 0 1px var(--gold-500);
+}
+
+.timeline-table tr.is-linked td {
+  background: rgba(200, 170, 110, 0.15);
+}
+
+.timeline-table tr.is-linked td:first-child {
+  box-shadow: inset 2px 0 0 var(--gold-300);
+}
+
+/* A pinned step is held, not merely pointed at, so it reads stronger. */
+.timeline-table tr.is-pinned td {
+  background: rgba(200, 170, 110, 0.22);
+}
+
+.timeline-table tr.is-pinned td:first-child {
+  box-shadow: inset 3px 0 0 var(--gold-200);
+}
+
+.timeline-table tbody tr {
+  cursor: pointer;
+}
+
+.combo-card.is-pinned {
+  border-color: var(--gold-200);
+  box-shadow: inset 0 0 0 1px var(--gold-300), var(--shadow-pop);
+}
+
+.chart-svg {
+  cursor: crosshair;
+}
+
+/*
+ * The card itself is the handle now, so the cursor belongs to the card.
+ * The index chip is gone: the order is the order, and numbering it twice was
+ * one place too many for the same fact.
+ */
 .combo-card-grip {
   display: grid;
-  grid-template-columns: auto auto 1fr;
+  grid-template-columns: auto 1fr;
   align-items: center;
   gap: var(--space-2);
-  cursor: grab;
-}
-
-.combo-card-grip:active {
-  cursor: grabbing;
-}
-
-.combo-index {
-  font-size: 10px;
-  color: var(--text-muted);
-  border: 1px solid var(--line);
-  border-radius: 2px;
-  padding: 0 4px;
 }
 
 .combo-icon {
@@ -851,20 +1174,207 @@
 
 /* ================================================================== analysis */
 
+/*
+ * One column, full width, in reading order.
+ *
+ * The result view — timeline, table or formulas — is the widest thing in the app
+ * and needs every pixel: a timeline squeezed into two thirds of the screen
+ * compresses the very intervals it exists to show. The source breakdown is a
+ * summary and reads fine at the end.
+ */
 .analysis {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
 }
 
+/* ---------------------------------------------------- view switcher */
+
+.view-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.view-tab {
+  padding: 4px 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.view-tab:hover {
+  border-color: var(--gold-500);
+  color: var(--text-primary);
+}
+
+.view-tab.is-active {
+  background: var(--surface-raised);
+  border-color: var(--gold-400);
+  color: var(--gold-100);
+}
+
+/* ========================================================= Gantt view */
+
+/*
+ * The plot has a floor of 520 px (below that the lane names and the bars stop
+ * being readable), so on a narrow window it has to be scrollable rather than
+ * pushing the whole page sideways.
+ */
+.gantt {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.gantt-svg {
+  width: 100%;
+  min-width: 520px;
+  display: block;
+}
+
+.gantt-grid {
+  stroke: var(--line-soft);
+}
+
+.gantt-axis {
+  stroke: var(--line);
+}
+
+.gantt-lane-alt {
+  fill: rgba(255, 255, 255, 0.016);
+}
+
+.gantt-lane-label {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+}
+
+.gantt-tick {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  fill: var(--text-muted);
+  text-anchor: middle;
+}
+
+.gantt-foot,
+.gantt-span-label {
+  font-size: 10px;
+  fill: var(--text-muted);
+}
+
+.gantt-hit-label {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  fill: var(--gold-100);
+}
+
+.gantt-span,
+.gantt-hit {
+  cursor: pointer;
+}
+
+/* The same link treatment as everywhere else: gold means "this step". */
+.gantt-span.is-linked rect,
+.gantt-span.is-pinned rect {
+  stroke: var(--gold-200);
+  stroke-width: 1.5;
+}
+
+.gantt-span.is-pinned rect {
+  fill-opacity: 0.5;
+}
+
+.gantt-hit.is-linked .gantt-hit-label,
+.gantt-hit.is-pinned .gantt-hit-label {
+  fill: var(--gold-100);
+}
+
+.gantt-cursor {
+  stroke: var(--gold-400);
+  stroke-opacity: 0.55;
+  stroke-dasharray: 2 3;
+}
+
+.gantt-cursor-label {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  fill: var(--gold-100);
+}
+
+.gantt-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--line-soft);
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+
+.gantt-legend span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.gantt-legend .swatch {
+  width: 14px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+.gantt-legend .swatch.cast {
+  background: rgba(79, 176, 232, 0.34);
+  border: 1px solid var(--slot-q);
+}
+
+.gantt-legend .swatch.charge {
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.22) 0 2px,
+    transparent 2px 4px
+  );
+  border: 1px solid var(--line);
+}
+
+.gantt-legend .swatch.cd {
+  height: 4px;
+  background: rgba(160, 155, 140, 0.35);
+  border: 1px solid rgba(160, 155, 140, 0.5);
+}
+
+.gantt-legend .swatch.idle {
+  background: rgba(217, 164, 65, 0.16);
+  border: 1px dashed var(--status-warn);
+}
+
+.gantt-legend .swatch.hit {
+  width: 9px;
+  height: 9px;
+  border-radius: 1px;
+  transform: rotate(45deg);
+  background: var(--series-physical);
+}
+
 .verdict {
   display: flex;
-  gap: var(--space-3);
+  gap: var(--space-5);
   align-items: center;
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius);
   border: 1px solid var(--line);
   background: var(--surface-input);
+}
+
+/* The text says it, the bar shows it — so the text takes only what it needs. */
+.verdict-body {
+  flex: 0 0 auto;
 }
 
 .verdict.kill {
@@ -1025,10 +1535,10 @@
   overflow-x: auto;
 }
 
+/* Height comes from the component, which also drives the viewBox. */
 .chart-svg {
   width: 100%;
-  min-width: 620px;
-  height: auto;
+  min-width: 560px;
   display: block;
 }
 
@@ -1086,49 +1596,6 @@
   text-transform: uppercase;
 }
 
-.chart-tooltip {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-  border: 1px solid var(--line);
-  border-left: 3px solid var(--gold-300);
-  border-radius: var(--radius);
-  background: var(--surface-input);
-  padding: 6px var(--space-3);
-  font-size: 12px;
-}
-
-.chart-tooltip-time {
-  color: var(--gold-200);
-}
-
-.chart-tooltip-source {
-  color: var(--text-primary);
-}
-
-.chart-tooltip-value {
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-/* Several hits can share one instant — each gets its own line. */
-.chart-tooltip-hits {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.chart-tooltip-hit {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
-}
-
-.chart-tooltip-total {
-  margin-left: auto;
-  color: var(--text-secondary);
-}
 
 /* =========================================================== source breakdown */
 
@@ -1235,6 +1702,23 @@
   min-width: 640px;
 }
 
+/*
+ * The timeline is as long as the combo needs it to be — a slow rotation runs to
+ * dozens of rows. It scrolls inside its own panel rather than stretching the
+ * page, and the header stays put while it does.
+ */
+.analysis-view .table-scroll {
+  max-height: 58vh;
+  overflow-y: auto;
+}
+
+.analysis-view .timeline-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-2);
+}
+
 .timeline-table th,
 .formula-table th {
   text-align: left;
@@ -1293,6 +1777,15 @@
 .timeline-event-kind.kind-shield,
 .timeline-event-kind.kind-buff {
   color: var(--status-good);
+}
+
+/* Idle time is the one event that explains an absence, so it reads as one. */
+.timeline-event-kind.kind-wait {
+  color: var(--status-warn);
+}
+
+.timeline-event-row.is-wait td {
+  background: rgba(120, 80, 20, 0.16);
 }
 
 .timeline-event-detail {
@@ -1380,4 +1873,261 @@ code {
   font-size: 11px;
   max-width: 280px;
   white-space: normal;
+}
+
+/*
+ * Lane groups in the timeline.
+ *
+ * The combo's own lanes sit together at the top; below them, separated by a
+ * rule, come the things the combo caused. The heading sits in the left margin
+ * above its first lane, so it reads as a group without costing a row.
+ */
+.gantt-group-title {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  fill: var(--gold-400);
+}
+
+.gantt-group-rule {
+  stroke: var(--line);
+}
+
+/* ============================================================ stats view */
+
+.stats-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.stats-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.stats-head strong {
+  color: var(--gold-100);
+  font-weight: 500;
+}
+
+.stats-head-label {
+  display: block;
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.stats-head-time {
+  margin-left: var(--space-2);
+  color: var(--gold-300);
+  font-size: 12px;
+}
+
+.stats-head-compare {
+  color: var(--text-secondary);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.stats-block-title {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold-300);
+  font-weight: 400;
+}
+
+.stats-block-title + .stats-table {
+  margin-bottom: var(--space-4);
+}
+
+.stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.stats-table th {
+  text-align: left;
+  font-weight: 400;
+  color: var(--text-secondary);
+  padding: 4px var(--space-2) 4px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.stats-table td {
+  text-align: right;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+/* A row that moved since the compared step: the whole point of the view. */
+.stats-table tr.is-changed th,
+.stats-table tr.is-changed td {
+  background: rgba(200, 170, 110, 0.07);
+  color: var(--gold-100);
+}
+
+.stats-delta {
+  width: 78px;
+  font-size: 11.5px;
+}
+
+.stats-delta .up {
+  color: var(--status-good);
+}
+
+.stats-delta .down {
+  color: var(--status-danger);
+}
+
+.stats-active {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stats-active li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: 12px;
+  padding: 4px 8px;
+  border-left: 2px solid var(--blue-300);
+  background: var(--surface-2);
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.stats-active strong {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.stats-active span {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+/*
+ * Effect colours in the legend, matching what the bars use.
+ *
+ * Teal is a buff that adds damage, green a buff that only keeps you alive,
+ * orange a debuff sitting on the target.
+ */
+.gantt-legend .swatch.buff-offense {
+  background: rgba(10, 200, 185, 0.34);
+  border: 1px solid var(--effect-offense);
+}
+
+.gantt-legend .swatch.buff-defense {
+  background: rgba(79, 209, 139, 0.28);
+  border: 1px solid var(--effect-defense);
+}
+
+.gantt-legend .swatch.debuff {
+  background: rgba(224, 104, 95, 0.3);
+  border: 1px solid var(--effect-debuff);
+}
+
+/* ==================================================== target health bar */
+
+/*
+ * The verdict as a picture, in the space the verdict text leaves free.
+ *
+ * Segments are hits in the order they land, as wide as their damage. Focusing a
+ * combo step lifts its segments and dims everything that lands later — at that
+ * moment those had not happened yet.
+ */
+.hpbar-wrap {
+  flex: 1;
+  min-width: 220px;
+  max-width: 620px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hpbar-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.hpbar-title {
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.hpbar-value {
+  font-size: 11.5px;
+  color: var(--gold-200);
+}
+
+.hpbar {
+  display: flex;
+  height: 20px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--surface-void);
+  overflow: hidden;
+}
+
+.hpbar-seg {
+  min-width: 1px;
+  border-right: 1px solid rgba(1, 10, 19, 0.7);
+  transition: opacity 90ms ease, filter 90ms ease;
+}
+
+.hpbar-seg.physical {
+  background: var(--series-physical);
+}
+.hpbar-seg.magic {
+  background: var(--series-magic);
+}
+.hpbar-seg.true {
+  background: var(--series-true);
+}
+
+/* The focused step's own damage, lifted out of the rest. */
+.hpbar-seg.is-focused {
+  filter: brightness(1.45);
+  box-shadow: inset 0 0 0 1px var(--gold-100);
+}
+
+/* Not yet dealt at the focused moment. */
+.hpbar-seg.is-later {
+  opacity: 0.22;
+}
+
+.hpbar-rest {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 255, 255, 0.05) 0 6px,
+    transparent 6px 12px
+  );
 }

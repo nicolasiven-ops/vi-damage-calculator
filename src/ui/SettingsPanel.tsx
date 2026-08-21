@@ -2,8 +2,8 @@
  * Simulation settings.
  *
  * These are the knobs that are genuinely uncertain rather than looked up: cast
- * and windup timings are not published by Riot in any machine-readable form, so
- * they live here as editable values instead of hidden magic numbers.
+ * and wind-up timings are not published by Riot in any machine-readable form,
+ * so they live here as editable values instead of hidden magic numbers.
  */
 
 import type { CritMode, TimingConfig } from '../engine/types';
@@ -17,16 +17,16 @@ interface Props {
 }
 
 const CRIT_LABELS: Record<CritMode, string> = {
-  expected: 'Erwartungswert',
-  always: 'Immer krit',
-  never: 'Nie krit',
+  expected: 'Expected value',
+  always: 'Always crit',
+  never: 'Never crit',
 };
 
 export function SettingsPanel({ critMode, timings, onChange }: Props) {
   return (
-    <Panel index="10" title="Simulation" tight>
+    <Panel title="Simulation" tight>
       <div className="field">
-        <span className="field-label">Kritische Treffer</span>
+        <span className="field-label">Critical strikes</span>
         <div className="segmented">
           {(Object.keys(CRIT_LABELS) as CritMode[]).map((mode) => (
             <button
@@ -39,24 +39,24 @@ export function SettingsPanel({ critMode, timings, onChange }: Props) {
           ))}
         </div>
         <span className="field-hint">
-          Der Erwartungswert gewichtet jeden Angriff mit der Krit-Chance — das ist der Wert, mit dem
-          man Builds vergleicht. „Immer“ und „nie“ zeigen die Ränder.
+          The expected value weights every attack by critical strike chance — that is the number you
+          compare builds with. “Always” and “never” show the two extremes.
         </span>
       </div>
 
       <hr className="divider" />
 
       <div className="field">
-        <span className="field-label">Timing-Konstanten</span>
+        <span className="field-label">Timing constants</span>
         <span className="field-hint">
-          Riot veröffentlicht Animationszeiten nicht maschinenlesbar. Diese Werte sind Annahmen und
-          verschieben nur die Zeitachse, nicht die Schadenssummen.
+          Riot does not publish animation timings in machine-readable form. These values are
+          assumptions and only shift the timeline, not the damage totals.
         </span>
       </div>
 
       <div className="field-row three">
         <label className="field">
-          <span className="field-hint">Angriffs-Windup</span>
+          <span className="field-hint">Attack wind-up</span>
           <input
             type="number"
             step={0.01}
@@ -69,7 +69,7 @@ export function SettingsPanel({ critMode, timings, onChange }: Props) {
           />
         </label>
         <label className="field">
-          <span className="field-hint">Sprint-Reisezeit</span>
+          <span className="field-hint">Dash travel time</span>
           <input
             type="number"
             step={0.05}
@@ -82,7 +82,7 @@ export function SettingsPanel({ critMode, timings, onChange }: Props) {
           />
         </label>
         <label className="field">
-          <span className="field-hint">Eingabeverzögerung</span>
+          <span className="field-hint">Input delay</span>
           <input
             type="number"
             step={0.01}
@@ -100,7 +100,7 @@ export function SettingsPanel({ critMode, timings, onChange }: Props) {
         className="btn subtle"
         onClick={() => onChange({ timings: { ...DEFAULT_TIMINGS } })}
       >
-        Timings zurücksetzen
+        Reset timings
       </button>
     </Panel>
   );

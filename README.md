@@ -13,6 +13,11 @@ npm test           # Rechenkerne
 npm run build      # statischer Build nach dist/
 ```
 
+Unter `/design.html` liegt ein **Design-Labor**: Entwürfe für Analyse-Werkzeuge,
+die es noch nicht gibt, mit den echten Zahlen der aktuellen Simulation
+bebildert. Reine Ansichtsseite ohne Import aus der App — sie läuft nur im
+Entwicklungsserver und wird nicht mitgebaut.
+
 ## Was der Rechner macht
 
 Die Combo wird nicht aufsummiert, sondern **auf einer Uhr abgespielt**. Jeder
@@ -22,8 +27,23 @@ Schritt kostet die Zeit, die er wirklich kostet: eine voll geladene Q ihre
 die Rüstungsreduktion des dritten Autoangriffs wirkt auf alles danach und auf
 nichts davor.
 
+Deshalb kostet eine Combo auch die Zeit, die sie *warten* muss. Eine Fähigkeit,
+die noch nicht bereit ist, wird nicht trotzdem gewirkt — die Uhr springt vor, und
+der Leerlauf steht mit Grund in der Zeitachse („Q: Abklingzeit — Combo wartet bis
+7,25 s"). Q Q Q ist damit keine Burst-Combo mehr, sondern drei Casts über 20
+Sekunden, so wie im Spiel.
+
 Modelliert sind unter anderem:
 
+- **Abklingzeiten** aus Data Dragon, verkürzt durch Fähigkeitstempo. Bei geladenen
+  Fähigkeiten beginnt die Abklingzeit beim Auslösen: die Ladezeit läuft davor, der
+  Sprint darin — der Abstand zwischen zwei Q-Treffern ist deshalb genau die
+  Abklingzeit und nicht Abklingzeit plus Sprint
+- **Aufladungen** als eigenes Ressourcenmodell, weil Riot doppelt sperrt: Übermäßige
+  Gewalt (E) braucht eine freie Aufladung **und** die statische Sekunde zwischen
+  zwei Nutzungen. Fähigkeitstempo verkürzt die Aufladezeit, die statische Sekunde
+  nicht. Der Aufladetimer läuft unabhängig weiter, statt bei jeder Nutzung neu zu
+  starten
 - **Ladezeit-Skalierung** von Tresorknacker (Q), linear zwischen Minimum und Maximum
 - **Beulenschläge (W)** als Zähler auf demselben Ziel, mit %-Max-Leben-Schaden,
   Bonus-AD-Skalierung, Monster-Kappe und der 20 %-Rüstungsreduktion zum richtigen
@@ -167,7 +187,8 @@ doppelt zu zählen. Getestet in `test/items.test.ts`.
 `npm test` deckt die Rechenkerne ab: Reihenfolge der Mitigationskette, negative
 Rüstung, multiplikatives Stapeln von Durchdringung, Riots Level-Wachstumskurve,
 Item-Parsing, und die Simulation selbst (Ladezeit-Skalierung, E ersetzt statt
-addiert, W procct auf dem dritten Treffer, Reihenfolge ändert das Ergebnis).
+addiert, W procct auf dem dritten Treffer, Reihenfolge ändert das Ergebnis,
+Abklingzeiten und Aufladungen erzeugen Leerlauf statt unmöglicher Combos).
 
 Zwei Arten von Fixtures, mit Absicht getrennt:
 

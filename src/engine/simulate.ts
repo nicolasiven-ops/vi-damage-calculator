@@ -4,7 +4,7 @@
  * The combo is walked step by step on a clock. Each step advances time by what
  * it actually costs — a charged Q costs its charge plus dash travel, a basic
  * attack costs its windup and then locks the attack timer for 1/AS seconds —
- * so ordering genuinely matters: an armour shred applied by the third auto
+ * so ordering genuinely matters: an armor shred applied by the third auto
  * changes every hit that lands after it, and nothing before it.
  *
  * Damage instances are recorded with the timestamp at which they land, which
@@ -17,20 +17,26 @@ import { cooldownMultiplier, resolveChampionStats, sumStats, type StatBlock } fr
 import type { ChampionModule, ChampionModuleContext } from '../model/champions/types';
 import { cooldownValue } from '../model/champions/types';
 import type {
+  AbilityCharges,
   BasicAttackModifier,
   CastTiming,
   ChampionRuntime,
   DealDamageArgs,
   SimContext,
 } from './context';
-import { mitigate } from './damage';
+import { effectiveResistance, mitigate } from './damage';
 import type {
   AbilitySlot,
   CritMode,
   DamageInstance,
   SimulationInput,
   SimulationResult,
+  EffectKind,
+  SpanKind,
+  StatSnapshot,
   TimelineEvent,
+  TimelineLane,
+  TimelineSpan,
 } from './types';
 
 interface TimedModifier {
@@ -56,23 +62,69 @@ interface ScheduledEvent {
   run: () => void;
 }
 
+/** Live charge counter for one ability that holds charges. */
+interface ChargeState {
+  available: number;
+  /** When the next charge lands; Infinity while the counter is full. */
+  nextChargeAt: number;
+  /**
+   * Seconds per charge, with ability haste already applied.
+   *
+   * Frozen when the timer starts rather than read per tick: a haste change
+   * mid-recharge would otherwise retroactively move a charge that has been
+   * ticking for seconds. Riot rescales the remaining time instead, but nothing
+   * in a single combo grants haste, so freezing it is the honest simplification
+   * — and it keeps the counter deterministic.
+   */
+  interval: number;
+}
+
 /** Guards against runaway combos if a step somehow never advances the clock. */
 const MAX_SIMULATED_SECONDS = 120;
 
-/** German decimal notation for the short durations the timeline reports. */
+/** Stats that raise damage output. Everything else a buff grants is survival. */
+const OFFENSIVE_STATS: (keyof StatBlock)[] = [
+  'attackDamage',
+  'attackSpeed',
+  'abilityPower',
+  'abilityHaste',
+  'critChance',
+  'critDamage',
+  'armorPenPercent',
+  'lethality',
+  'attackSpeedOverCap',
+  'magicPenPercent',
+  'magicPenFlat',
+];
+
+/**
+ * Whether a buff points at damage or at staying alive.
+ *
+ * Read from the stats it actually grants rather than declared per effect, so a
+ * new item classifies itself: Hail of Blades grants attack speed and is
+ * offensive, Sterak's grants health and is not. A buff that grants both counts
+ * as offensive — it does contribute to damage, which is the question the colour
+ * answers.
+ */
+function classifyBuff(stats: Partial<StatBlock>): 'offense' | 'defense' {
+  const grantsOffense = OFFENSIVE_STATS.some((key) => Math.abs(stats[key] ?? 0) > 0.0001);
+  return grantsOffense ? 'offense' : 'defense';
+}
+
+/** Short durations, as the timeline reports them. */
 function seconds(value: number): string {
-  return (Math.round(value * 100) / 100).toString().replace('.', ',');
+  return (Math.round(value * 100) / 100).toString();
 }
 
 /**
- * "1,25 s Ladezeit + 0,25 s Sprint = 1,5 s".
+ * "1.25 s charge + 0.25 s dash = 1.5 s".
  *
  * The breakdown is the point: a combo whose first damage lands 1.5 s in should
  * be able to say why, without anyone reading the source.
  */
 function describeCastTiming(timing: CastTiming): string {
   const parts = timing.parts.filter((part) => part.seconds > 0.001);
-  if (parts.length === 0) return 'ohne Wirkzeit';
+  if (parts.length === 0) return 'no cast time';
   const listed = parts.map((part) => `${seconds(part.seconds)} s ${part.label}`).join(' + ');
   return parts.length > 1 ? `${listed} = ${seconds(timing.seconds)} s` : listed;
 }
@@ -84,6 +136,7 @@ export function simulate(
 ): SimulationResult {
   const instances: DamageInstance[] = [];
   const events: TimelineEvent[] = [];
+  const spans: TimelineSpan[] = [];
   const warnings: string[] = [];
 
   const targetMaxHealth = Math.max(1, input.target.maxHealth);
@@ -95,16 +148,122 @@ export function simulate(
   let healingDone = 0;
   let instanceCounter = 0;
   let eventCounter = 0;
+  let spanCounter = 0;
   /** Shared across damage and events, so the timeline can interleave them. */
   let sequence = 0;
   /** Depth guard so rune and item procs cannot trigger each other forever. */
   let procDepth = 0;
+  /**
+   * The combo step being resolved, stamped onto everything it produces.
+   *
+   * Set by the main loop and restored around scheduled work, so an Ignite tick
+   * that lands four steps later is still credited to the step that cast it.
+   */
+  let currentStepUid: string | undefined;
+
+  /** Run `fn` with damage and events credited to the given step. */
+  function attributedTo<T>(uid: string | undefined, fn: () => T): T {
+    const previous = currentStepUid;
+    currentStepUid = uid;
+    try {
+      return fn();
+    } finally {
+      currentStepUid = previous;
+    }
+  }
+
+  /**
+   * Which lane an effect window belongs on, tracked while item and rune code
+   * runs.
+   *
+   * Champion abilities and gear both ask for effects through the same context
+   * methods, so the context alone cannot tell a Blast Shield from a Hail of
+   * Blades. Rather than widen the contract — and make every champion and item
+   * declare where it lives — the simulation notes whose hook it is currently
+   * inside. Item and rune runtimes only ever run through the wrapper below.
+   */
+  let effectLane: 'effect' | 'gear' = 'effect';
+
+  /** Run gear code, so anything it applies lands on the gear lane. */
+  function asGear<T>(fn: () => T): T {
+    const previous = effectLane;
+    effectLane = 'gear';
+    try {
+      return fn();
+    } finally {
+      effectLane = previous;
+    }
+  }
 
   const shreds: ArmorShred[] = [];
   const tempStats: TempStats[] = [];
   const targetAmps: TargetAmp[] = [];
   const scheduled: ScheduledEvent[] = [];
   const cooldowns = new Map<AbilitySlot, number>();
+  const chargeStates = new Map<AbilitySlot, ChargeState>();
+  /** Open effect windows by identity — see addEffectSpan. */
+  const openEffects = new Map<string, TimelineSpan>();
+  const snapshots: StatSnapshot[] = [];
+
+  /**
+   * Record what both sides look like right now.
+   *
+   * Taken after each combo step, so the app can answer "what were the numbers at
+   * this point" rather than only "what does the build add up to". The effective
+   * resistances are computed the same way `applyDamage` computes them — same
+   * function, same order — so the panel cannot drift from the damage.
+   */
+  function takeSnapshot(index: number, stepUid?: string): void {
+    const stats = currentStats();
+    const shred = combinedShred();
+
+    snapshots.push({
+      stepUid,
+      index,
+      time,
+      attacker: stats,
+      target: {
+        currentHealth: targetCurrentHealth,
+        maxHealth: targetMaxHealth,
+        baseArmor: input.target.armor,
+        effectiveArmor: effectiveResistance({
+          base: input.target.armor,
+          flatReduction: shred.flat,
+          percentReduction: shred.percent,
+          percentPenetration: stats.armorPenPercent,
+          flatPenetration: stats.flatArmorPen,
+        }),
+        baseMagicResist: input.target.magicResist,
+        effectiveMagicResist: effectiveResistance({
+          base: input.target.magicResist,
+          flatReduction: 0,
+          percentReduction: 0,
+          percentPenetration: stats.magicPenPercent,
+          flatPenetration: stats.magicPenFlat,
+        }),
+      },
+      active: [
+        ...shreds.map((entry) => ({
+          label: entry.label,
+          detail:
+            entry.percent > 0
+              ? `−${(entry.percent * 100).toFixed(0)}% armor · ${seconds(Math.max(0, entry.expiresAt - time))} s left`
+              : `−${entry.flat.toFixed(0)} armor · ${seconds(Math.max(0, entry.expiresAt - time))} s left`,
+        })),
+        ...tempStats.map((entry) => ({
+          label: entry.label,
+          detail: `${seconds(Math.max(0, entry.expiresAt - time))} s left`,
+        })),
+        ...targetAmps.map((entry) => ({
+          label: entry.label,
+          detail: `+${(entry.percent * 100).toFixed(0)}% damage taken · ${seconds(Math.max(0, entry.expiresAt - time))} s left`,
+        })),
+      ],
+      damageDone: instances.reduce((sum, entry) => sum + entry.mitigated, 0),
+      shieldGained,
+      healingDone,
+    });
+  }
 
   const championRuntime: ChampionRuntime = module.createRuntime(moduleCtx);
   const runes: { id: number; runtime: RuneRuntime }[] = runeRuntimes([
@@ -129,7 +288,7 @@ export function simulate(
     return resolveChampionStats(input.championBaseStats, input.attacker.level, bonus);
   }
 
-  /** Percent armour reductions stack multiplicatively, not additively. */
+  /** Percent armor reductions stack multiplicatively, not additively. */
   function combinedShred(): { percent: number; flat: number } {
     prune();
     let remaining = 1;
@@ -202,23 +361,19 @@ export function simulate(
       } else {
         shreds.push({ percent, flat, expiresAt: time + durationSeconds, label });
       }
-      addEvent({
-        kind: 'shred',
-        label,
-        detail:
-          percent > 0
-            ? `−${(percent * 100).toFixed(0)} % Rüstung für ${durationSeconds} s`
-            : `−${flat.toFixed(0)} Rüstung für ${durationSeconds} s`,
-      });
+      const detail =
+        percent > 0
+          ? `−${(percent * 100).toFixed(0)}% armor for ${durationSeconds} s`
+          : `−${flat.toFixed(0)} armor for ${durationSeconds} s`;
+      addEvent({ kind: 'shred', label, detail });
+      addEffectSpan(`shred:${label}`, label, detail, time + durationSeconds, 'debuff');
     },
 
     grantShield({ amount, durationSeconds, label }) {
       shieldGained += amount;
-      addEvent({
-        kind: 'shield',
-        label,
-        detail: `+${amount.toFixed(0)} Schild für ${durationSeconds} s`,
-      });
+      const detail = `+${amount.toFixed(0)} shield for ${durationSeconds} s`;
+      addEvent({ kind: 'shield', label, detail });
+      addEffectSpan(`shield:${label}`, label, detail, time + durationSeconds, 'defense');
     },
 
     applyTemporaryStats({ stats, durationSeconds, label }) {
@@ -233,18 +388,48 @@ export function simulate(
       // Only the buff going up is news. Hail of Blades refreshes its window
       // on every attack, and a line per refresh buries the timeline.
       if (!existing) addEvent({ kind: 'buff', label, detail: `${durationSeconds} s` });
+      /*
+       * Identity is the name before the ' · ', the same way `tempStats` itself
+       * tracks a buff. Conqueror writes its stack count into its label, so
+       * keying on the whole text produced a new bar for each of its twelve
+       * stacks; keying on the prefix keeps one bar that updates its own name.
+       */
+      addEffectSpan(
+        `buff:${label.split(' · ')[0]}`,
+        label,
+        `${durationSeconds} s`,
+        time + durationSeconds,
+        classifyBuff(stats),
+      );
     },
 
     clearTemporaryStats(label) {
       const index = tempStats.findIndex((entry) => entry.label.split(' · ')[0] === label);
       if (index === -1) return;
       const [removed] = tempStats.splice(index, 1);
-      addEvent({ kind: 'buff', label: `${removed!.label} endet`, detail: 'aufgebraucht' });
+      addEvent({ kind: 'buff', label: `${removed!.label} ends`, detail: 'spent' });
+
+      /*
+       * Hail of Blades runs out of attacks before it runs out of time, so the
+       * bar has to end where the buff actually ended and not where it was
+       * scheduled to — otherwise the drawing claims attack speed Vi never had.
+       *
+       * Looked up by identity rather than by scanning labels: Denting Blows
+       * grants a shred and a buff under the same name prefix, and a label scan
+       * could cut the shred short instead.
+       */
+      const open = openEffects.get(`buff:${label}`);
+      if (open && open.end > time) {
+        setSpanEnd(open, time, `${open.detail ?? ''} · spent early`.trim());
+      }
     },
 
     applyTargetAmplification({ percent, durationSeconds, label }) {
       targetAmps.push({ percent, expiresAt: time + durationSeconds, label });
-      addEvent({ kind: 'buff', label, detail: `${durationSeconds} s` });
+      const detail = `+${(percent * 100).toFixed(0)}% damage taken for ${durationSeconds} s`;
+      addEvent({ kind: 'buff', label, detail });
+      // Same treatment as shreds and shields: it has a window, so it gets a bar.
+      addEffectSpan(`amp:${label}`, label, detail, time + durationSeconds, 'debuff');
     },
 
     addEvent(event) {
@@ -259,7 +444,100 @@ export function simulate(
   function addEvent(event: Omit<TimelineEvent, 'id' | 'time' | 'seq'>): void {
     eventCounter += 1;
     sequence += 1;
-    events.push({ ...event, id: `ev${eventCounter}`, seq: sequence, time });
+    events.push({ ...event, id: `ev${eventCounter}`, seq: sequence, time, stepUid: currentStepUid });
+  }
+
+  /**
+   * Record a stretch of occupied time.
+   *
+   * Zero-length spans are dropped: an instant is already covered by an event or
+   * a damage instance, and a bar of no width is noise in every view that draws
+   * these. The clamp keeps a span from running past the simulated window, so a
+   * 115 s ultimate cooldown does not stretch a four-second chart.
+   */
+  function addSpan(span: {
+    lane: TimelineLane;
+    kind: SpanKind;
+    start: number;
+    end: number;
+    label: string;
+    detail?: string;
+    parts?: { label: string; seconds: number }[];
+    effectKind?: EffectKind;
+    effectOrigin?: 'champion' | 'gear';
+  }): void {
+    const start = Math.max(0, span.start);
+    const end = Math.min(span.end, MAX_SIMULATED_SECONDS);
+    if (end - start <= 0.0005) return;
+    spanCounter += 1;
+    spans.push({
+      ...span,
+      id: `sp${spanCounter}`,
+      start,
+      end,
+      fullSeconds: span.end - start,
+      stepUid: currentStepUid,
+    });
+  }
+
+  /**
+   * Move a span's end, keeping its stated duration in step.
+   *
+   * `end` and `fullSeconds` describe the same interval from two angles, and a
+   * span whose end moves — a cancelled attack timer, a buff spent early, a
+   * refreshed effect — has to move both. Editing one and forgetting the other
+   * leaves a bar that draws one length and claims another.
+   */
+  function setSpanEnd(span: TimelineSpan, end: number, detail?: string): void {
+    span.end = Math.min(end, MAX_SIMULATED_SECONDS);
+    span.fullSeconds = Math.max(0, span.end - span.start);
+    if (detail !== undefined) span.detail = detail;
+  }
+
+  /**
+   * One bar per effect window, not one per application.
+   *
+   * Effects that refresh — Hail of Blades renews itself on every attack, Denting
+   * Blows re-applies its shred — would otherwise stack up as a pile of
+   * overlapping bars describing a single continuous buff. Extending the open one
+   * keeps the drawing honest: the bar is exactly as long as the effect was up.
+   *
+   * Matched by `key`, not by label, because a label can legitimately change
+   * while the effect continues: Conqueror writes its stack count into its own
+   * name, so keying on the text produced a fresh bar for every one of its twelve
+   * stacks. Conversely two effects can share a name prefix — Denting Blows
+   * grants a shred *and* attack speed — so the key carries what it is as well as
+   * what it is called.
+   */
+  function addEffectSpan(
+    key: string,
+    label: string,
+    detail: string,
+    endsAt: number,
+    effectKind: EffectKind,
+  ): void {
+    const open = openEffects.get(key);
+    if (open && open.end >= time - 0.0005) {
+      setSpanEnd(open, Math.max(open.end, endsAt), detail);
+      // The newest label wins: a stacking buff should read as its current state.
+      open.label = label;
+      open.effectKind = effectKind;
+      return;
+    }
+    const before = spans.length;
+    addSpan({
+      // Debuffs sit on the target, so they get their own lane whatever applied
+      // them; buffs are grouped together and told apart by colour.
+      lane: effectKind === 'debuff' ? 'debuff' : 'buff',
+      kind: 'effect',
+      start: time,
+      end: endsAt,
+      label,
+      detail,
+      effectKind,
+      effectOrigin: effectLane === 'gear' ? 'gear' : 'champion',
+    });
+    if (spans.length > before) openEffects.set(key, spans[spans.length - 1]!);
   }
 
   /* ------------------------------------------------------------------ damage */
@@ -313,6 +591,7 @@ export function simulate(
       id: `dmg${instanceCounter}`,
       seq: sequence,
       time,
+      stepUid: currentStepUid,
       sourceId: args.sourceId,
       sourceLabel: args.sourceLabel,
       sourceKind: args.sourceKind,
@@ -324,8 +603,8 @@ export function simulate(
       targetHpAfter: targetCurrentHealth,
       notes: [
         ...(args.notes ?? []),
-        `effektive ${args.type === 'magic' ? 'MR' : 'Rüstung'}: ${result.effectiveResistance.toFixed(1)}`,
-        ...(ampFactor !== 1 ? [`Verstärkung ×${ampFactor.toFixed(3)}`] : []),
+        `effective ${args.type === 'magic' ? 'MR' : 'armor'}: ${result.effectiveResistance.toFixed(1)}`,
+        ...(ampFactor !== 1 ? [`amplified ×${ampFactor.toFixed(3)}`] : []),
       ],
     };
     instances.push(instance);
@@ -350,8 +629,10 @@ export function simulate(
       };
       procDepth += 1;
       try {
-        for (const { runtime } of runes) runtime.onHitLanded?.(ctx, hit);
-        for (const { runtime } of items) runtime.onHitLanded?.(ctx, hit);
+        asGear(() => {
+          for (const { runtime } of runes) runtime.onHitLanded?.(ctx, hit);
+          for (const { runtime } of items) runtime.onHitLanded?.(ctx, hit);
+        });
       } finally {
         procDepth -= 1;
       }
@@ -365,14 +646,25 @@ export function simulate(
   function performAttack(): void {
     // Before anything is measured: a keystone may still put a buff in place
     // that changes this very attack.
-    for (const { runtime } of runes) runtime.onBeforeAttack?.(ctx);
+    asGear(() => {
+      for (const { runtime } of runes) runtime.onBeforeAttack?.(ctx);
+    });
 
-    const stats = currentStats();
     const idleSince = time;
     advanceTo(Math.max(time, nextAttackReadyAt));
     const attackStart = time;
     const waited = attackStart - idleSince;
 
+    /*
+     * Stats are read *after* the wait, not before it.
+     *
+     * Waiting for the attack timer can outlast a buff: Denting Blows' attack
+     * speed runs 4 s, and an attack queued behind a slow timer may begin after
+     * it has expired. Reading the stats before the wait computed the wind-up —
+     * and the next attack timer — from attack speed Vi no longer had by the time
+     * she swung.
+     */
+    const stats = currentStats();
     const windup = input.timings.attackWindup / Math.max(0.1, stats.totalAttackSpeed);
     advance(windup);
 
@@ -391,7 +683,7 @@ export function simulate(
 
     applyDamage({
       sourceId: modifier?.slot ?? 'AA',
-      sourceLabel: modifier?.label ?? 'Basisangriff',
+      sourceLabel: modifier?.label ?? 'Basic attack',
       sourceKind: modifier?.slot ? 'ability' : 'attack',
       slot: modifier?.slot,
       type: modifier?.type ?? 'physical',
@@ -400,8 +692,9 @@ export function simulate(
       triggersOnHit: true,
       notes: [
         ...(modifier?.notes ?? []),
-        `${seconds(windup)} s Ausholzeit` + (waited > 0.001 ? ` nach ${seconds(waited)} s Angriffstimer` : ''),
-        ...(critFactor !== 1 ? [`Krit-Faktor ×${critFactor.toFixed(3)}`] : []),
+        `${seconds(windup)} s wind-up` +
+          (waited > 0.001 ? ` after ${seconds(waited)} s of attack timer` : ''),
+        ...(critFactor !== 1 ? [`crit factor ×${critFactor.toFixed(3)}`] : []),
       ],
     });
 
@@ -438,44 +731,251 @@ export function simulate(
     const speedAfter = Math.max(0.1, currentStats().totalAttackSpeed);
     const remainingAtOldSpeed = Math.max(0, 1 / speedBefore - (time - attackStart));
     nextAttackReadyAt = time + remainingAtOldSpeed * (speedBefore / speedAfter);
+
+    /*
+     * An empowered attack belongs on the ability's lane, not on the attack lane.
+     *
+     * Relentless Force replaces the attack, and its damage is already filed
+     * under E — putting the wind-up that produced it on the AA lane split one
+     * action across two rows, with the bar in one and the hit in the other.
+     */
+    addSpan({
+      lane: modifier?.slot ?? 'AA',
+      kind: 'cast',
+      start: attackStart,
+      end: time,
+      label: modifier?.label ?? 'Basic attack',
+      detail: `${seconds(windup)} s wind-up`,
+    });
+    addSpan({
+      lane: 'AA',
+      kind: 'attack-timer',
+      start: time,
+      end: nextAttackReadyAt,
+      label: 'Attack timer',
+      detail: `${seconds(nextAttackReadyAt - time)} s at ${speedAfter.toFixed(3)} attack speed`,
+    });
+  }
+
+  /* --------------------------------------------------------- ability gating */
+
+  /** The charge model for a slot, or null when a plain cooldown applies. */
+  function chargeSpec(slot: AbilitySlot): AbilityCharges | null {
+    const spec = championRuntime.abilityCharges?.(slot, ctx) ?? null;
+    return spec && spec.max > 0 && spec.rechargeSeconds > 0 ? spec : null;
+  }
+
+  /** The charge counter, caught up to the current time before it is read. */
+  function chargeState(slot: AbilitySlot, spec: AbilityCharges): ChargeState {
+    let state = chargeStates.get(slot);
+    if (!state) {
+      state = { available: spec.max, nextChargeAt: Number.POSITIVE_INFINITY, interval: 0 };
+      chargeStates.set(slot, state);
+    }
+    // Charges refill on their own clock, whether or not anyone was looking.
+    while (state.available < spec.max && time >= state.nextChargeAt) {
+      state.available += 1;
+      state.nextChargeAt =
+        state.available < spec.max
+          ? state.nextChargeAt + state.interval
+          : Number.POSITIVE_INFINITY;
+    }
+    return state;
+  }
+
+  /** The base cooldown Riot ships for this slot at this rank, unmodified. */
+  function baseCooldownOf(slot: AbilitySlot, rank: number): number {
+    const meta = module.abilities.find((ability) => ability.slot === slot);
+    const spell = meta?.ddragonId ? moduleCtx.spellById[meta.ddragonId] : undefined;
+    return cooldownValue(spell, rank, [0]).value;
+  }
+
+  /**
+   * What is keeping this ability from being cast right now, if anything.
+   *
+   * Both gates have to be open for an ability with charges: a charge has to be
+   * available *and* the static cooldown between two uses has to have elapsed.
+   */
+  function blockedUntil(slot: AbilitySlot): { at: number; reason: string } | null {
+    const cooldownAt = cooldowns.get(slot) ?? 0;
+    const onCooldown = time < cooldownAt ? { at: cooldownAt, reason: 'cooldown' } : null;
+
+    const spec = chargeSpec(slot);
+    if (!spec) return onCooldown;
+
+    const state = chargeState(slot, spec);
+    if (state.available >= 1) return onCooldown;
+
+    return {
+      at: Math.max(cooldownAt, state.nextChargeAt),
+      reason: 'no charge',
+    };
   }
 
   function castAbility(slot: AbilitySlot, chargeSeconds: number): void {
     const rank = input.attacker.ranks[slot] ?? 0;
     if (rank < 1) {
-      ctx.warn(`${slot} ist nicht gelernt — Schritt übersprungen.`);
+      ctx.warn(`${slot} is not learned — step skipped.`);
       return;
     }
 
-    const readyAt = cooldowns.get(slot) ?? 0;
-    if (time < readyAt) {
-      ctx.warn(
-        `${slot} war zum Zeitpunkt ${time.toFixed(2)} s noch ${(readyAt - time).toFixed(2)} s auf Abklingzeit — trotzdem gewirkt.`,
-      );
+    /*
+     * An ability that is not up yet costs the combo idle time.
+     *
+     * The old behaviour was to warn and cast anyway, which let a combo of three
+     * Qs report a burst no player can produce. Waiting is what actually happens
+     * — and the wait is written into the timeline, so the gap between two casts
+     * has a stated reason instead of being a mystery.
+     */
+    const blocked = blockedUntil(slot);
+    if (blocked) {
+      if (blocked.at > MAX_SIMULATED_SECONDS) {
+        ctx.warn(
+          `${slot} would not be ready until ${seconds(blocked.at)} s (${blocked.reason}) — step skipped.`,
+        );
+        return;
+      }
+      addEvent({
+        kind: 'wait',
+        label: `Idle ${seconds(blocked.at - time)} s`,
+        detail: `${slot}: ${blocked.reason} — combo waits until ${seconds(blocked.at)} s`,
+      });
+      addSpan({
+        lane: 'idle',
+        kind: 'idle',
+        start: time,
+        end: blocked.at,
+        label: `wait ${seconds(blocked.at - time)} s`,
+        detail: `${slot}: ${blocked.reason}`,
+      });
+      advanceTo(blocked.at);
     }
 
+    const castStart = time;
     const timing: CastTiming = championRuntime.castDuration?.(slot, ctx, { chargeSeconds }) ?? {
       seconds: 0,
       parts: [],
     };
-    addEvent({ kind: 'cast', label: `${slot} gewirkt`, detail: describeCastTiming(timing) });
+    addEvent({ kind: 'cast', label: `${slot} cast`, detail: describeCastTiming(timing) });
     advance(timing.seconds);
+
+    addSpan({
+      lane: slot,
+      kind: 'cast',
+      start: castStart,
+      end: castStart + timing.seconds,
+      label: `${slot} cast`,
+      detail: describeCastTiming(timing),
+      parts: timing.parts.filter((part) => part.seconds > 0.001),
+    });
+
+    /*
+     * The resource is paid before the effect happens, and the cooldown is
+     * counted from when the button did its work — which for a charged ability
+     * is the release, not the moment the dash connects.
+     */
+    const cooldownFrom = castStart + Math.max(0, timing.cooldownStartsAfter ?? 0);
+    const baseCooldown = baseCooldownOf(slot, rank);
+    const spec = chargeSpec(slot);
+
+    if (spec) {
+      const state = chargeState(slot, spec);
+      state.available = Math.max(0, state.available - 1);
+      if (state.nextChargeAt === Number.POSITIVE_INFINITY) {
+        state.interval = spec.rechargeSeconds * cooldownMultiplier(currentStats().abilityHaste);
+        state.nextChargeAt = cooldownFrom + state.interval;
+      }
+      // Ability haste shortens the recharge timer, never this static gap.
+      if (baseCooldown > 0) cooldowns.set(slot, cooldownFrom + baseCooldown);
+      addEvent({
+        kind: 'info',
+        label: `${slot} charges`,
+        detail:
+          `${state.available}/${spec.max} left` +
+          (state.available < spec.max
+            ? ` · next in ${seconds(Math.max(0, state.nextChargeAt - time))} s`
+            : ''),
+      });
+
+      /*
+       * One bar per recharge window, not per cast.
+       *
+       * The recharge timer keeps running across uses — spending the second charge
+       * does not restart it — so casting twice inside one window used to draw the
+       * same interval twice, and the row assignment then stacked the duplicate
+       * into a second lane row. Two bars for one timer.
+       */
+      if (state.nextChargeAt < Number.POSITIVE_INFINITY) {
+        const detail = `${state.available}/${spec.max} · ${seconds(state.interval)} s per charge`;
+        const openRecharge = spans.find(
+          (entry) =>
+            entry.lane === slot &&
+            entry.kind === 'recharge' &&
+            Math.abs(entry.end - state.nextChargeAt) < 0.0005,
+        );
+        if (openRecharge) {
+          openRecharge.detail = detail;
+        } else {
+          addSpan({
+            lane: slot,
+            kind: 'recharge',
+            start: state.nextChargeAt - state.interval,
+            end: state.nextChargeAt,
+            label: 'Recharge',
+            detail,
+          });
+        }
+      }
+      addSpan({
+        lane: slot,
+        kind: 'cooldown',
+        start: cooldownFrom,
+        end: cooldownFrom + baseCooldown,
+        label: 'Static gap',
+        detail: `${seconds(baseCooldown)} s between uses · not reduced by ability haste`,
+      });
+    } else if (baseCooldown > 0) {
+      const effective = baseCooldown * cooldownMultiplier(currentStats().abilityHaste);
+      cooldowns.set(slot, cooldownFrom + effective);
+      addSpan({
+        lane: slot,
+        kind: 'cooldown',
+        start: cooldownFrom,
+        end: cooldownFrom + effective,
+        label: 'Cooldown',
+        detail:
+          `${seconds(effective)} s` +
+          (effective < baseCooldown - 0.001
+            ? ` · from ${seconds(baseCooldown)} s via ability haste`
+            : ''),
+      });
+    }
 
     championRuntime.castAbility?.(slot, ctx, { chargeSeconds });
 
-    for (const { runtime } of items) runtime.onAbilityCast?.(ctx, slot);
-
-    const meta = module.abilities.find((ability) => ability.slot === slot);
-    const spell = meta?.ddragonId ? moduleCtx.spellById[meta.ddragonId] : undefined;
-    const baseCooldown = cooldownValue(spell, rank, [0]).value;
-    if (baseCooldown > 0) {
-      cooldowns.set(slot, time + baseCooldown * cooldownMultiplier(currentStats().abilityHaste));
-    }
+    asGear(() => {
+      for (const { runtime } of items) runtime.onAbilityCast?.(ctx, slot);
+    });
 
     if (championRuntime.resetsAutoAttack?.(slot)) {
       nextAttackReadyAt = time;
-      addEvent({ kind: 'info', label: 'Angriffstimer zurückgesetzt', detail: slot });
-      for (const { runtime } of runes) runtime.onAttackReset?.(ctx);
+      addEvent({ kind: 'info', label: 'Attack timer reset', detail: slot });
+
+      /*
+       * A reset ends the running attack timer; it does not merely shorten it.
+       * Leaving the old span at its original length drew a timer that was still
+       * counting down next to the attack that had already cancelled it.
+       */
+      const openTimer = spans.find(
+        (entry) => entry.kind === 'attack-timer' && entry.end > time && entry.start <= time,
+      );
+      if (openTimer) {
+        setSpanEnd(openTimer, time, `cancelled by ${slot}`);
+      }
+
+      asGear(() => {
+        for (const { runtime } of runes) runtime.onAttackReset?.(ctx);
+      });
     }
 
     // An ability whose whole point is the attack it empowers carries that
@@ -489,19 +989,32 @@ export function simulate(
       // Ignite: true damage ticking over 5 seconds.
       const total = 70 + (410 - 70) * ((Math.min(18, stats.level) - 1) / 17);
       const perTick = total / 5;
-      addEvent({ kind: 'cast', label: 'Entzünden', detail: `${total.toFixed(0)} über 5 s` });
+      addEvent({ kind: 'cast', label: 'Ignite', detail: `${total.toFixed(0)} over 5 s` });
+      addSpan({
+        lane: 'summoner',
+        kind: 'dot',
+        start: time,
+        end: time + 5,
+        label: 'Ignite',
+        detail: `${total.toFixed(0)} true damage over 5 s`,
+      });
+      // Ticks land long after this step is done, so they carry its identity
+      // with them rather than being credited to whatever is running then.
+      const owner = currentStepUid;
       for (let tick = 1; tick <= 5; tick += 1) {
         const at = time + tick;
         scheduled.push({
           at,
           run: () =>
-            applyDamage({
-              sourceId: 'summoner:ignite',
-              sourceLabel: `Entzünden (Tick ${tick}/5)`,
-              sourceKind: 'summoner',
-              type: 'true',
-              amount: perTick,
-            }),
+            attributedTo(owner, () =>
+              applyDamage({
+                sourceId: 'summoner:ignite',
+                sourceLabel: `Ignite (tick ${tick}/5)`,
+                sourceKind: 'summoner',
+                type: 'true',
+                amount: perTick,
+              }),
+            ),
         });
       }
       advance(input.timings.inputDelay);
@@ -510,31 +1023,46 @@ export function simulate(
 
     if (summonerId === 'SummonerSmite') {
       if (input.target.unitType === 'champion') {
-        ctx.warn('Verhaften/Schmettern wirkt nicht auf Champions — Schritt übersprungen.');
+        ctx.warn('Smite does not affect champions — step skipped.');
         return;
       }
+      const smiteStart = time;
       applyDamage({
         sourceId: 'summoner:smite',
-        sourceLabel: 'Schmettern',
+        sourceLabel: 'Smite',
         sourceKind: 'summoner',
         type: 'true',
         amount: 900,
-        notes: ['fester Wert gegen Monster'],
+        notes: ['fixed value against monsters'],
       });
       advance(input.timings.inputDelay);
+      // Short, but it is time the combo spent, and every other cast shows its.
+      addSpan({
+        lane: 'summoner',
+        kind: 'cast',
+        start: smiteStart,
+        end: time,
+        label: 'Smite',
+        detail: `${seconds(input.timings.inputDelay)} s input`,
+      });
       return;
     }
 
-    ctx.warn(`Beschwörerzauber ${summonerId} ist nicht modelliert — Schritt übersprungen.`);
+    ctx.warn(`Summoner spell ${summonerId} is not modelled — step skipped.`);
   }
 
   /* --------------------------------------------------------------- main loop */
 
-  for (const step of input.combo) {
+  // The state before anything happens, so the first step has something to be a
+  // change *from*.
+  takeSnapshot(-1);
+
+  for (const [stepIndex, step] of input.combo.entries()) {
     if (time >= MAX_SIMULATED_SECONDS) {
-      ctx.warn(`Simulation nach ${MAX_SIMULATED_SECONDS} s abgebrochen.`);
+      ctx.warn(`Simulation stopped after ${MAX_SIMULATED_SECONDS} s.`);
       break;
     }
+    currentStepUid = step.uid;
     switch (step.action.kind) {
       case 'attack':
         performAttack();
@@ -542,9 +1070,25 @@ export function simulate(
       case 'ability':
         castAbility(step.action.slot, step.chargeSeconds ?? 0);
         break;
-      case 'wait':
-        advance(Math.max(0, step.action.seconds));
+      case 'wait': {
+        /*
+         * A deliberate pause is drawn like forced idle time, because it costs
+         * the combo exactly the same — but it is labelled differently: this one
+         * the player asked for. Without a bar it was a silent gap in the
+         * timeline, which is the one thing this view exists to prevent.
+         */
+        const seconds = Math.max(0, step.action.seconds);
+        addSpan({
+          lane: 'idle',
+          kind: 'idle',
+          start: time,
+          end: time + seconds,
+          label: `wait ${seconds} s`,
+          detail: 'deliberate pause in the combo',
+        });
+        advance(seconds);
         break;
+      }
       case 'summoner':
         castSummoner(step.action.summonerId);
         break;
@@ -552,12 +1096,15 @@ export function simulate(
         const effect = getItemEffect(step.action.itemId);
         ctx.warn(
           effect
-            ? `Aktives Item ${effect.name} ist nur passiv modelliert — Schritt übersprungen.`
-            : 'Aktive Item-Effekte sind noch nicht modelliert — Schritt übersprungen.',
+            ? `Item active ${effect.name} is only modelled as a passive — step skipped.`
+            : 'Item actives are not modelled yet — step skipped.',
         );
         break;
       }
     }
+    // The state this step left behind, before the next one starts.
+    takeSnapshot(stepIndex, step.uid);
+    currentStepUid = undefined;
   }
 
   // Let any scheduled damage-over-time finish before reporting.
@@ -572,6 +1119,10 @@ export function simulate(
   return {
     instances,
     events,
+    snapshots,
+    // Sorted so a view can draw them in the order they began, whatever order
+    // the simulation happened to record them in.
+    spans: [...spans].sort((a, b) => a.start - b.start || a.end - b.end),
     totalRaw,
     totalMitigated,
     duration: time,

@@ -28,8 +28,85 @@ import { SettingsPanel } from './ui/SettingsPanel';
 import { TargetPanel } from './ui/TargetPanel';
 import { imageUrls } from './data/ddragon';
 
+/**
+ * The panels that configure the build, shown one at a time.
+ *
+ * They used to sit stacked in a permanent left column, which put five things
+ * you adjust occasionally in front of the one thing you read constantly. Here
+ * they are a row of tabs that opens the one you asked for and closes it again.
+ */
+type ConfigTab = 'champion' | 'items' | 'runes' | 'target' | 'sim';
+
+const CRIT_LABELS: Record<BuildState['critMode'], string> = {
+  expected: 'Crit avg',
+  always: 'Crit always',
+  never: 'Crit never',
+};
+
+/**
+ * A config tab that also reports its own state.
+ *
+ * The label alone would hide what it is hiding — "Items" says nothing about
+ * whether six are equipped. Carrying the value means closing the drawer costs
+ * no information.
+ */
+function ConfigTabButton({
+  id,
+  label,
+  value,
+  active,
+  onToggle,
+}: {
+  id: ConfigTab;
+  label: string;
+  value: string;
+  active: ConfigTab | null;
+  onToggle: (tab: ConfigTab | null) => void;
+}) {
+  const isOpen = active === id;
+  return (
+    <button
+      className={`config-tab${isOpen ? ' is-open' : ''}`}
+      aria-expanded={isOpen}
+      onClick={() => onToggle(isOpen ? null : id)}
+    >
+      <span className="config-tab-label">{label}</span>
+      <span className="config-tab-value mono">{value}</span>
+      <span className="config-tab-caret" aria-hidden="true">
+        {isOpen ? '▾' : '▸'}
+      </span>
+    </button>
+  );
+}
+
 export default function App() {
   const [build, setBuild] = useState<BuildState>(() => loadBuild());
+  const [configTab, setConfigTab] = useState<ConfigTab | null>(null);
+  /**
+   * The combo step under the cursor, wherever the cursor is.
+   *
+   * Lives here because both the pinned combo strip and the analysis below it
+   * need to agree on it — hovering a timeline row lights the card that caused
+   * it, and hovering a card lights its rows.
+   */
+  const [hoveredStepUid, setHoveredStepUid] = useState<string | null>(null);
+  /**
+   * A step pinned by clicking, which survives the cursor leaving.
+   *
+   * Hovering is for scanning; pinning is for working on one moment — comparing
+   * it against the combo, changing an item, and seeing what happened to exactly
+   * that hit. Hover wins while it lasts, then the pin takes over again.
+   */
+  const [rawPinnedStepUid, setPinnedStepUid] = useState<string | null>(null);
+  /*
+   * A pin on a step that has since been deleted points at nothing, and would
+   * leave a "Clear selection" button for a selection nobody can see. Derived
+   * rather than cleaned up in an effect, so it can never be briefly wrong.
+   */
+  const pinnedStepUid = build.combo.some((entry) => entry.uid === rawPinnedStepUid)
+    ? rawPinnedStepUid
+    : null;
+  const linkedStepUid = hoveredStepUid ?? pinnedStepUid;
   const patch = usePatchData(DEFAULT_LOCALE);
   const bundle = patch.bundle;
 
@@ -144,21 +221,99 @@ export default function App() {
   /* ----------------------------------------------------------------- render */
 
   return (
-    <div className="app">
-      <AppHeader
-        version={bundle?.version ?? '—'}
-        versions={patch.versions}
-        offline={bundle?.offline ?? false}
-        loading={patch.loading}
-        error={patch.error}
-        onVersionChange={patch.setVersion}
-        onReload={patch.reload}
-        onReset={() => setBuild(defaultBuild())}
-      />
+    <div
+      className="app"
+      /*
+       * Clicking anywhere neutral clears the pinned step.
+       *
+       * Only genuinely empty space counts: controls keep the selection, and so
+       * does anything that can set it — otherwise this handler would fire right
+       * after a click that just pinned something and undo it. Config panels are
+       * deliberately included, because changing an item while holding a moment is
+       * exactly what the pin is for.
+       */
+      onClick={(event) => {
+        const target = event.target as HTMLElement;
+        if (
+          !target.closest(
+            'button, input, select, textarea, label, a, .gantt-svg, .chart-svg, .timeline-table, .combo-card, .config-drawer, [data-keep-selection]',
+          )
+        ) {
+          setPinnedStepUid(null);
+        }
+      }}
+    >
+      {/*
+       * Everything pinned to the top: the header the app is identified by, the
+       * config tabs, and the combo the numbers below depend on.
+       */}
+      <div className="workbench-top">
+        <AppHeader
+          version={bundle?.version ?? '—'}
+          versions={patch.versions}
+          offline={bundle?.offline ?? false}
+          loading={patch.loading}
+          error={patch.error}
+          onVersionChange={patch.setVersion}
+          onReload={patch.reload}
+          onReset={() => setBuild(defaultBuild())}
+          tabs={
+            <nav className="config-tabs" aria-label="Configure build">
+              <ConfigTabButton
+                id="champion"
+                label="Champion"
+                value={`${VI_MODULE.displayName} · ${build.level}`}
+                active={configTab}
+                onToggle={setConfigTab}
+              />
+              <ConfigTabButton
+                id="items"
+                label="Items"
+                value={`${activeItemIds(build).length}/6`}
+                active={configTab}
+                onToggle={setConfigTab}
+              />
+              <ConfigTabButton
+                id="runes"
+                label="Runes"
+                value={`${activeRuneIds(build).length + activeShardIds(build).length}`}
+                active={configTab}
+                onToggle={setConfigTab}
+              />
+              <ConfigTabButton
+                id="target"
+                label="Target"
+                value={`${build.target.maxHealth.toLocaleString('en-US')} HP · ${build.target.armor} armor`}
+                active={configTab}
+                onToggle={setConfigTab}
+              />
+              <ConfigTabButton
+                id="sim"
+                label="Simulation"
+                value={CRIT_LABELS[build.critMode]}
+                active={configTab}
+                onToggle={setConfigTab}
+              />
+            </nav>
+          }
+        />
 
-      <main className="app-main">
-        <div className="column">
-          {stats && (
+        <ComboBuilder
+          combo={build.combo}
+          abilities={abilities}
+          spellIcons={spellIcons}
+          learnedRanks={build.ranks}
+          onChange={updateCombo}
+          durationSeconds={analysis?.duration}
+          linkedStepUid={linkedStepUid}
+          pinnedStepUid={pinnedStepUid}
+          onHoverStep={setHoveredStepUid}
+        />
+      </div>
+
+      {configTab !== null && (
+        <div className="config-drawer">
+          {configTab === 'champion' && stats && (
             <ChampionPanel
               detail={champion.detail}
               version={bundle?.version ?? ''}
@@ -174,78 +329,83 @@ export default function App() {
             />
           )}
 
-          <ItemPanel
-            items={items}
-            itemIds={build.itemIds}
-            version={bundle?.version ?? ''}
-            offline={bundle?.offline ?? true}
-            onChange={(itemIds) => patchBuild({ itemIds })}
-          />
-
-          <RunePanel
-            trees={bundle?.runeTrees ?? []}
-            build={build}
-            offline={bundle?.offline ?? true}
-            onChange={patchBuild}
-          />
-        </div>
-
-        <div className="column">
-          <ComboBuilder
-            combo={build.combo}
-            abilities={abilities}
-            spellIcons={spellIcons}
-            learnedRanks={build.ranks}
-            onChange={updateCombo}
-          />
-
-          <TargetPanel
-            target={build.target}
-            champions={bundle?.champions ?? {}}
-            onChange={(target) => patchBuild({ target })}
-          />
-
-          {analysis && stats ? (
-            <AnalysisPanel
-              analysis={analysis}
-              target={build.target}
-              module={VI_MODULE}
-              moduleCtx={moduleCtx}
-              abilities={abilities}
-              ranks={build.ranks}
-              gameDataStatus={champion.gameDataStatus}
+          {configTab === 'items' && (
+            <ItemPanel
+              items={items}
+              itemIds={build.itemIds}
+              version={bundle?.version ?? ''}
+              offline={bundle?.offline ?? true}
+              onChange={(itemIds) => patchBuild({ itemIds })}
             />
-          ) : (
-            <section className="panel">
-              <div className="panel-body">
-                <p className="empty-note">
-                  {patch.loading
-                    ? 'Championdaten werden geladen …'
-                    : 'Ohne Championdaten kann nicht gerechnet werden.'}
-                </p>
-              </div>
-            </section>
           )}
 
-          <SettingsPanel
-            critMode={build.critMode}
-            timings={build.timings}
-            onChange={patchBuild}
-          />
+          {configTab === 'runes' && (
+            <RunePanel
+              trees={bundle?.runeTrees ?? []}
+              build={build}
+              offline={bundle?.offline ?? true}
+              onChange={patchBuild}
+            />
+          )}
+
+          {configTab === 'target' && (
+            <TargetPanel
+              target={build.target}
+              champions={bundle?.champions ?? {}}
+              onChange={(target) => patchBuild({ target })}
+            />
+          )}
+
+          {configTab === 'sim' && (
+            <SettingsPanel
+              critMode={build.critMode}
+              timings={build.timings}
+              onChange={patchBuild}
+            />
+          )}
         </div>
+      )}
+
+      <main className="app-main">
+        {analysis && stats ? (
+          <AnalysisPanel
+            analysis={analysis}
+            target={build.target}
+            module={VI_MODULE}
+            moduleCtx={moduleCtx}
+            abilities={abilities}
+            ranks={build.ranks}
+            combo={build.combo}
+            gameDataStatus={champion.gameDataStatus}
+            linkedStepUid={linkedStepUid}
+            pinnedStepUid={pinnedStepUid}
+            onHoverStep={setHoveredStepUid}
+            onPinStep={(uid) => setPinnedStepUid((current) => (current === uid ? null : uid))}
+          />
+        ) : (
+          <section className="panel">
+            <div className="panel-body">
+              <p className="empty-note">
+                {patch.loading
+                  ? 'Loading champion data …'
+                  : 'Nothing can be computed without champion data.'}
+              </p>
+            </div>
+          </section>
+        )}
       </main>
 
       <footer className="app-footer">
         <span>
-          Championdaten, Items und Runenbäume von{' '}
+          Champion data, items and rune trees from{' '}
           <a href="https://developer.riotgames.com/docs/lol#data-dragon" rel="noreferrer noopener">
             Riot Data Dragon
           </a>
           {bundle && !bundle.offline ? ` · Patch ${bundle.version}` : ''}
         </span>
         <span className="app-footer-note">
-          Kein offizielles Riot-Games-Produkt. Fähigkeits-Ratios und Runenformeln sind gepflegte
-          Konstanten — siehe Formel-Inspektor.
+          Not an official Riot Games product. Rune formulas and some ability values are
+          maintained constants — see the formula inspector.
         </span>
       </footer>
     </div>

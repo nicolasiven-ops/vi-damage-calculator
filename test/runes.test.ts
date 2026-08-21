@@ -89,12 +89,12 @@ describe('Hail of Blades', () => {
     expect(procs(result)).toHaveLength(3);
   });
 
-  it('deals true damage, so armour and resistances do not touch it', () => {
-    const armoured = run(attacks(1), {
+  it('deals true damage, so armor and resistances do not touch it', () => {
+    const armored = run(attacks(1), {
       runeIds: [HAIL_OF_BLADES],
       target: { ...TARGET, armor: 300 },
     });
-    const hit = procs(armoured)[0]!;
+    const hit = procs(armored)[0]!;
     expect(hit.type).toBe('true');
     expect(hit.mitigated).toBeCloseTo(hit.raw, 6);
   });

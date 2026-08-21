@@ -166,16 +166,151 @@ describe('Excessive Force (E)', () => {
     expect(result.instances.filter((entry) => entry.sourceId === 'AA')).toHaveLength(1);
   });
 
-  it('swings without the empowerment once the charges are gone', () => {
+  it('waits for a charge instead of swinging empty', () => {
     const result = run([
       step({ kind: 'ability', slot: 'E' }),
       step({ kind: 'ability', slot: 'E' }),
       step({ kind: 'ability', slot: 'E' }),
     ]);
-    // Two charges: the third step is a plain attack rather than a dropped step.
-    expect(result.instances.filter((entry) => entry.slot === 'E')).toHaveLength(2);
-    expect(result.instances.filter((entry) => entry.sourceId === 'AA')).toHaveLength(1);
-    expect(result.warnings.join(' ')).toContain('gewöhnlicher Basisangriff');
+
+    // Two charges plus one recharge: all three swings are empowered, but the
+    // third cannot happen until the counter has refilled.
+    const swings = result.instances.filter((entry) => entry.slot === 'E');
+    expect(swings).toHaveLength(3);
+
+    const outOfCharges = result.events.filter(
+      (event) => event.kind === 'wait' && event.detail.includes('no charge'),
+    );
+    expect(outOfCharges).toHaveLength(1);
+
+    // Recharge is 8 s at rank 5 and starts with the first cast, so the third
+    // swing lands after it — not two static cooldowns in.
+    expect(swings[2]!.time).toBeGreaterThanOrEqual(8);
+    expect(result.warnings).toEqual([]);
+  });
+
+  it('spends the second charge on the static cooldown, not the recharge timer', () => {
+    const result = run([
+      step({ kind: 'ability', slot: 'E' }),
+      step({ kind: 'ability', slot: 'E' }),
+    ]);
+
+    const swings = result.instances.filter((entry) => entry.slot === 'E');
+    expect(swings).toHaveLength(2);
+    // 1 s static gap between two uses — nowhere near the 8 s recharge.
+    expect(swings[1]!.time).toBeGreaterThanOrEqual(1);
+    expect(swings[1]!.time).toBeLessThan(2);
+  });
+});
+
+/**
+ * Cooldowns.
+ *
+ * The combo is a list of intentions, not a list of things that can happen at
+ * will: an ability that is not up yet costs idle time, and that idle time is
+ * part of the answer. A calculator that let three Qs resolve back to back would
+ * report a burst no player can produce.
+ */
+describe('cooldowns', () => {
+  it('waits out the cooldown instead of casting through it', () => {
+    const result = run([
+      step({ kind: 'ability', slot: 'Q' }, 0),
+      step({ kind: 'ability', slot: 'Q' }, 0),
+    ]);
+
+    const casts = result.instances.filter((entry) => entry.slot === 'Q');
+    expect(casts).toHaveLength(2);
+    // Rank 5 Q is a 6 s cooldown in the fixture, as it is in the game.
+    expect(casts[1]!.time - casts[0]!.time).toBeGreaterThanOrEqual(6);
+
+    const waits = result.events.filter((event) => event.kind === 'wait');
+    expect(waits).toHaveLength(1);
+    expect(waits[0]!.detail).toContain('cooldown');
+  });
+
+  /**
+   * The cooldown starts when Q is released, so the dash runs inside it.
+   *
+   * That makes the gap between two hits exactly the cooldown, whether the Q was
+   * tapped or held: the charge is spent before the cooldown starts and the dash
+   * after. Starting the clock at the moment of impact instead — as it did
+   * before — added the dash on top and stretched every rotation by 0.25 s.
+   */
+  it('starts a charged cooldown on release, so the dash runs inside it', () => {
+    const gapBetweenHits = (first: number, second: number) => {
+      const hits = run([
+        step({ kind: 'ability', slot: 'Q' }, first),
+        step({ kind: 'ability', slot: 'Q' }, second),
+      ]).instances.filter((entry) => entry.slot === 'Q');
+      return hits[1]!.time - hits[0]!.time;
+    };
+
+    // Whether the first Q was tapped or held for its full 1.25 s, the next hit
+    // is exactly one cooldown later — the hold happened before the cooldown
+    // started, the dash inside it.
+    expect(gapBetweenHits(0, 0)).toBeCloseTo(6, 6);
+    expect(gapBetweenHits(1.25, 0)).toBeCloseTo(6, 6);
+
+    // Charging the *second* Q does cost extra: that hold is still ahead.
+    expect(gapBetweenHits(1.25, 1.25)).toBeCloseTo(7.25, 6);
+  });
+
+  it('shortens cooldowns with ability haste, but never the static charge gap', () => {
+    const hasted = { ...emptyStats(), abilityHaste: 100 };
+
+    const q = run(
+      [step({ kind: 'ability', slot: 'Q' }, 0), step({ kind: 'ability', slot: 'Q' }, 0)],
+      { bonusStats: hasted },
+    );
+    const qCasts = q.instances.filter((entry) => entry.slot === 'Q');
+    // 100 haste halves a 6 s cooldown.
+    expect(qCasts[1]!.time - qCasts[0]!.time).toBeGreaterThanOrEqual(3);
+    expect(qCasts[1]!.time - qCasts[0]!.time).toBeLessThan(4);
+
+    const e = run(
+      [step({ kind: 'ability', slot: 'E' }), step({ kind: 'ability', slot: 'E' })],
+      { bonusStats: hasted },
+    );
+    const eSwings = e.instances.filter((entry) => entry.slot === 'E');
+    // The 1 s gap between two charges is static — haste does not touch it.
+    expect(eSwings[1]!.time).toBeGreaterThanOrEqual(1);
+  });
+
+  it('costs no idle time when the combo is already long enough', () => {
+    const result = run([
+      step({ kind: 'ability', slot: 'Q' }, 0),
+      step({ kind: 'wait', seconds: 8 }),
+      step({ kind: 'ability', slot: 'Q' }, 0),
+    ]);
+    expect(result.events.some((event) => event.kind === 'wait')).toBe(false);
+    expect(result.instances.filter((entry) => entry.slot === 'Q')).toHaveLength(2);
+  });
+
+  it('waits out a 90 s ultimate rather than double-counting it', () => {
+    const result = run([
+      step({ kind: 'ability', slot: 'R' }),
+      step({ kind: 'ability', slot: 'R' }),
+    ]);
+    const casts = result.instances.filter((entry) => entry.slot === 'R');
+    expect(casts).toHaveLength(2);
+    expect(casts[1]!.time).toBeGreaterThanOrEqual(90);
+  });
+
+  /**
+   * Past a point, waiting stops being a useful answer.
+   *
+   * A third ultimate is 180 s out, beyond the window the simulation covers.
+   * Silently stretching the timeline that far would turn a burst comparison
+   * into a three-minute fiction, so the step is dropped and named.
+   */
+  it('skips a step that cannot come up inside the simulated window', () => {
+    const result = run([
+      step({ kind: 'ability', slot: 'R' }),
+      step({ kind: 'ability', slot: 'R' }),
+      step({ kind: 'ability', slot: 'R' }),
+    ]);
+    expect(result.instances.filter((entry) => entry.slot === 'R')).toHaveLength(2);
+    expect(result.warnings.join(' ')).toContain('skipped');
   });
 });
 
@@ -229,7 +364,7 @@ describe('Denting Blows (W)', () => {
   /**
    * The shred lands after the damage that triggered it. Riot resolves it that
    * way, and it matters: the third attack and the proc itself still meet the
-   * target's full armour, only what comes afterwards benefits.
+   * target's full armor, only what comes afterwards benefits.
    */
   it('applies the armor reduction after the triggering damage, not before', () => {
     const result = run([
@@ -241,15 +376,15 @@ describe('Denting Blows (W)', () => {
     const attacks = result.instances.filter((entry) => entry.sourceId === 'AA');
     const proc = result.instances.find((entry) => entry.slot === 'W')!;
 
-    // The share that gets through is the armour multiplier; equal shares mean
-    // equal armour. The first three attacks and the proc all see 100 armour.
+    // The share that gets through is the armor multiplier; equal shares mean
+    // equal armor. The first three attacks and the proc all see 100 armor.
     const share = (raw: number, mitigated: number) => mitigated / raw;
     const unshredded = share(attacks[0]!.raw, attacks[0]!.mitigated);
     expect(share(attacks[1]!.raw, attacks[1]!.mitigated)).toBeCloseTo(unshredded, 6);
     expect(share(attacks[2]!.raw, attacks[2]!.mitigated)).toBeCloseTo(unshredded, 6);
     expect(share(proc.raw, proc.mitigated)).toBeCloseTo(unshredded, 6);
 
-    // Only the fourth one lands into reduced armour.
+    // Only the fourth one lands into reduced armor.
     expect(share(attacks[3]!.raw, attacks[3]!.mitigated)).toBeGreaterThan(unshredded);
   });
 
@@ -475,5 +610,325 @@ describe('stat scaling', () => {
     // runs at the buffed rate, not one attack later.
     expect(acrossProc).toBeLessThan(beforeProc);
     expect(acrossProc).toBeCloseTo(afterProc, 6);
+  });
+});
+
+/**
+ * Timeline spans.
+ *
+ * The timeline draws nothing but what is produced here — it never recomputes
+ * anything itself. Every length in the view is therefore a claim made by the
+ * engine, and these tests check exactly those claims: when something starts,
+ * when it ends, and which lane it sits on.
+ */
+describe('timeline spans', () => {
+  const spansOf = (result: ReturnType<typeof run>, kind: string) =>
+    result.spans.filter((span) => span.kind === kind);
+
+  it('breaks a charged cast into its named parts', () => {
+    const result = run([step({ kind: 'ability', slot: 'Q' }, 1.25)]);
+    const cast = spansOf(result, 'cast').find((span) => span.lane === 'Q');
+
+    expect(cast).toBeDefined();
+    expect(cast!.start).toBeCloseTo(0, 6);
+    expect(cast!.end).toBeCloseTo(1.5, 6);
+    // The charge time is the first part and has to stay a section of its own:
+    // it is time the player chose to spend, the dash after it is not.
+    expect(cast!.parts?.map((part) => part.label)).toEqual(['charge', 'dash to target']);
+    expect(cast!.parts?.[0]?.seconds).toBeCloseTo(1.25, 6);
+  });
+
+  it('starts the cooldown span on release, not on impact', () => {
+    const result = run([step({ kind: 'ability', slot: 'Q' }, 1.25)]);
+    const cooldown = spansOf(result, 'cooldown').find((span) => span.lane === 'Q');
+
+    expect(cooldown).toBeDefined();
+    expect(cooldown!.start).toBeCloseTo(1.25, 6);
+    expect(cooldown!.end).toBeCloseTo(7.25, 6);
+  });
+
+  /** Two timers, two bars — otherwise the view only ever claims one of them. */
+  it('gives an ability with charges both a static gap and a recharge timer', () => {
+    const result = run([step({ kind: 'ability', slot: 'E' })]);
+    const eSpans = result.spans.filter((span) => span.lane === 'E');
+
+    const staticGap = eSpans.find((span) => span.kind === 'cooldown');
+    const recharge = eSpans.find((span) => span.kind === 'recharge');
+
+    expect(staticGap?.end).toBeCloseTo((staticGap?.start ?? 0) + 1, 6);
+    expect(recharge?.end).toBeCloseTo((recharge?.start ?? 0) + 8, 6);
+  });
+
+  it('records forced idle time as its own span', () => {
+    const result = run([
+      step({ kind: 'ability', slot: 'Q' }, 0),
+      step({ kind: 'ability', slot: 'Q' }, 0),
+    ]);
+    const idle = spansOf(result, 'idle');
+
+    expect(idle).toHaveLength(1);
+    expect(idle[0]!.lane).toBe('idle');
+    expect(idle[0]!.end).toBeCloseTo(6, 6);
+    expect(idle[0]!.detail).toContain('cooldown');
+  });
+
+  /**
+   * A reset attack timer ends — it does not merely get shorter.
+   *
+   * As long as it kept its original length, the view drew a timer still running
+   * next to the very attack that had cancelled it.
+   */
+  it('ends the attack timer where a reset cancelled it', () => {
+    const result = run([
+      step({ kind: 'attack' }),
+      step({ kind: 'ability', slot: 'E' }),
+    ]);
+    const cancelled = spansOf(result, 'attack-timer').find((span) =>
+      span.detail?.includes('cancelled'),
+    );
+
+    expect(cancelled).toBeDefined();
+    // The reset happens as E is cast; no older timer is left running after it.
+    const stillRunning = spansOf(result, 'attack-timer').filter(
+      (span) => span.start < cancelled!.end && span.end > cancelled!.end,
+    );
+    expect(stillRunning).toEqual([]);
+  });
+
+  it('puts the empowered attack on the ability lane, not the attack lane', () => {
+    const result = run([step({ kind: 'ability', slot: 'E' })]);
+    const casts = spansOf(result, 'cast');
+
+    // One step, one lane: the empowered attack belongs to E, just as its hit does.
+    expect(casts.every((span) => span.lane === 'E')).toBe(true);
+    expect(casts.some((span) => span.label.includes('Relentless Force'))).toBe(true);
+  });
+
+  /** One effect, one window — even when it refreshes itself several times. */
+  it('merges a refreshing effect into one window', () => {
+    const result = run(Array.from({ length: 6 }, () => step({ kind: 'attack' })));
+    const shred = result.spans.filter(
+      (span) => span.kind === 'effect' && span.label === 'Denting Blows (W)',
+    );
+
+    expect(shred).toHaveLength(1);
+    // Two procs across six attacks: the window has to reach over both of them.
+    expect(shred[0]!.end - shred[0]!.start).toBeGreaterThan(4);
+  });
+
+  it('drops spans of no length', () => {
+    const result = run([step({ kind: 'attack' })]);
+    expect(result.spans.every((span) => span.end > span.start)).toBe(true);
+  });
+});
+
+/**
+ * One bar per timer, whatever the combo does inside it.
+ *
+ * Found by an adversarial review of the timeline view: the recharge timer runs
+ * across uses, so casting twice inside one window drew the same interval twice
+ * and the view stacked the duplicate into a second row — two bars claiming two
+ * timers where the simulation only ever had one.
+ */
+describe('span de-duplication', () => {
+  it('draws one recharge window even when two charges are spent inside it', () => {
+    const result = run([
+      step({ kind: 'ability', slot: 'E' }),
+      step({ kind: 'ability', slot: 'E' }),
+    ]);
+    const recharge = result.spans.filter((span) => span.kind === 'recharge');
+
+    expect(recharge).toHaveLength(1);
+    // The timer belongs to the first cast and is not restarted by the second.
+    expect(recharge[0]!.start).toBeLessThan(1);
+    expect(recharge[0]!.detail).toContain('0/2');
+  });
+});
+
+/**
+ * Findings from the adversarial review of the timeline work.
+ *
+ * Each of these is a defect that survived two independent attempts to refute it,
+ * so each gets a test that fails if it comes back.
+ */
+describe('review findings', () => {
+  /**
+   * Waiting for the attack timer can outlast the buff that set its pace.
+   *
+   * The stats were read before the wait, so an attack queued behind a slow timer
+   * computed its wind-up — and the timer it left behind — from attack speed Vi
+   * no longer had by the time she actually swung.
+   */
+  it('computes the wind-up from the attack speed at the moment of the swing', () => {
+    // Six attacks: Denting Blows procs on the third and grants attack speed for
+    // 4 s. The attacks after the buff expires must be slower again.
+    const result = run(Array.from({ length: 8 }, () => step({ kind: 'attack' })));
+    const windups = result.spans
+      .filter((span) => span.lane === 'AA' && span.kind === 'cast')
+      .map((span) => Number(span.fullSeconds.toFixed(4)));
+
+    // Some wind-up while buffed, some unbuffed: the values must not all be equal,
+    // and the buffed ones must be the shorter ones.
+    const distinct = [...new Set(windups)];
+    expect(distinct.length).toBeGreaterThan(1);
+    expect(Math.min(...windups)).toBeLessThan(Math.max(...windups));
+  });
+
+  it('draws a deliberate wait as its own span', () => {
+    const result = run([
+      step({ kind: 'attack' }),
+      step({ kind: 'wait', seconds: 2 }),
+      step({ kind: 'attack' }),
+    ]);
+    const waits = result.spans.filter((span) => span.kind === 'idle');
+
+    expect(waits).toHaveLength(1);
+    expect(waits[0]!.fullSeconds).toBeCloseTo(2, 6);
+    // Distinguishable from forced idle time, which names the ability blocking it.
+    expect(waits[0]!.detail).toContain('deliberate');
+  });
+});
+
+/**
+ * A stacking buff is one window, however often it restacks.
+ *
+ * Conqueror writes its stack count into its own label ("Conqueror · 6/12
+ * stacks"), so matching effect windows by their text produced a fresh bar for
+ * every stack — six attacks drew six overlapping bars for one continuous buff,
+ * and the timeline stacked them into six rows.
+ */
+describe('stacking buffs', () => {
+  it('keeps one effect window while a stacking buff restacks', () => {
+    const result = run(Array.from({ length: 6 }, () => step({ kind: 'attack' })), {
+      attacker: {
+        championId: 'Vi',
+        level: 11,
+        ranks: { P: 1, Q: 5, W: 5, E: 5, R: 3 },
+        itemIds: [],
+        runeIds: [8010],
+        shardIds: [],
+        manualStats: {},
+      },
+    });
+
+    const conqueror = result.spans.filter(
+      (span) => span.kind === 'effect' && span.label.startsWith('Conqueror'),
+    );
+    expect(conqueror).toHaveLength(1);
+    // The one bar reports the latest stack count, not the first: six melee hits
+    // are two stacks each, so it ends fully stacked.
+    expect(conqueror[0]!.label).toContain('12/12');
+  });
+});
+
+
+/**
+ * State snapshots.
+ *
+ * The stats view answers "what were the numbers at this point in the combo",
+ * which only works if the simulation records the state it computed with rather
+ * than letting the app recompute it. These tests hold that line: the snapshot has
+ * to agree with the damage that was actually dealt.
+ */
+describe('stat snapshots', () => {
+  it('records one snapshot per step, plus the state before the combo', () => {
+    const combo = [
+      step({ kind: 'ability', slot: 'Q' }, 0),
+      step({ kind: 'attack' }),
+      step({ kind: 'attack' }),
+    ];
+    const result = run(combo);
+
+    expect(result.snapshots).toHaveLength(combo.length + 1);
+    expect(result.snapshots[0]!.index).toBe(-1);
+    expect(result.snapshots[0]!.stepUid).toBeUndefined();
+    expect(result.snapshots.slice(1).map((entry) => entry.stepUid)).toEqual(
+      combo.map((entry) => entry.uid),
+    );
+  });
+
+  it('reports the target health the combo actually left behind', () => {
+    const result = run([step({ kind: 'attack' }), step({ kind: 'attack' })]);
+    const last = result.snapshots[result.snapshots.length - 1]!;
+
+    expect(last.target.currentHealth).toBeCloseTo(result.targetHpRemaining, 6);
+    expect(last.damageDone).toBeCloseTo(result.totalMitigated, 6);
+  });
+
+  /**
+   * The effective armour in a snapshot is the number the damage was computed
+   * against, not a fresh guess: after Denting Blows procs it has to be 20 % lower.
+   */
+  it('reports armor as the damage actually met it', () => {
+    const result = run(Array.from({ length: 3 }, () => step({ kind: 'attack' })));
+    const before = result.snapshots[1]!;
+    const afterProc = result.snapshots[result.snapshots.length - 1]!;
+
+    expect(before.target.effectiveArmor).toBeCloseTo(TARGET.armor, 6);
+    expect(afterProc.target.effectiveArmor).toBeCloseTo(TARGET.armor * 0.8, 6);
+    expect(afterProc.active.some((entry) => entry.label.startsWith('Denting Blows'))).toBe(true);
+  });
+
+  it('carries the attack speed the buff granted', () => {
+    const result = run(Array.from({ length: 3 }, () => step({ kind: 'attack' })));
+    const first = result.snapshots[1]!;
+    const last = result.snapshots[result.snapshots.length - 1]!;
+
+    expect(last.attacker.totalAttackSpeed).toBeGreaterThan(first.attacker.totalAttackSpeed);
+  });
+});
+
+/**
+ * Effects are classified by what they do, so the timeline can colour them.
+ *
+ * The distinction that matters when reading a combo is not where an effect came
+ * from but which way it points. Denting Blows produces one of each in the same
+ * instant — attack speed for Vi, an armour shred on the target — and filing both
+ * as "an effect" is what made them look like one thing.
+ */
+describe('effect classification', () => {
+  it('separates a target debuff from the buff applied alongside it', () => {
+    const result = run(Array.from({ length: 3 }, () => step({ kind: 'attack' })));
+
+    const debuffs = result.spans.filter((span) => span.lane === 'debuff');
+    const buffs = result.spans.filter((span) => span.lane === 'buff');
+
+    // The armour shred sits on the target …
+    expect(debuffs.map((span) => span.label)).toContain('Denting Blows (W)');
+    expect(debuffs.every((span) => span.effectKind === 'debuff')).toBe(true);
+
+    // … while the attack speed it grants is a buff on Vi.
+    expect(buffs.some((span) => span.label.includes('attack speed'))).toBe(true);
+  });
+
+  it('calls a damage buff offensive and a shield defensive', () => {
+    const result = run([step({ kind: 'ability', slot: 'Q' }, 0), step({ kind: 'attack' }), step({ kind: 'attack' }), step({ kind: 'attack' })]);
+    const byLabel = (needle: string) =>
+      result.spans.find((span) => span.label.includes(needle));
+
+    // Blast Shield keeps Vi alive and adds no damage.
+    expect(byLabel('Blast Shield')?.effectKind).toBe('defense');
+    // Attack speed does add damage.
+    expect(byLabel('attack speed')?.effectKind).toBe('offense');
+  });
+
+  it('records whether an effect came from the kit or from gear', () => {
+    const result = run(Array.from({ length: 4 }, () => step({ kind: 'attack' })), {
+      attacker: {
+        championId: 'Vi',
+        level: 11,
+        ranks: { P: 1, Q: 5, W: 5, E: 5, R: 3 },
+        itemIds: [],
+        runeIds: [9923],
+        shardIds: [],
+        manualStats: {},
+      },
+    });
+
+    const rune = result.spans.find((span) => span.label === 'Hail of Blades');
+    const kit = result.spans.find((span) => span.label === 'Denting Blows (W)');
+
+    expect(rune?.effectOrigin).toBe('gear');
+    expect(kit?.effectOrigin).toBe('champion');
   });
 });

@@ -85,6 +85,33 @@ export interface CastTiming {
   seconds: number;
   /** Named contributions, in the order they happen. */
   parts: { label: string; seconds: number }[];
+  /**
+   * Seconds after the step begins at which the cooldown starts running.
+   * Defaults to 0 — the cooldown starts when the button is pressed.
+   *
+   * Charged abilities are the reason this exists. Vault Breaker's cooldown
+   * starts when it is *released* — the charge is held before the cooldown
+   * begins, and the dash to the target runs inside it. Counting from the moment
+   * of impact instead put the whole dash on top of the cooldown, stretching a
+   * 6 s rank 5 Q to 6.25 s between hits and drifting further with every cast.
+   */
+  cooldownStartsAfter?: number;
+}
+
+/**
+ * An ability that holds charges instead of sitting on a single cooldown.
+ *
+ * Riot gates these two ways at once, and both have to hold: a charge must be
+ * available, *and* the short static cooldown between two uses must have
+ * elapsed. That static cooldown is the one Data Dragon reports (1 s for Vi's
+ * E), and unlike a normal cooldown it is not reduced by ability haste —
+ * haste shortens the recharge timer instead.
+ */
+export interface AbilityCharges {
+  /** Charges held at once when full. */
+  max: number;
+  /** Seconds to regain one charge, before ability haste. */
+  rechargeSeconds: number;
 }
 
 export interface BasicAttackModifier {
@@ -114,6 +141,15 @@ export interface ChampionRuntime {
     ctx: SimContext,
     options: { chargeSeconds: number },
   ): CastTiming;
+  /**
+   * The charges this ability holds, when a plain cooldown is the wrong model.
+   * Return null for abilities that simply go on cooldown.
+   *
+   * The champion declares the resource because it is the champion that can read
+   * it out of the patch's own data; the simulation does the bookkeeping, so
+   * every champion's charges behave — and are reported — identically.
+   */
+  abilityCharges?(slot: AbilitySlot, ctx: SimContext): AbilityCharges | null;
   /** True when casting this ability resets the auto-attack timer. */
   resetsAutoAttack?(slot: AbilitySlot): boolean;
   /**

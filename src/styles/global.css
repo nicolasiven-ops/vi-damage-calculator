@@ -88,16 +88,7 @@ a {
   width: min(1680px, 100%);
   margin: 0 auto;
   padding: var(--space-5) var(--space-5) var(--space-7);
-  display: grid;
-  grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
-  gap: var(--space-5);
-  align-items: start;
-}
-
-@media (max-width: 1200px) {
-  .app-main {
-    grid-template-columns: minmax(0, 1fr);
-  }
+  display: block;
 }
 
 .column {
@@ -141,6 +132,23 @@ a {
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--line-soft);
+}
+
+/*
+ * Centred in the header, independent of how wide the title and the actions are.
+ * `position: absolute` rather than a flex spacer, so the button does not shift
+ * when the title changes with the view.
+ */
+.panel-header {
+  position: relative;
+}
+
+.panel-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: var(--space-2);
 }
 
 .panel-title {

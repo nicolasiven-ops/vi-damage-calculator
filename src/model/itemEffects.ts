@@ -48,7 +48,7 @@ export interface ItemEffect {
 
 /**
  * Sheen and its upgrades: after casting an ability, the next basic attack
- * within 10 s deals bonus physical damage. 1.5 s internal cooldown.
+ * within 10s deals bonus physical damage. 1.5s internal cooldown.
  */
 function spellblade(id: string, name: string, baseAdMultiplier: number, note: string): ItemEffect {
   return {
@@ -71,8 +71,8 @@ function spellblade(id: string, name: string, baseAdMultiplier: number, note: st
           return {
             amount: baseAdMultiplier * ctx.stats.baseAttackDamage,
             type: 'physical',
-            label: `${name} · Zauberklinge`,
-            notes: [`${Math.round(baseAdMultiplier * 100)} % Basis-AD`],
+            label: `${name} · Spellblade`,
+            notes: [`${Math.round(baseAdMultiplier * 100)}% base AD`],
           };
         },
       };
@@ -84,9 +84,9 @@ function spellblade(id: string, name: string, baseAdMultiplier: number, note: st
 
 const BLACK_CLEAVER: ItemEffect = {
   id: '3071',
-  name: 'Der schwarze Spalter',
+  name: 'Black Cleaver',
   modelled: true,
-  note: 'Physischer Schaden gewährt einen Stapel: −6 % Rüstung pro Stapel, maximal 5 Stapel (−30 %) für 6 s.',
+  note: 'Physical damage applies a stack: −6% armor per stack, up to 5 stacks (−30%) for 6s.',
   createRuntime() {
     let stacks = 0;
     let expiresAt = 0;
@@ -103,7 +103,7 @@ const BLACK_CLEAVER: ItemEffect = {
         ctx.applyArmorShred({
           percent: 0.06 * stacks,
           durationSeconds: 6,
-          label: `Der schwarze Spalter · ${stacks}/5`,
+          label: `Black Cleaver · ${stacks}/5`,
         });
       },
     };
@@ -112,9 +112,9 @@ const BLACK_CLEAVER: ItemEffect = {
 
 const BLADE_OF_THE_RUINED_KING: ItemEffect = {
   id: '3153',
-  name: 'Klinge des untergegangenen Königs',
+  name: 'Blade of the Ruined King',
   modelled: true,
-  note: 'Treffereffekt: 8 % des aktuellen Lebens des Ziels als physischer Schaden (Nahkampfwert).',
+  note: "On-hit: 8% of the target's current health as physical damage (melee value).",
   createRuntime() {
     return {
       onBasicAttack(ctx) {
@@ -122,8 +122,8 @@ const BLADE_OF_THE_RUINED_KING: ItemEffect = {
         return {
           amount,
           type: 'physical',
-          label: 'Klinge des untergegangenen Königs · Treffereffekt',
-          notes: ['8 % des aktuellen Lebens'],
+          label: 'Blade of the Ruined King · on-hit',
+          notes: ['8% of current health'],
         };
       },
     };
@@ -132,9 +132,9 @@ const BLADE_OF_THE_RUINED_KING: ItemEffect = {
 
 const TITANIC_HYDRA: ItemEffect = {
   id: '3748',
-  name: 'Titanische Hydra',
+  name: 'Titanic Hydra',
   modelled: true,
-  note: 'Treffereffekt: 3 + 1,5 % des maximalen Lebens von Vi als physischer Schaden. Der Flächenschaden ist im Einzelziel-Modell irrelevant.',
+  note: "On-hit: 3 + 1.5% of Vi's maximum health as physical damage. The cleave damage is irrelevant in a single-target model.",
   createRuntime() {
     return {
       onBasicAttack(ctx) {
@@ -142,8 +142,8 @@ const TITANIC_HYDRA: ItemEffect = {
         return {
           amount,
           type: 'physical',
-          label: 'Titanische Hydra · Treffereffekt',
-          notes: [`3 + 1,5 % von ${ctx.stats.maxHealth.toFixed(0)} Leben`],
+          label: 'Titanic Hydra · on-hit',
+          notes: [`3 + 1.5% of ${ctx.stats.maxHealth.toFixed(0)} health`],
         };
       },
     };
@@ -152,16 +152,16 @@ const TITANIC_HYDRA: ItemEffect = {
 
 const NASHORS_TOOTH: ItemEffect = {
   id: '3115',
-  name: 'Nashors Zahn',
+  name: "Nashor's Tooth",
   modelled: true,
-  note: 'Treffereffekt: 15 + 20 % Fähigkeitsstärke als magischer Schaden.',
+  note: 'On-hit: 15 + 20% ability power as magic damage.',
   createRuntime() {
     return {
       onBasicAttack(ctx) {
         return {
           amount: 15 + 0.2 * ctx.stats.abilityPower,
           type: 'magic',
-          label: 'Nashors Zahn · Treffereffekt',
+          label: "Nashor's Tooth · on-hit",
         };
       },
     };
@@ -170,9 +170,9 @@ const NASHORS_TOOTH: ItemEffect = {
 
 const WITS_END: ItemEffect = {
   id: '3091',
-  name: 'Wits Ende',
+  name: "Wit's End",
   modelled: true,
-  note: 'Treffereffekt: 15–80 magischer Schaden, skalierend mit dem Level.',
+  note: 'On-hit: 15–80 magic damage, scaling with level.',
   createRuntime() {
     return {
       onBasicAttack(ctx) {
@@ -180,7 +180,7 @@ const WITS_END: ItemEffect = {
         return {
           amount: 15 + (80 - 15) * t,
           type: 'magic',
-          label: 'Wits Ende · Treffereffekt',
+          label: "Wit's End · on-hit",
         };
       },
     };
@@ -189,9 +189,9 @@ const WITS_END: ItemEffect = {
 
 const LORD_DOMINIKS: ItemEffect = {
   id: '3036',
-  name: 'Lord Dominiks Gruß',
+  name: "Lord Dominik's Regards",
   modelled: true,
-  note: 'Riesentöter: bis zu +15 % physischer Schaden gegen Ziele mit mehr maximalem Leben als Vi.',
+  note: 'Giant Slayer: up to +15% physical damage against targets with more maximum health than Vi.',
   amplify(ctx, hit) {
     if (hit.type !== 'physical') return 0;
     const excess = ctx.targetMaxHealth - ctx.stats.maxHealth;
@@ -203,9 +203,9 @@ const LORD_DOMINIKS: ItemEffect = {
 
 const ECLIPSE: ItemEffect = {
   id: '6692',
-  name: 'Eklipse',
+  name: 'Eclipse',
   modelled: true,
-  note: 'Jeder 2. getrennte Angriff oder Fähigkeitstreffer auf denselben Champion verursacht 4 % des maximalen Lebens als physischen Schaden. 6 s Abklingzeit.',
+  note: 'Every 2nd separate attack or ability hit on the same champion deals 4% of maximum health as physical damage. 6s cooldown.',
   createRuntime() {
     let hits = 0;
     let readyAt = 0;
@@ -216,11 +216,11 @@ const ECLIPSE: ItemEffect = {
         if (hits % 2 !== 0) return;
         ctx.dealDamage({
           sourceId: 'item:6692',
-          sourceLabel: 'Eklipse',
+          sourceLabel: 'Eclipse',
           sourceKind: 'item',
           type: 'physical',
           amount: ctx.targetMaxHealth * 0.04,
-          notes: ['4 % des maximalen Lebens des Ziels'],
+          notes: ["4% of the target's maximum health"],
         });
         readyAt = ctx.time + 6;
       },
@@ -230,9 +230,9 @@ const ECLIPSE: ItemEffect = {
 
 const SUNDERED_SKY: ItemEffect = {
   id: '6610',
-  name: 'Gespaltener Himmel',
+  name: 'Sundered Sky',
   modelled: true,
-  note: 'Lichtschildschlag: der erste Angriff gegen einen Champion trifft garantiert kritisch. Der Heilanteil fließt in die Heilungssumme ein.',
+  note: 'Lightshield Strike: the first attack against a champion is guaranteed to critically strike. The healing portion feeds into the total healing.',
   createRuntime() {
     let used = false;
     let readyAt = 0;
@@ -247,8 +247,10 @@ const SUNDERED_SKY: ItemEffect = {
         return {
           amount: bonus,
           type: 'physical',
-          label: 'Gespaltener Himmel · garantierter Krit',
-          notes: [`+${((ctx.stats.critMultiplier - 1) * 100).toFixed(0)} % kritischer Zusatzschaden`],
+          label: 'Sundered Sky · guaranteed critical strike',
+          notes: [
+            `+${((ctx.stats.critMultiplier - 1) * 100).toFixed(0)}% bonus critical strike damage`,
+          ],
         };
       },
     };
@@ -257,9 +259,9 @@ const SUNDERED_SKY: ItemEffect = {
 
 const VOLTAIC_CYCLOSWORD: ItemEffect = {
   id: '6699',
-  name: 'Voltaisches Zyklusschwert',
+  name: 'Voltaic Cyclosword',
   modelled: true,
-  note: 'Firmament: der aufgeladene Angriff verursacht 100 zusätzlichen physischen Schaden. Als einmalig pro Combo gerechnet.',
+  note: 'Firmament: the energized attack deals 100 bonus physical damage. Counted as once per combo.',
   createRuntime() {
     let used = false;
     return {
@@ -269,7 +271,7 @@ const VOLTAIC_CYCLOSWORD: ItemEffect = {
         return {
           amount: 100,
           type: 'physical',
-          label: 'Voltaisches Zyklusschwert · Firmament',
+          label: 'Voltaic Cyclosword · Firmament',
         };
       },
     };
@@ -280,18 +282,18 @@ const MURAMANA: ItemEffect = {
   id: '3042',
   name: 'Muramana',
   modelled: true,
-  note: 'Schock: Fähigkeiten verursachen zusätzlich 3,5 % des maximalen Manas als physischen Schaden.',
+  note: 'Shock: abilities deal an additional 3.5% of maximum mana as physical damage.',
   createRuntime() {
     return {
       onHitLanded(ctx, hit) {
         if (!hit.isAbilityDamage || hit.mitigated <= 0) return;
         ctx.dealDamage({
           sourceId: 'item:3042',
-          sourceLabel: 'Muramana · Schock',
+          sourceLabel: 'Muramana · Shock',
           sourceKind: 'item',
           type: 'physical',
           amount: ctx.stats.maxMana * 0.035,
-          notes: [`3,5 % von ${ctx.stats.maxMana.toFixed(0)} Mana`],
+          notes: [`3.5% of ${ctx.stats.maxMana.toFixed(0)} mana`],
         });
       },
     };
@@ -299,20 +301,10 @@ const MURAMANA: ItemEffect = {
 };
 
 const ALL: ItemEffect[] = [
-  spellblade('3057', 'Glanz', 1.0, 'Zauberklinge: 100 % Basis-AD auf den nächsten Basisangriff.'),
-  spellblade(
-    '3078',
-    'Dreifaltigkeitszwinge',
-    2.0,
-    'Zauberklinge: 200 % Basis-AD auf den nächsten Basisangriff.',
-  ),
-  spellblade(
-    '3508',
-    'Essenzräuber',
-    1.0,
-    'Zauberklinge: 100 % Basis-AD auf den nächsten Basisangriff.',
-  ),
-  spellblade('6632', 'Göttlicher Spalter', 1.25, 'Zauberklinge, hier mit 125 % Basis-AD gerechnet.'),
+  spellblade('3057', 'Sheen', 1.0, 'Spellblade: 100% base AD on the next basic attack.'),
+  spellblade('3078', 'Trinity Force', 2.0, 'Spellblade: 200% base AD on the next basic attack.'),
+  spellblade('3508', 'Essence Reaver', 1.0, 'Spellblade: 100% base AD on the next basic attack.'),
+  spellblade('6632', 'Divine Sunderer', 1.25, 'Spellblade, counted here as 125% base AD.'),
   BLACK_CLEAVER,
   BLADE_OF_THE_RUINED_KING,
   TITANIC_HYDRA,

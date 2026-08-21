@@ -63,13 +63,13 @@ function value(ctx: ChampionModuleContext, label: string, ranks?: Record<Ability
 describe('formula inspector, with game data', () => {
   it('labels ability damage as game data, not as a maintained constant', () => {
     // Q uncharged, Q fully charged, E and R all report a base damage.
-    const damageRows = rows(WITH_GAME_DATA).filter((row) => row.label.startsWith('Basisschaden'));
+    const damageRows = rows(WITH_GAME_DATA).filter((row) => row.label.startsWith('Base damage'));
     expect(damageRows).toHaveLength(4);
     for (const row of damageRows) expect(row.source).toBe('gamedata');
   });
 
   it('still credits Data Dragon for the values Data Dragon does ship', () => {
-    expect(value(WITH_GAME_DATA, 'Abklingzeit')!.source).toBe('ddragon');
+    expect(value(WITH_GAME_DATA, 'Cooldown')!.source).toBe('ddragon');
   });
 
   it('uses no maintained constant anywhere once the formulas are loaded', () => {
@@ -78,40 +78,40 @@ describe('formula inspector, with game data', () => {
   });
 
   it('shows Riot numbers for rank 1', () => {
-    expect(value(WITH_GAME_DATA, 'Basisschaden (ungeladen)')!.value).toBe('40');
-    expect(value(WITH_GAME_DATA, 'Basisschaden (voll geladen)')!.value).toBe('100');
-    expect(value(WITH_GAME_DATA, 'Bonus-AD-Verhältnis')!.value).toBe('60 % → 150 %');
-    expect(value(WITH_GAME_DATA, 'Max-Leben-Schaden')!.value).toBe('4 %');
-    expect(value(WITH_GAME_DATA, 'pro 100 Bonus-AD')!.value).toBe('3,5 %');
-    expect(value(WITH_GAME_DATA, 'Schild')!.value).toBe('12 % max. Leben');
+    expect(value(WITH_GAME_DATA, 'Base damage (tapped)')!.value).toBe('40');
+    expect(value(WITH_GAME_DATA, 'Base damage (fully charged)')!.value).toBe('100');
+    expect(value(WITH_GAME_DATA, 'Bonus AD ratio')!.value).toBe('60% → 150%');
+    expect(value(WITH_GAME_DATA, 'Max-health damage')!.value).toBe('4%');
+    expect(value(WITH_GAME_DATA, 'per 100 bonus AD')!.value).toBe('3.5%');
+    expect(value(WITH_GAME_DATA, 'Shield')!.value).toBe('12% maximum health');
   });
 
   it('reads the passive cooldown off Riot level curve instead of guessing it', () => {
-    expect(rows(WITH_GAME_DATA).find((row) => row.slot === 'P' && row.label === 'Abklingzeit')!.value).toBe(
-      '16 s (Level 1) → 12 s (Level 18)',
+    expect(rows(WITH_GAME_DATA).find((row) => row.slot === 'P' && row.label === 'Cooldown')!.value).toBe(
+      '16 s (level 1) → 12 s (level 18)',
     );
   });
 
   it('carries the formula it read, so a number can be checked against the client', () => {
-    expect(value(WITH_GAME_DATA, 'Basisschaden (voll geladen)')!.formula).toBe(
-      '(40 + 60 % Bonus-AD) × 2,5',
+    expect(value(WITH_GAME_DATA, 'Base damage (fully charged)')!.formula).toBe(
+      '(40 + 60% bonus AD) × 2.5',
     );
   });
 
   it('scales every row with the selected rank', () => {
     const maxed: Record<AbilitySlot, number> = { P: 1, Q: 5, W: 5, E: 5, R: 3 };
-    expect(value(WITH_GAME_DATA, 'Basisschaden (ungeladen)', maxed)!.value).toBe('120');
-    expect(value(WITH_GAME_DATA, 'Max-Leben-Schaden', maxed)!.value).toBe('8 %');
-    expect(rows(WITH_GAME_DATA, maxed).find((row) => row.slot === 'R' && row.label === 'Basisschaden')!.value).toBe('350');
+    expect(value(WITH_GAME_DATA, 'Base damage (tapped)', maxed)!.value).toBe('120');
+    expect(value(WITH_GAME_DATA, 'Max-health damage', maxed)!.value).toBe('8%');
+    expect(rows(WITH_GAME_DATA, maxed).find((row) => row.slot === 'R' && row.label === 'Base damage')!.value).toBe('350');
   });
 });
 
 describe('formula inspector, without game data', () => {
   it('says so, per value, instead of presenting constants as Riot data', () => {
-    const damageRows = rows(WITHOUT_GAME_DATA).filter((row) => row.label.startsWith('Basisschaden'));
+    const damageRows = rows(WITHOUT_GAME_DATA).filter((row) => row.label.startsWith('Base damage'));
     for (const row of damageRows) {
       expect(row.source).toBe('registry');
-      expect(row.note).toMatch(/Spieldaten für diesen Patch nicht verfügbar/);
+      expect(row.note).toMatch(/No game data available for this patch/);
     }
   });
 });
@@ -164,19 +164,19 @@ function run(combo: ComboStep[], bonusAd = 0) {
 
 describe('simulation against real game data', () => {
   it('computes Q from bonus AD, the way the client does', () => {
-    // Rank 5 uncharged: 120 base + 60 % of 100 bonus AD.
+    // Rank 5 uncharged: 120 base + 60% of 100 bonus AD.
     const result = run([step({ kind: 'ability', slot: 'Q' }, 0)], 100);
     expect(result.instances[0]!.raw).toBeCloseTo(180, 3);
   });
 
   it('computes a fully charged Q from the multiplied formula', () => {
-    // Rank 5 charged: 300 base + 150 % of 100 bonus AD.
+    // Rank 5 charged: 300 base + 150% of 100 bonus AD.
     const result = run([step({ kind: 'ability', slot: 'Q' }, 1.25)], 100);
     expect(result.instances[0]!.raw).toBeCloseTo(450, 3);
   });
 
   it('computes R from bonus AD', () => {
-    // Rank 3: 350 base + 90 % of 100 bonus AD.
+    // Rank 3: 350 base + 90% of 100 bonus AD.
     const result = run([step({ kind: 'ability', slot: 'R' })], 100);
     expect(result.instances[0]!.raw).toBeCloseTo(440, 3);
   });
@@ -197,7 +197,7 @@ describe('simulation against real game data', () => {
       200,
     );
     const proc = result.instances.find((entry) => entry.slot === 'W')!;
-    // Rank 5: 8 % + 7 % from 200 bonus AD = 15 % of 3000.
+    // Rank 5: 8% + 7% from 200 bonus AD = 15% of 3000.
     expect(proc.raw).toBeCloseTo(3000 * 0.15, 3);
   });
 
@@ -260,7 +260,7 @@ describe('maintained constants match the game data', () => {
   }
 
   it('keeps the two ratios that were wrong before, right', () => {
-    // Q scales with bonus AD. Total AD would make it 60 % of 160 here, not 100.
+    // Q scales with bonus AD. Total AD would make it 60% of 160 here, not 100.
     expect(VI_CONSTANTS.q.minBonusAdRatio).toBe(0.6);
     expect(VI_CONSTANTS.q.maxBonusAdRatio).toBe(1.5);
     // R's rank 2 and 3 base damage, which used to read 325 and 500.

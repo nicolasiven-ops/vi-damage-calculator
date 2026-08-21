@@ -38,7 +38,7 @@ export { CdnError as DDragonError };
 export async function fetchVersions(): Promise<string[]> {
   const versions = await getJson<string[]>(`${CDN}/api/versions.json`, 'versions', VERSIONS_TTL_MS);
   if (!Array.isArray(versions) || versions.length === 0) {
-    throw new CdnError('versions.json war leer');
+    throw new CdnError('versions.json was empty');
   }
   return versions;
 }
@@ -70,7 +70,7 @@ export async function fetchChampionDetail(
     null,
   );
   const detail = payload.data?.[championId];
-  if (!detail) throw new CdnError(`Champion ${championId} fehlt in Data Dragon ${version}`);
+  if (!detail) throw new CdnError(`Champion ${championId} is missing from Data Dragon ${version}`);
   return detail;
 }
 

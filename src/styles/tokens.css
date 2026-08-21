@@ -57,6 +57,21 @@
   --series-magic: #3987e5;
   --series-true: #199e70;
 
+  /*
+   * Timed effects, coloured by what they do — see EffectKind in engine/types.ts.
+   *
+   * These are their own tokens rather than aliases of the status colours because
+   * the distinction they carry is finer: --status-good and --blue-200 happen to
+   * be the same teal, so an offensive buff and a defensive one drawn from them
+   * came out identical — which is exactly the difference this is meant to show.
+   * The defensive green is pulled clearly off the teal, and the debuff red sits
+   * away from the physical-damage orange so a shred on the target does not read
+   * as a damage type.
+   */
+  --effect-offense: #0ac8b9;
+  --effect-defense: #4fd18b;
+  --effect-debuff: #e0685f;
+
   /* Ability slot accents */
   --slot-p: #a09b8c;
   --slot-q: #4fb0e8;

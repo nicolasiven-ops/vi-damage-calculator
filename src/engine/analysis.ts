@@ -14,6 +14,8 @@ import type {
   SimulationResult,
   TargetConfig,
   TimelineEvent,
+  TimelineSpan,
+  StatSnapshot,
 } from './types';
 
 export interface SourceBreakdown {
@@ -87,6 +89,15 @@ export interface ComboAnalysis {
    * for instance.
    */
   events: TimelineEvent[];
+  /**
+   * Everything that occupied a stretch of time, for the timeline view.
+   *
+   * Passed straight through: aggregating spans would lose exactly what makes
+   * them useful, which is that each one is a real interval the simulation ran.
+   */
+  spans: TimelineSpan[];
+  /** State of both sides after each combo step — see StatSnapshot. */
+  snapshots: StatSnapshot[];
 }
 
 export function analyse(
@@ -114,7 +125,7 @@ export function analyse(
     entry.mitigated += instance.mitigated;
     entry.hits += 1;
     // Multi-hit sources keep the shortest label, which reads better than
-    // "Entzünden (Tick 5/5)".
+    // "Ignite (tick 5/5)".
     if (instance.sourceLabel.length < entry.label.length) entry.label = instance.sourceLabel;
     bySourceMap.set(key, entry);
   }
@@ -207,26 +218,27 @@ export function analyse(
     largestHit,
     shieldGained: result.shieldGained,
     healingDone: result.healingDone,
-    warnings: [...result.warnings, ...unusedStatWarnings(attacker)],
+    warnings: [...result.warnings, ...hardLimitWarnings(attacker)],
     events: result.events,
+    spans: result.spans,
+    snapshots: result.snapshots,
   };
 }
 
-/** Points out stats that are on the build but cannot pay off in this combo. */
-function unusedStatWarnings(attacker: ChampionStats): string[] {
+/**
+ * Limits the simulation actually ran into.
+ *
+ * Deliberately *not* build advice. This used to also point out ability power and
+ * magic penetration that Vi cannot use, which is commentary on someone's item
+ * choices rather than a fact about the calculation — and it sat under every
+ * result whether or not anyone wanted it. What is left is a cap the engine
+ * enforced: past 2.5 attack speed the number stops moving, and a result that
+ * silently ignores added stats has to say so.
+ */
+function hardLimitWarnings(attacker: ChampionStats): string[] {
   const warnings: string[] = [];
-  if (attacker.abilityPower > 0) {
-    warnings.push(
-      `${attacker.abilityPower.toFixed(0)} Fähigkeitsstärke im Build — bei Vi skaliert davon nur Übermäßige Gewalt (E).`,
-    );
-  }
-  if (attacker.magicPenFlat > 0 || attacker.magicPenPercent > 0) {
-    warnings.push(
-      'Magiedurchdringung im Build — wirkt nur auf magischen Schaden, den Vi ohne entsprechende Items nicht verursacht.',
-    );
-  }
   if (attacker.totalAttackSpeed >= 2.5) {
-    warnings.push('Angriffstempo liegt am Maximum von 2,5 — zusätzliches Angriffstempo verpufft.');
+    warnings.push('Attack speed is at the 2.5 cap — any more of it does nothing.');
   }
   return warnings;
 }

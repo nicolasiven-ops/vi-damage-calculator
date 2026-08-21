@@ -1,5 +1,5 @@
 /**
- * Vi — die Sheriffin von Piltover.
+ * Vi — the Piltover Enforcer.
  *
  * ## Where the numbers come from
  *
@@ -28,7 +28,12 @@
  * now come from the same file the client reads.
  */
 
-import type { CastTiming, ChampionRuntime, SimContext } from '../../engine/context';
+import type {
+  AbilityCharges,
+  CastTiming,
+  ChampionRuntime,
+  SimContext,
+} from '../../engine/context';
 import type { AbilitySlot } from '../../engine/types';
 import { num, statLookup } from '../spellcalc';
 import {
@@ -118,7 +123,7 @@ const FALLBACK = {
 /* ------------------------------------------------------------------- helpers */
 
 function pct(fraction: number): string {
-  return `${num(fraction * 100)} %`;
+  return `${num(fraction * 100)}%`;
 }
 
 /** Per-rank constant lookup that clamps instead of returning undefined. */
@@ -151,72 +156,73 @@ const ABILITIES: AbilityMeta[] = [
   {
     slot: 'P',
     ddragonId: '',
-    name: 'Explosionsschild',
+    name: 'Blast Shield',
     maxRank: 1,
     castable: false,
     modelNotes: [
-      `Schild über ${pct(FALLBACK.passive.maxHealthPercent)} von Vis maximalem Leben für ${FALLBACK.passive.durationSeconds} s.`,
-      'Löst aus, sobald eine Fähigkeit einen Gegner trifft — Basisangriffe zählen nicht.',
-      'Abklingzeit sinkt mit dem Championlevel und wird aus Riots Levelkurve gelesen.',
+      `Shields ${pct(FALLBACK.passive.maxHealthPercent)} of Vi's maximum health for ${FALLBACK.passive.durationSeconds} s.`,
+      'Triggers as soon as an ability hits an enemy — basic attacks do not count.',
+      "Cooldown falls with champion level, read from Riot's own level curve.",
     ],
   },
   {
     slot: 'Q',
     ddragonId: SPELL_IDS.Q,
-    name: 'Tresorknacker',
+    name: 'Vault Breaker',
     maxRank: 5,
     castable: true,
     chargeable: { maxSeconds: FALLBACK.q.maxChargeSeconds },
     modelNotes: [
-      'Schaden skaliert linear mit der Ladezeit zwischen Minimum und Maximum.',
-      'Skaliert mit Bonus-Angriffsschaden, nicht mit Gesamt-AD.',
-      'Setzt einen Stapel von Beulenschlägen — Treffereffekte von Items und Runen dagegen nicht.',
-      'Löst das Explosionsschild aus.',
+      'Damage scales linearly with charge time, between the minimum and the maximum.',
+      'Scales with bonus attack damage, not total AD.',
+      'Applies a stack of Denting Blows — but not on-hit effects from items and runes.',
+      'The cooldown starts on release: the charge is held before it, the dash runs inside it.',
+      'Triggers Blast Shield.',
     ],
   },
   {
     slot: 'W',
     ddragonId: SPELL_IDS.W,
-    name: 'Beulenschläge',
+    name: 'Denting Blows',
     maxRank: 5,
     castable: false,
     modelNotes: [
-      `Jeder ${FALLBACK.w.hitsToProc}. Treffer auf dasselbe Ziel löst aus.`,
-      'Nicht nur Basisangriffe zählen: Tresorknacker setzt ebenfalls einen Stapel.',
-      `Die Zähler verfallen, wenn zwischen zwei Treffern mehr als ${FALLBACK.w.markerSeconds} s liegen.`,
-      'Die Rüstungsreduktion wirkt erst auf alles, was nach der Auslösung folgt — nicht auf den auslösenden Treffer und nicht auf den Zusatzschaden selbst.',
-      'Zusatzschaden in % des maximalen Lebens des Ziels, skaliert mit Bonus-AD.',
-      `Reduziert die Rüstung des Ziels um ${pct(FALLBACK.w.armorShredPercent)} für ${FALLBACK.w.shredDurationSeconds} s.`,
-      `Gewährt Vi Angriffstempo für ${FALLBACK.w.attackSpeedDurationSeconds} s.`,
-      `Verkürzt die Restabklingzeit des Explosionsschilds um ${FALLBACK.passive.cooldownRefundOnProc} s.`,
-      `Gegen Vasallen und Monster auf ${FALLBACK.w.monsterCap} Schaden begrenzt.`,
+      `Every ${FALLBACK.w.hitsToProc}rd hit on the same target triggers it.`,
+      'Basic attacks are not the only source: Vault Breaker applies a stack too.',
+      `The counter expires if more than ${FALLBACK.w.markerSeconds} s pass between two hits.`,
+      'The armor shred applies only to what follows the proc — not to the hit that triggered it, and not to the bonus damage itself.',
+      "Bonus damage as a share of the target's maximum health, scaling with bonus AD.",
+      `Reduces the target's armor by ${pct(FALLBACK.w.armorShredPercent)} for ${FALLBACK.w.shredDurationSeconds} s.`,
+      `Grants Vi attack speed for ${FALLBACK.w.attackSpeedDurationSeconds} s.`,
+      `Cuts ${FALLBACK.passive.cooldownRefundOnProc} s off Blast Shield's remaining cooldown.`,
+      `Capped at ${FALLBACK.w.monsterCap} damage against minions and monsters.`,
     ],
   },
   {
     slot: 'E',
     ddragonId: SPELL_IDS.E,
-    name: 'Übermäßige Gewalt',
+    name: 'Relentless Force',
     maxRank: 5,
     castable: true,
     modelNotes: [
-      'Der Schritt ist der verstärkte Angriff selbst — ein zusätzlicher Angriffsschritt danach ist ein weiterer, gewöhnlicher Angriff.',
-      'Ersetzt den Schaden des Angriffs, statt obendrauf zu kommen — deshalb Gesamt-AD: der Angriffsschaden ist darin enthalten.',
-      'Setzt den Angriffstimer zurück und wendet Treffereffekte an.',
-      `${FALLBACK.e.charges} Aufladungen; ohne Aufladung wird der Schritt als gewöhnlicher Angriff gerechnet.`,
-      'Zählt für Beulenschläge als Basisangriff.',
+      'The step *is* the empowered attack — an attack step after it is a second, ordinary attack.',
+      "Replaces the attack's damage instead of adding to it — hence total AD: the attack damage is already inside it.",
+      'Resets the attack timer and applies on-hit effects.',
+      `${FALLBACK.e.charges} charges on one shared recharge timer — it keeps running across uses instead of restarting, and refills them one at a time. Plus a 1 s static gap between two uses; with no charge available, the combo waits.`,
+      'Counts as a basic attack for Denting Blows.',
     ],
   },
   {
     slot: 'R',
     ddragonId: SPELL_IDS.R,
-    name: 'Einstellungsverfügung',
+    name: 'Cease and Desist',
     maxRank: 3,
     castable: true,
     modelNotes: [
-      'Skaliert mit Bonus-Angriffsschaden, nicht mit Gesamt-AD.',
-      'Schleudert das Ziel in die Luft.',
-      'Wendet keine Treffereffekte an.',
-      'Löst das Explosionsschild aus.',
+      'Scales with bonus attack damage, not total AD.',
+      'Knocks the target into the air.',
+      'Applies no on-hit effects.',
+      'Triggers Blast Shield.',
     ],
   },
 ];
@@ -230,14 +236,51 @@ class ViRuntime implements ChampionRuntime {
   private stacksExpireAt = Number.POSITIVE_INFINITY;
   /** Whether the next basic attack is empowered by E. */
   private empowered = false;
-  private eChargesUsed = 0;
   /** Time at which Blast Shield may proc again. */
   private passiveReadyAt = 0;
 
   constructor(private readonly ctx: ChampionModuleContext) {}
 
+  /**
+   * The name to show for one of Vi's abilities, plus its slot.
+   *
+   * Read from Data Dragon rather than written here, for the same reason the
+   * ability metadata is: Riot renames abilities on rework — this E was
+   * "Excessive Force" before it was "Relentless Force" — and a name baked into
+   * this file goes stale without anything failing. Worse, it went stale
+   * *inconsistently*: the ability list showed Riot's current name while every
+   * damage row in the timeline showed the one hardcoded here.
+   */
+  private label(slot: AbilitySlot, fallback: string): string {
+    const live =
+      slot === 'P' ? this.ctx.detail?.passive?.name : this.ctx.spellById[SPELL_IDS[slot]]?.name;
+    return `${live ?? fallback} (${slot})`;
+  }
+
   resetsAutoAttack(slot: AbilitySlot): boolean {
     return slot === 'E';
+  }
+
+  /**
+   * Relentless Force holds two charges rather than sitting on a cooldown.
+   *
+   * Both numbers come from the patch's own spell data: Data Dragon reports the
+   * charge count and the 1 s static gap between two uses, the bin file the
+   * recharge time. The simulation owns the counter — this only declares it.
+   */
+  abilityCharges(slot: AbilitySlot, ctx: SimContext): AbilityCharges | null {
+    if (slot !== 'E') return null;
+    const rank = Math.max(1, ctx.rank('E'));
+    return {
+      max: spellTiming(this.ctx, SPELL_IDS.E, 'maxAmmo', rank, FALLBACK.e.charges).value,
+      rechargeSeconds: spellTiming(
+        this.ctx,
+        SPELL_IDS.E,
+        'ammoRechargeTime',
+        rank,
+        atRank(FALLBACK.e.rechargeSeconds, rank),
+      ).value,
+    };
   }
 
   /**
@@ -276,15 +319,22 @@ class ViRuntime implements ChampionRuntime {
     });
 
     switch (slot) {
-      case 'Q':
-        return parts([
-          { label: 'Ladezeit', seconds: Math.min(options.chargeSeconds, this.chargeWindow(ctx)) },
-          { label: 'Sprint bis zum Ziel', seconds: ctx.timings.dashTravel },
-        ]);
+      case 'Q': {
+        // The cooldown starts on release: the charge is held before it begins,
+        // the dash to the target runs inside it.
+        const charge = Math.min(options.chargeSeconds, this.chargeWindow(ctx));
+        return {
+          ...parts([
+            { label: 'charge', seconds: charge },
+            { label: 'dash to target', seconds: ctx.timings.dashTravel },
+          ]),
+          cooldownStartsAfter: charge,
+        };
+      }
       case 'R':
-        return parts([{ label: 'Sprint bis zum Ziel', seconds: ctx.timings.dashTravel }]);
+        return parts([{ label: 'dash to target', seconds: ctx.timings.dashTravel }]);
       default:
-        return parts([{ label: 'Eingabe', seconds: ctx.timings.inputDelay }]);
+        return parts([{ label: 'input', seconds: ctx.timings.inputDelay }]);
     }
   }
 
@@ -300,10 +350,10 @@ class ViRuntime implements ChampionRuntime {
         this.castR(ctx);
         break;
       case 'W':
-        ctx.warn('Beulenschläge ist passiv und kann nicht gewirkt werden — Schritt ignoriert.');
+        ctx.warn('Denting Blows is passive and cannot be cast — step ignored.');
         break;
       case 'P':
-        ctx.warn('Explosionsschild ist passiv und kann nicht gewirkt werden — Schritt ignoriert.');
+        ctx.warn('Blast Shield is passive and cannot be cast — step ignored.');
         break;
     }
   }
@@ -319,7 +369,7 @@ class ViRuntime implements ChampionRuntime {
   private castQ(ctx: SimContext, chargeSeconds: number): void {
     const rank = ctx.rank('Q');
     if (rank < 1) {
-      ctx.warn('Tresorknacker ist nicht gelernt — Schritt ignoriert.');
+      ctx.warn('Vault Breaker is not learned — step ignored.');
       return;
     }
 
@@ -338,15 +388,15 @@ class ViRuntime implements ChampionRuntime {
 
     ctx.dealDamage({
       sourceId: 'Q',
-      sourceLabel: 'Tresorknacker (Q)',
+      sourceLabel: this.label('Q', 'Vault Breaker'),
       sourceKind: 'ability',
       slot: 'Q',
       type: 'physical',
       amount,
       isAbilityDamage: true,
       notes: [
-        `Ladung ${(ratio * 100).toFixed(0)} % (${charge.toFixed(2)} s von ${num(window)} s)`,
-        `${base.toFixed(0)} Basis + ${pct(adRatio)} Bonus-AD`,
+        `charged ${(ratio * 100).toFixed(0)}% (${charge.toFixed(2)} s of ${num(window)} s)`,
+        `${base.toFixed(0)} base + ${pct(adRatio)} bonus AD`,
       ],
     });
 
@@ -358,33 +408,25 @@ class ViRuntime implements ChampionRuntime {
   private castE(ctx: SimContext): void {
     const rank = ctx.rank('E');
     if (rank < 1) {
-      ctx.warn('Übermäßige Gewalt ist nicht gelernt — Schritt ignoriert.');
+      ctx.warn('Relentless Force is not learned — step ignored.');
       return;
     }
 
-    const charges = spellTiming(this.ctx, SPELL_IDS.E, 'maxAmmo', rank, FALLBACK.e.charges).value;
-    if (this.eChargesUsed >= charges) {
-      // The step still swings: without a charge it is simply a normal attack,
-      // which is what happens in the game when the ability is not up.
-      ctx.warn(
-        `Übermäßige Gewalt hat nur ${charges} Aufladungen — dieser Schritt wird als gewöhnlicher Basisangriff gerechnet.`,
-      );
-      return;
-    }
-
-    this.eChargesUsed += 1;
+    // Charges are the simulation's business: it has already made sure one was
+    // available and spent it, so reaching this point means the attack is
+    // empowered. Nothing here needs to count.
     this.empowered = true;
     ctx.addEvent({
       kind: 'buff',
-      label: 'Übermäßige Gewalt bereit',
-      detail: `Nächster Basisangriff verstärkt · Aufladung ${this.eChargesUsed}/${charges}`,
+      label: `${this.label('E', 'Relentless Force')} ready`,
+      detail: 'Next basic attack is empowered',
     });
   }
 
   private castR(ctx: SimContext): void {
     const rank = ctx.rank('R');
     if (rank < 1) {
-      ctx.warn('Einstellungsverfügung ist nicht gelernt — Schritt ignoriert.');
+      ctx.warn('Cease and Desist is not learned — step ignored.');
       return;
     }
 
@@ -394,19 +436,19 @@ class ViRuntime implements ChampionRuntime {
 
     ctx.dealDamage({
       sourceId: 'R',
-      sourceLabel: 'Einstellungsverfügung (R)',
+      sourceLabel: this.label('R', 'Cease and Desist'),
       sourceKind: 'ability',
       slot: 'R',
       type: 'physical',
       amount: base.value + adRatio.value * ctx.stats.bonusAttackDamage,
       isAbilityDamage: true,
-      notes: [`${base.value.toFixed(0)} Basis + ${pct(adRatio.value)} Bonus-AD`],
+      notes: [`${base.value.toFixed(0)} base + ${pct(adRatio.value)} bonus AD`],
     });
 
     ctx.addEvent({
       kind: 'info',
-      label: 'Luftstoß',
-      detail: `Ziel für ${num(knockup.value)} s außer Gefecht`,
+      label: 'Knock-up',
+      detail: `target is airborne for ${num(knockup.value)} s`,
     });
 
     this.tryPassive(ctx);
@@ -435,10 +477,10 @@ class ViRuntime implements ChampionRuntime {
 
     return {
       replacementDamage: total,
-      label: 'Übermäßige Gewalt (E)',
+      label: this.label('E', 'Relentless Force'),
       slot: 'E' as AbilitySlot,
       notes: [
-        `${base.value.toFixed(0)} Basis + ${pct(adRatio.value)} Gesamt-AD` +
+        `${base.value.toFixed(0)} base + ${pct(adRatio.value)} total AD` +
           (ctx.stats.abilityPower > 0 ? ` + ${pct(apRatio.value)} AP` : ''),
       ],
     };
@@ -460,7 +502,7 @@ class ViRuntime implements ChampionRuntime {
    *
    * Order matters and is deliberate: the caller has already dealt its damage
    * when this runs, and the proc deals its own damage *before* applying the
-   * armour reduction. Riot resolves it the same way — the shred never applies
+   * armor reduction. Riot resolves it the same way — the shred never applies
    * to the hit that triggered it, only to what comes after.
    */
   private applyDentingBlows(ctx: SimContext): void {
@@ -475,8 +517,8 @@ class ViRuntime implements ChampionRuntime {
       this.attackCount = 0;
       ctx.addEvent({
         kind: 'info',
-        label: 'Beulenschläge',
-        detail: `Zähler abgelaufen (${num(markerSeconds)} s ohne Treffer)`,
+        label: this.label('W', 'Denting Blows'),
+        detail: `counter expired (${num(markerSeconds)} s without a hit)`,
       });
     }
 
@@ -486,8 +528,8 @@ class ViRuntime implements ChampionRuntime {
     if (this.attackCount % hitsToProc !== 0) {
       ctx.addEvent({
         kind: 'info',
-        label: 'Beulenschläge',
-        detail: `${this.attackCount % hitsToProc}/${hitsToProc} Treffer`,
+        label: this.label('W', 'Denting Blows'),
+        detail: `${this.attackCount % hitsToProc}/${hitsToProc} hits`,
       });
       return;
     }
@@ -499,19 +541,19 @@ class ViRuntime implements ChampionRuntime {
 
     let amount = ctx.targetMaxHealth * percent;
     const notes = [
-      `${pct(flat.value)} + ${pct(fromAd)} aus ${ctx.stats.bonusAttackDamage.toFixed(0)} Bonus-AD`,
-      `= ${pct(percent)} des maximalen Lebens`,
+      `${pct(flat.value)} + ${pct(fromAd)} from ${ctx.stats.bonusAttackDamage.toFixed(0)} bonus AD`,
+      `= ${pct(percent)} of maximum health`,
     ];
 
     const cap = gameValue(this.ctx, SPELL_IDS.W, 'MonsterDamageCap', rank, FALLBACK.w.monsterCap).value;
     if (ctx.target.unitType !== 'champion' && amount > cap) {
       amount = cap;
-      notes.push(`auf ${cap} begrenzt (Vasall/Monster)`);
+      notes.push(`capped at ${cap} (minion/monster)`);
     }
 
     ctx.dealDamage({
       sourceId: 'W',
-      sourceLabel: 'Beulenschläge (W)',
+      sourceLabel: this.label('W', 'Denting Blows'),
       sourceKind: 'passive',
       slot: 'W',
       type: 'physical',
@@ -532,7 +574,7 @@ class ViRuntime implements ChampionRuntime {
       // Riot stores the shred as whole percent; the engine wants a fraction.
       percent: shred / 100,
       durationSeconds: buffDuration,
-      label: 'Beulenschläge',
+      label: this.label('W', 'Denting Blows'),
     });
 
     const attackSpeed = gameValue(
@@ -546,7 +588,7 @@ class ViRuntime implements ChampionRuntime {
     ctx.applyTemporaryStats({
       stats: { attackSpeed: attackSpeed / 100 },
       durationSeconds: buffDuration,
-      label: `Beulenschläge · +${num(attackSpeed)} % Angriffstempo`,
+      label: `${this.label('W', 'Denting Blows')} · +${num(attackSpeed)}% attack speed`,
     });
 
     this.refundPassiveCooldown(ctx);
@@ -571,8 +613,8 @@ class ViRuntime implements ChampionRuntime {
     this.passiveReadyAt = Math.max(ctx.time, this.passiveReadyAt - refund);
     ctx.addEvent({
       kind: 'info',
-      label: 'Explosionsschild',
-      detail: `Abklingzeit um ${num(refund)} s verkürzt · wieder bereit in ${num(Math.max(0, this.passiveReadyAt - ctx.time))} s`,
+      label: this.label('P', 'Blast Shield'),
+      detail: `cooldown cut by ${num(refund)} s · ready again in ${num(Math.max(0, this.passiveReadyAt - ctx.time))} s`,
     });
   }
 
@@ -595,7 +637,7 @@ class ViRuntime implements ChampionRuntime {
     ctx.grantShield({
       amount: ctx.stats.maxHealth * shieldRatio.value,
       durationSeconds: duration.value,
-      label: 'Explosionsschild (P)',
+      label: this.label('P', 'Blast Shield'),
     });
 
     this.passiveReadyAt = ctx.time + cooldown.value;
@@ -638,11 +680,11 @@ export const VI_MODULE: ChampionModule = {
     const qCharge = spellTiming(ctx, SPELL_IDS.Q, 'channelDuration', qRank, FALLBACK.q.maxChargeSeconds);
     const qCd = cooldownValue(ctx.spellById[SPELL_IDS.Q], qRank, [...FALLBACK.q.cooldown]);
 
-    row('Q', 'Basisschaden (ungeladen)', qMin.value.toFixed(0), qMin);
-    row('Q', 'Basisschaden (voll geladen)', qMax.value.toFixed(0), qMax);
-    row('Q', 'Bonus-AD-Verhältnis', `${pct(qMinRatio.value)} → ${pct(qMaxRatio.value)}`, qMinRatio, qMaxRatio);
-    row('Q', 'Ladezeit bis Maximum', `${num(qCharge.value)} s`, qCharge);
-    row('Q', 'Abklingzeit', `${num(qCd.value)} s`, qCd);
+    row('Q', 'Base damage (tapped)', qMin.value.toFixed(0), qMin);
+    row('Q', 'Base damage (fully charged)', qMax.value.toFixed(0), qMax);
+    row('Q', 'Bonus AD ratio', `${pct(qMinRatio.value)} → ${pct(qMaxRatio.value)}`, qMinRatio, qMaxRatio);
+    row('Q', 'Charge time to maximum', `${num(qCharge.value)} s`, qCharge);
+    row('Q', 'Cooldown', `${num(qCd.value)} s`, qCd);
 
     /* ------------------------------------------------------------------ W */
     const wRank = Math.max(1, ranks.W);
@@ -655,12 +697,12 @@ export const VI_MODULE: ChampionModule = {
     const wMarker = gameValue(ctx, SPELL_IDS.W, 'MarkerBuffDuration', wRank, FALLBACK.w.markerSeconds);
     const wCap = gameValue(ctx, SPELL_IDS.W, 'MonsterDamageCap', wRank, FALLBACK.w.monsterCap);
 
-    row('W', 'Max-Leben-Schaden', pct(wFlat.value), wFlat);
-    row('W', 'pro 100 Bonus-AD', pct(wPerAd.value * 100), wPerAd);
-    row('W', 'Rüstungsreduktion', `${num(wShred.value)} % für ${num(wBuff.value)} s`, wShred, wBuff);
-    row('W', 'Angriffstempo', `+${num(wAs.value)} % für ${num(wBuff.value)} s`, wAs, wBuff);
-    row('W', 'Treffer bis Auslösung', `${wStacks.value + 1} · Zähler hält ${num(wMarker.value)} s`, wStacks, wMarker);
-    row('W', 'Kappe gegen Vasallen/Monster', wCap.value.toFixed(0), wCap);
+    row('W', 'Max-health damage', pct(wFlat.value), wFlat);
+    row('W', 'per 100 bonus AD', pct(wPerAd.value * 100), wPerAd);
+    row('W', 'Armor shred', `${num(wShred.value)}% for ${num(wBuff.value)} s`, wShred, wBuff);
+    row('W', 'Attack speed', `+${num(wAs.value)}% for ${num(wBuff.value)} s`, wAs, wBuff);
+    row('W', 'Hits to proc', `${wStacks.value + 1} · counter lasts ${num(wMarker.value)} s`, wStacks, wMarker);
+    row('W', 'Cap vs minions and monsters', wCap.value.toFixed(0), wCap);
 
     /* ------------------------------------------------------------------ E */
     const eRank = Math.max(1, ranks.E);
@@ -670,11 +712,11 @@ export const VI_MODULE: ChampionModule = {
     const eCharges = spellTiming(ctx, SPELL_IDS.E, 'maxAmmo', eRank, FALLBACK.e.charges);
     const eRecharge = spellTiming(ctx, SPELL_IDS.E, 'ammoRechargeTime', eRank, atRank(FALLBACK.e.rechargeSeconds, eRank));
 
-    row('E', 'Basisschaden', eBase.value.toFixed(0), eBase);
-    row('E', 'Gesamt-AD-Verhältnis', pct(eAd.value), eAd);
-    row('E', 'AP-Verhältnis', pct(eAp.value), eAp);
-    row('E', 'Aufladungen', eCharges.value.toFixed(0), eCharges);
-    row('E', 'Aufladezeit', `${num(eRecharge.value)} s`, eRecharge);
+    row('E', 'Base damage', eBase.value.toFixed(0), eBase);
+    row('E', 'Total AD ratio', pct(eAd.value), eAd);
+    row('E', 'AP ratio', pct(eAp.value), eAp);
+    row('E', 'Charges', eCharges.value.toFixed(0), eCharges);
+    row('E', 'Recharge time', `${num(eRecharge.value)} s`, eRecharge);
 
     /* ------------------------------------------------------------------ R */
     const rRank = Math.max(1, ranks.R);
@@ -683,10 +725,10 @@ export const VI_MODULE: ChampionModule = {
     const rKnockup = gameValue(ctx, SPELL_IDS.R, 'RStunDuration', rRank, FALLBACK.r.knockupSeconds);
     const rCd = cooldownValue(ctx.spellById[SPELL_IDS.R], rRank, [...FALLBACK.r.cooldown]);
 
-    row('R', 'Basisschaden', rBase.value.toFixed(0), rBase);
-    row('R', 'Bonus-AD-Verhältnis', pct(rAd.value), rAd);
-    row('R', 'Luftstoß', `${num(rKnockup.value)} s`, rKnockup);
-    row('R', 'Abklingzeit', `${num(rCd.value)} s`, rCd);
+    row('R', 'Base damage', rBase.value.toFixed(0), rBase);
+    row('R', 'Bonus AD ratio', pct(rAd.value), rAd);
+    row('R', 'Knock-up', `${num(rKnockup.value)} s`, rKnockup);
+    row('R', 'Cooldown', `${num(rCd.value)} s`, rCd);
 
     /* ------------------------------------------------------------------ P */
     const pShield = calcRatio(ctx, SPELL_IDS.P, 'TotalShield', 1, 'maxHealth', 'total', FALLBACK.passive.maxHealthPercent);
@@ -696,13 +738,13 @@ export const VI_MODULE: ChampionModule = {
 
     const pRefund = gameValue(ctx, SPELL_IDS.P, 'CDReductionOn3Hit', 1, FALLBACK.passive.cooldownRefundOnProc);
 
-    row('P', 'Schild', `${pct(pShield.value)} max. Leben`, pShield);
-    row('P', 'Schilddauer', `${num(pDuration.value)} s`, pDuration);
-    row('P', 'Verkürzung durch Beulenschläge', `${num(pRefund.value)} s`, pRefund);
+    row('P', 'Shield', `${pct(pShield.value)} maximum health`, pShield);
+    row('P', 'Shield duration', `${num(pDuration.value)} s`, pDuration);
+    row('P', 'Reduction from Denting Blows', `${num(pRefund.value)} s`, pRefund);
     row(
       'P',
-      'Abklingzeit',
-      `${num(pCooldownLow.value)} s (Level 1) → ${num(pCooldownHigh.value)} s (Level 18)`,
+      'Cooldown',
+      `${num(pCooldownLow.value)} s (level 1) → ${num(pCooldownHigh.value)} s (level 18)`,
       pCooldownLow,
       pCooldownHigh,
     );

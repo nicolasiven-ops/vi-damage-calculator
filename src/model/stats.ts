@@ -81,30 +81,30 @@ export const STAT_KEYS = [
 
 /** Human-readable labels, used by the stat sheet and item tooltips. */
 export const STAT_LABELS: Record<keyof StatBlock, string> = {
-  hp: 'Leben',
+  hp: 'Health',
   mana: 'Mana',
-  armor: 'Rüstung',
-  magicResist: 'Magieresistenz',
-  attackDamage: 'Angriffsschaden',
-  abilityPower: 'Fähigkeitsstärke',
-  attackSpeed: 'Angriffstempo',
-  attackSpeedOverCap: 'Angriffstempo über der Kappe',
-  critChance: 'Kritische Trefferchance',
-  critDamage: 'Kritischer Schaden',
-  abilityHaste: 'Fähigkeitstempo',
-  lethality: 'Letalität',
-  armorPenPercent: 'Rüstungsdurchdringung',
-  magicPenFlat: 'Magiedurchdringung',
-  magicPenPercent: 'Magiedurchdringung',
-  lifesteal: 'Lebensraub',
-  omnivamp: 'Allvampir',
-  physicalVamp: 'Physischer Vampir',
-  moveSpeedFlat: 'Lauftempo',
-  moveSpeedPercent: 'Lauftempo',
-  tenacity: 'Zähigkeit',
-  healShieldPower: 'Heilungs- & Schildstärke',
-  healthRegen: 'Lebensregeneration',
-  manaRegen: 'Manaregeneration',
+  armor: 'Armor',
+  magicResist: 'Magic Resistance',
+  attackDamage: 'Attack Damage',
+  abilityPower: 'Ability Power',
+  attackSpeed: 'Attack Speed',
+  attackSpeedOverCap: 'Attack Speed Over Cap',
+  critChance: 'Critical Strike Chance',
+  critDamage: 'Critical Strike Damage',
+  abilityHaste: 'Ability Haste',
+  lethality: 'Lethality',
+  armorPenPercent: 'Armor Penetration',
+  magicPenFlat: 'Magic Penetration',
+  magicPenPercent: 'Magic Penetration',
+  lifesteal: 'Life Steal',
+  omnivamp: 'Omnivamp',
+  physicalVamp: 'Physical Vamp',
+  moveSpeedFlat: 'Movement Speed',
+  moveSpeedPercent: 'Movement Speed',
+  tenacity: 'Tenacity',
+  healShieldPower: 'Heal & Shield Power',
+  healthRegen: 'Health Regeneration',
+  manaRegen: 'Mana Regeneration',
 };
 
 /** Stats rendered as percentages in the UI. */
@@ -163,8 +163,8 @@ export function addStats(target: StatBlock, source: Partial<StatBlock>): StatBlo
 /**
  * Stats that combine multiplicatively rather than by addition.
  *
- * Two sources of 35% and 30% armour penetration leave 0.65 × 0.70 = 45.5% of
- * the armour standing, i.e. 54.5% penetration — not 65%. Adding them would
+ * Two sources of 35% and 30% armor penetration leave 0.65 × 0.70 = 45.5% of
+ * the armor standing, i.e. 54.5% penetration — not 65%. Adding them would
  * overstate the damage of every penetration build, and the error grows with
  * each item.
  */

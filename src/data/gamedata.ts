@@ -75,7 +75,7 @@ export async function fetchChampionGameData(
     );
     return {
       data: parseChampionBin(raw, championId, 'latest'),
-      note: `Für Patch ${patch} liegen bei CommunityDragon noch keine Spieldaten — es wurde der Ordner „latest" verwendet.`,
+      note: `CommunityDragon has no game data for patch ${patch} yet — the "latest" folder was used instead.`,
     };
   }
 }
@@ -84,7 +84,7 @@ export async function fetchChampionGameData(
 
 export interface ValidationCheck {
   spellId: string;
-  field: 'Abklingzeit' | 'Kosten' | 'Effektwert';
+  field: 'cooldown' | 'cost' | 'effect value';
   rank: number;
   fromBin: number;
   fromDDragon: number;
@@ -99,7 +99,7 @@ export interface ValidationReport {
   /**
    * How many checks could actually have caught an off-by-one-rank error, i.e.
    * came from an array whose values differ between ranks. A flat cooldown of
-   * 1 s matches under every indexing rule and proves nothing.
+   * 1s matches under every indexing rule and proves nothing.
    */
   decisive: number;
 }
@@ -142,14 +142,14 @@ export function validateGameData(
     if (!gameSpell) continue;
 
     const fields: { field: ValidationCheck['field']; bin: number[] | null; dd: number[] | undefined }[] = [
-      { field: 'Abklingzeit', bin: gameSpell.cooldown, dd: spell.cooldown },
-      { field: 'Kosten', bin: gameSpell.cost, dd: spell.cost },
+      { field: 'cooldown', bin: gameSpell.cooldown, dd: spell.cooldown },
+      { field: 'cost', bin: gameSpell.cost, dd: spell.cost },
     ];
 
     // Data Dragon's `effect` array is one longer, with a null in front.
     gameSpell.effectAmounts.forEach((bin, index) => {
       const dd = spell.effect?.[index + 1];
-      if (bin && Array.isArray(dd)) fields.push({ field: 'Effektwert', bin, dd });
+      if (bin && Array.isArray(dd)) fields.push({ field: 'effect value', bin, dd });
     });
 
     for (const { field, bin, dd } of fields) {
@@ -174,11 +174,11 @@ export function validateGameData(
 /** One-line summary for the UI. */
 export function describeValidation(report: ValidationReport): string {
   if (report.checks.length === 0) {
-    return 'Keine Werte gegenprüfbar — Spieldaten werden nicht verwendet.';
+    return 'No values available to cross-check — game data is not used.';
   }
   if (report.ok) {
-    return `${report.checks.length} Abklingzeiten und Kosten stimmen mit Data Dragon überein (${report.decisive} davon rangabhängig).`;
+    return `${report.checks.length} cooldowns and costs match Data Dragon (${report.decisive} of them rank-dependent).`;
   }
   const first = report.mismatches[0]!;
-  return `${report.mismatches.length} von ${report.checks.length} Werten weichen von Data Dragon ab (z. B. ${first.spellId} ${first.field} Rang ${first.rank}: ${first.fromBin} statt ${first.fromDDragon}). Spieldaten werden verworfen.`;
+  return `${report.mismatches.length} of ${report.checks.length} values disagree with Data Dragon (e.g. ${first.spellId} ${first.field} rank ${first.rank}: ${first.fromBin} instead of ${first.fromDDragon}). Game data is discarded.`;
 }

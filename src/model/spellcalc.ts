@@ -185,18 +185,18 @@ export function ratioFor(
 
 /* ----------------------------------------------------------------- formatting */
 
-/** German decimal notation, without trailing zeros. */
+/** A number as the tooltips print it, without trailing zeros. */
 export function num(value: number, maxDecimals = 2): string {
   const factor = 10 ** maxDecimals;
   const rounded = Math.round(value * factor) / factor;
-  return String(rounded).replace('.', ',');
+  return String(rounded);
 }
 
 const STAT_LABELS: Record<StatKey, Record<StatScaling, string>> = {
-  ad: { total: 'Gesamt-AD', bonus: 'Bonus-AD' },
+  ad: { total: 'total AD', bonus: 'bonus AD' },
   ap: { total: 'AP', bonus: 'AP' },
-  maxHealth: { total: 'max. Leben', bonus: 'Bonus-Leben' },
-  attackSpeed: { total: 'Angriffstempo', bonus: 'Bonus-Angriffstempo' },
+  maxHealth: { total: 'maximum health', bonus: 'bonus health' },
+  attackSpeed: { total: 'attack speed', bonus: 'bonus attack speed' },
 };
 
 /**
@@ -204,8 +204,8 @@ const STAT_LABELS: Record<StatKey, Record<StatScaling, string>> = {
  *
  * Percentage calculations (Vi's W is a share of the target's maximum health)
  * carry a literal ×0.01 in the bin purely to turn "4" into "4 %". That factor
- * is folded into the units here instead of being printed, because "4 % + 3,5 %
- * pro 100 Bonus-AD" is the line the client actually shows.
+ * is folded into the units here instead of being printed, because "4 % + 3.5 %
+ * per 100 bonus AD" is the line the client actually shows.
  */
 export function formatCalculation(calc: SpellCalculation | null, rank: number): string | null {
   if (!calc || !calc.complete) return null;
@@ -226,7 +226,7 @@ export function formatCalculation(calc: SpellCalculation | null, rank: number): 
       case 'flat': {
         const value = pickRank(part.perRank, rank);
         if (value === null) return null;
-        terms.push(percent ? `${num(value)} %` : num(value));
+        terms.push(percent ? `${num(value)}%` : num(value));
         break;
       }
       case 'stat': {
@@ -235,15 +235,15 @@ export function formatCalculation(calc: SpellCalculation | null, rank: number): 
         const label = STAT_LABELS[part.stat][part.scaling];
         terms.push(
           percent
-            ? `${num(coefficient * 100)} % pro 100 ${label}`
-            : `${num(coefficient * 100)} % ${label}`,
+            ? `${num(coefficient * 100)}% per 100 ${label}`
+            : `${num(coefficient * 100)}% ${label}`,
         );
         break;
       }
       case 'byLevel': {
         const low = evaluateByLevel(part, MIN_LEVEL);
         const high = evaluateByLevel(part, MAX_LEVEL);
-        terms.push(`${num(low)} → ${num(high)} (Level 1 → 18)`);
+        terms.push(`${num(low)} → ${num(high)} (level 1 → 18)`);
         break;
       }
       case 'unsupported':

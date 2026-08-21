@@ -12,7 +12,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { reorderStep, shiftStep } from '../src/state/combo';
+import { reorderStep } from '../src/state/combo';
 import { step as makeStep } from '../src/state/build';
 import type { ComboStep } from '../src/engine/types';
 
@@ -49,21 +49,3 @@ describe('reorderStep', () => {
   });
 });
 
-describe('shiftStep', () => {
-  it('nudges a step one position', () => {
-    const list = combo();
-    expect(kinds(shiftStep(list, list[1]!.uid, -1))).toEqual(['attack', 'Q', 'E']);
-    expect(kinds(shiftStep(list, list[1]!.uid, 1))).toEqual(['Q', 'E', 'attack']);
-  });
-
-  it('stops at the ends instead of wrapping around', () => {
-    const list = combo();
-    expect(shiftStep(list, list[0]!.uid, -1)).toBe(list);
-    expect(shiftStep(list, list[2]!.uid, 1)).toBe(list);
-  });
-
-  it('ignores an unknown step', () => {
-    const list = combo();
-    expect(shiftStep(list, 'nope', 1)).toBe(list);
-  });
-});

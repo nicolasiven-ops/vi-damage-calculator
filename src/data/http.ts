@@ -37,14 +37,14 @@ export async function getJson<T>(url: string, cacheKey: string, ttlMs: number | 
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
     const res = await fetch(url, { signal: controller.signal, mode: 'cors' });
-    if (!res.ok) throw new CdnError(`${url} antwortete mit HTTP ${res.status}`);
+    if (!res.ok) throw new CdnError(`${url} responded with HTTP ${res.status}`);
     const json = (await res.json()) as T;
     writeCache(cacheKey, json, ttlMs);
     return json;
   } catch (err) {
     if (err instanceof CdnError) throw err;
-    const reason = err instanceof Error && err.name === 'AbortError' ? 'Zeitüberschreitung' : 'Netzwerkfehler';
-    throw new CdnError(`${reason} beim Laden von ${url}`, err);
+    const reason = err instanceof Error && err.name === 'AbortError' ? 'Timeout' : 'Network error';
+    throw new CdnError(`${reason} while loading ${url}`, err);
   } finally {
     clearTimeout(timer);
   }

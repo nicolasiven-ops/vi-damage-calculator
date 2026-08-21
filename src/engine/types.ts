@@ -8,9 +8,9 @@ import type { ChampionStats, StatBlock } from '../model/stats';
 export type DamageType = 'physical' | 'magic' | 'true';
 
 export const DAMAGE_TYPE_LABELS: Record<DamageType, string> = {
-  physical: 'Physisch',
-  magic: 'Magisch',
-  true: 'Absolut',
+  physical: 'Physical',
+  magic: 'Magic',
+  true: 'True',
 };
 
 export type SourceKind = 'ability' | 'attack' | 'passive' | 'rune' | 'item' | 'summoner';
@@ -28,6 +28,14 @@ export interface DamageInstance {
   seq: number;
   /** Seconds since the combo started. */
   time: number;
+  /**
+   * The combo step that caused this, by its `uid`.
+   *
+   * A hit knows its source ability, but not which press of it — and a combo
+   * with two Qs has two. Carrying the step lets the UI point back at the card
+   * the user actually dragged there.
+   */
+  stepUid?: string;
   sourceId: string;
   sourceLabel: string;
   sourceKind: SourceKind;
@@ -50,12 +58,125 @@ export interface TimelineEvent {
   /** Shared ordering with DamageInstance — see the note there. */
   seq: number;
   time: number;
+  /** The combo step that caused this — see the note on DamageInstance. */
+  stepUid?: string;
   label: string;
   detail: string;
-  kind: 'shield' | 'shred' | 'buff' | 'cast' | 'info' | 'warning';
+  /**
+   * `wait` is idle time the combo was forced to spend — an ability that was
+   * still on cooldown or out of charges. It earns its own kind because it is
+   * the one event that explains a gap in the timeline rather than something
+   * that happened in it.
+   */
+  kind: 'shield' | 'shred' | 'buff' | 'cast' | 'info' | 'warning' | 'wait';
 }
 
 export type AbilitySlot = 'P' | 'Q' | 'W' | 'E' | 'R';
+
+/**
+ * A lane on the timeline view: one row per thing that occupies time.
+ *
+ * Ability slots keep their own lane; everything else is grouped by what it is
+ * rather than where it came from, because a row per item passive would produce
+ * twenty mostly-empty lanes.
+ *
+ * The lanes fall into two halves, and the view draws them as such: what the
+ * player *does* (abilities, attacks, summoners, and the idle time between them)
+ * above, and what that causes (procs, gear effects, champion effects) below.
+ *
+ * `gear` and `effect` are the same kind of thing — a window with a duration —
+ * split by origin: gear effects come from items and runes, `effect` from the
+ * champion's own kit. Reading a combo, that is the distinction that matters:
+ * one you chose in the shop, the other follows from the buttons you pressed.
+ */
+export type TimelineLane =
+  | AbilitySlot
+  | 'AA'
+  | 'summoner'
+  | 'idle'
+  | 'proc'
+  | 'buff'
+  | 'debuff';
+
+/**
+ * What a timed effect does, which is what its colour means.
+ *
+ * The split that matters when reading a combo is not where an effect came from
+ * but which way it points: a buff that adds damage, a buff that only keeps you
+ * alive, or a debuff on the target. Denting Blows produces one of each — attack
+ * speed for Vi and an armour shred on the target — and drawing both in one hue
+ * made them look like one thing.
+ */
+export type EffectKind =
+  /** Raises damage output: attack damage, attack speed, penetration, haste. */
+  | 'offense'
+  /** Keeps you alive without adding damage: shields, health, resistances. */
+  | 'defense'
+  /** Applied to the target: shreds, damage amplification. */
+  | 'debuff';
+
+/** Where a timed effect came from — the champion's kit, or items and runes. */
+export type EffectOrigin = 'champion' | 'gear';
+
+/**
+ * Something that occupied a stretch of time, with a start and an end.
+ *
+ * Damage instances are instants and events are points; this is the third kind
+ * of thing on the timeline — the duration. Cast times, cooldowns, recharge
+ * timers, buff windows and forced idle time all have a start and an end, and
+ * the simulation knows all of them exactly. Until now they only survived as
+ * prose in an event's detail text ("1,25 s Ladezeit + 0,25 s Sprint"), which a
+ * table can print but a chart cannot draw.
+ */
+export interface TimelineSpan {
+  id: string;
+  /** The combo step that caused this — see the note on DamageInstance. */
+  stepUid?: string;
+  lane: TimelineLane;
+  kind: SpanKind;
+  start: number;
+  /** End, clipped to the edge of the simulated window where necessary. */
+  end: number;
+  /**
+   * The full duration, even where `end` was clipped.
+   *
+   * A view may cut a 140-second cooldown off at the edge of the plot, but it may
+   * not *label* it 117 seconds — the length drawn and the duration claimed are
+   * two different things.
+   */
+  fullSeconds: number;
+  label: string;
+  detail?: string;
+  /** Set on effect spans: which way this one points. See EffectKind. */
+  effectKind?: EffectKind;
+  /** Set on effect spans: the champion's own kit, or gear. */
+  effectOrigin?: EffectOrigin;
+  /**
+   * Named sub-stretches of a cast, in order.
+   *
+   * A charged Q is 1.25 s of holding and then 0.25 s of dashing, and the two
+   * are not interchangeable: the first is time the player chose to spend, the
+   * second is travel they cannot avoid. Drawing them as one block would hide
+   * exactly the decision the charge slider exists for.
+   */
+  parts?: { label: string; seconds: number }[];
+}
+
+export type SpanKind =
+  /** The cast itself occupies the combo. */
+  | 'cast'
+  /** Not available again until this ends. */
+  | 'cooldown'
+  /** A charge is regenerating. */
+  | 'recharge'
+  /** The attack timer between two basic attacks. */
+  | 'attack-timer'
+  /** A buff, shred or shield that is active for a while. */
+  | 'effect'
+  /** Time the combo had to wait because nothing was available. */
+  | 'idle'
+  /** Damage over time, e.g. Ignite. */
+  | 'dot';
 
 export type ComboActionType =
   | { kind: 'ability'; slot: AbilitySlot }
@@ -138,9 +259,52 @@ export const DEFAULT_TIMINGS: TimingConfig = {
   inputDelay: 0.05,
 };
 
+/**
+ * What both sides looked like at one moment of the combo.
+ *
+ * The simulation already recomputes the stat block on every hit — buffs come and
+ * go, the target's armour is shredded — but only ever used the result and threw
+ * it away. Keeping one snapshot per step is what lets the app answer the
+ * question a calculator is actually asked: *at this point in the combo, what were
+ * the numbers?* Not the build's numbers, which any sheet can show, but the ones
+ * in force two seconds in, after the shred and before the buff expired.
+ */
+export interface StatSnapshot {
+  /** The combo step this is the state *after*; absent for the starting state. */
+  stepUid?: string;
+  /** Position in the combo, or -1 for the state before it starts. */
+  index: number;
+  time: number;
+  /** The attacker's full stat block at this moment, buffs included. */
+  attacker: ChampionStats;
+  target: {
+    currentHealth: number;
+    maxHealth: number;
+    /** The target's own armour, before anything this combo did to it. */
+    baseArmor: number;
+    /**
+     * Armour as this attacker's physical damage actually meets it — shred,
+     * percent penetration and lethality applied, in that order.
+     */
+    effectiveArmor: number;
+    baseMagicResist: number;
+    effectiveMagicResist: number;
+  };
+  /** Timed effects in force right now, attacker-side and target-side. */
+  active: { label: string; detail: string }[];
+  /** Running totals, so the panel can show what the combo has produced so far. */
+  damageDone: number;
+  shieldGained: number;
+  healingDone: number;
+}
+
 export interface SimulationResult {
   instances: DamageInstance[];
   events: TimelineEvent[];
+  /** One entry per combo step, plus the state before the first — see StatSnapshot. */
+  snapshots: StatSnapshot[];
+  /** Everything that occupied a stretch of time — see TimelineSpan. */
+  spans: TimelineSpan[];
   totalRaw: number;
   totalMitigated: number;
   duration: number;

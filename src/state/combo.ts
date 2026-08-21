@@ -26,11 +26,3 @@ export function reorderStep(combo: ComboStep[], fromUid: string, toUid: string):
   return moveIndex(combo, from, to);
 }
 
-/** Nudge one step forwards or backwards. Stops at the ends. */
-export function shiftStep(combo: ComboStep[], uid: string, direction: -1 | 1): ComboStep[] {
-  const index = combo.findIndex((entry) => entry.uid === uid);
-  if (index === -1) return combo;
-  const target = index + direction;
-  if (target < 0 || target >= combo.length) return combo;
-  return moveIndex(combo, index, target);
-}

@@ -129,10 +129,10 @@ export function resolveAbilityNames(
  * data is available; it passes the constant it would have used anyway.
  */
 
-const NO_GAME_DATA = 'Spieldaten für diesen Patch nicht verfügbar — gepflegte Konstante verwendet.';
+const NO_GAME_DATA = 'No game data available for this patch — maintained constant used.';
 
 function unreadable(spellKey: string, calcKey: string): string {
-  return `Formel ${spellKey}.${calcKey} war nicht lesbar — gepflegte Konstante verwendet.`;
+  return `Formula ${spellKey}.${calcKey} was not readable — maintained constant used.`;
 }
 
 function registryValue(value: number, note: string): SourcedNumber {
@@ -203,11 +203,11 @@ export function calcRatio(
 
   const ratio = ratioFor(calc, rank, stat, scaling);
   if (ratio === null) {
-    const which = scaling === 'bonus' ? 'Bonus' : 'Gesamt';
+    const which = scaling === 'bonus' ? 'bonus' : 'total';
     return {
       value: 0,
       source: 'gamedata',
-      note: `Riots Formel ${spellKey}.${calcKey} enthält keine Skalierung mit ${which}-${STAT_NAMES[stat]} — es wird keine gerechnet.`,
+      note: `Riot's formula ${spellKey}.${calcKey} has no ${which} ${STAT_NAMES[stat]} scaling — none is calculated.`,
     };
   }
   return { value: ratio, source: 'gamedata' };
@@ -216,8 +216,8 @@ export function calcRatio(
 const STAT_NAMES: Record<StatKey, string> = {
   ad: 'AD',
   ap: 'AP',
-  maxHealth: 'Leben',
-  attackSpeed: 'Angriffstempo',
+  maxHealth: 'health',
+  attackSpeed: 'attack speed',
 };
 
 /**
@@ -238,7 +238,7 @@ export function spellTiming(
   if (!ctx.gameData) return registryValue(fallback, NO_GAME_DATA);
   const value = pickRank(findSpell(ctx.gameData, spellKey)?.[field] ?? null, rank);
   if (value === null) {
-    return registryValue(fallback, `${spellKey}.${field} fehlt in den Spieldaten — gepflegte Konstante verwendet.`);
+    return registryValue(fallback, `${spellKey}.${field} is missing from the game data — maintained constant used.`);
   }
   return { value, source: 'gamedata', formula: field };
 }
@@ -260,7 +260,7 @@ export function gameValue(
   if (!ctx.gameData) return registryValue(fallback, NO_GAME_DATA);
   const value = findDataValue(findSpell(ctx.gameData, spellKey), name, rank);
   if (value === null) {
-    return registryValue(fallback, `Wert ${spellKey}.${name} fehlt in den Spieldaten — gepflegte Konstante verwendet.`);
+    return registryValue(fallback, `Value ${spellKey}.${name} is missing from the game data — maintained constant used.`);
   }
   return { value, source: 'gamedata', formula: name };
 }
@@ -278,7 +278,7 @@ export function calcFormula(
 /* ------------------------------------------------ Data Dragon value helpers */
 
 const ZERO_NOTE =
-  'Data Dragon liefert hier 0 — Riot füllt die effect-Arrays überarbeiteter Kits nicht mehr. Gepflegte Konstante verwendet.';
+  'Data Dragon returns 0 here — Riot no longer populates the effect arrays of reworked kits. Maintained constant used.';
 
 /**
  * Read `spell.effect[index][rank - 1]`, falling back to a maintained constant.

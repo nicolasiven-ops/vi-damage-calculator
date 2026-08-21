@@ -25,14 +25,14 @@ export type ItemClass =
   | 'other';
 
 export const ITEM_CLASS_LABELS: Record<ItemClass, string> = {
-  starter: 'Startitems',
-  boots: 'Schuhe',
-  basic: 'Basis',
-  epic: 'Episch',
-  legendary: 'Legendär',
-  consumable: 'Verbrauchbar',
-  trinket: 'Schmuckstück',
-  other: 'Sonstige',
+  starter: 'Starter',
+  boots: 'Boots',
+  basic: 'Basic',
+  epic: 'Epic',
+  legendary: 'Legendary',
+  consumable: 'Consumable',
+  trinket: 'Trinket',
+  other: 'Other',
 };
 
 export interface ResolvedItem {
@@ -191,21 +191,26 @@ const LEGACY_KEY_TO_STAT: Record<string, keyof StatBlock> = {
   FlatManaRegenMod: 'manaRegen',
 };
 
-/** Legacy keys already expressed as fractions by Data Dragon. */
-const LEGACY_ALREADY_FRACTION = new Set([
-  'PercentAttackSpeedMod',
-  'PercentLifeStealMod',
-  'PercentMovementSpeedMod',
-  'FlatCritChanceMod',
-]);
-
+/*
+ * No conversion happens here, and that is deliberate.
+ *
+ * There used to be a set of "keys already expressed as fractions" and a ternary
+ * that chose between two identical expressions — code claiming a distinction it
+ * did not make. The distinction is genuinely unnecessary: every percentage key
+ * in the map above (`PercentAttackSpeedMod`, `PercentLifeStealMod`,
+ * `PercentMovementSpeedMod`, `FlatCritChanceMod`) is a fraction in Data Dragon
+ * already, and every other key is a flat value. Both go in as they come out.
+ *
+ * If Riot ever adds a legacy percentage key that ships whole percent, this is
+ * where the division belongs — and then the branch will do something.
+ */
 function legacyStats(raw: DDragonItem, alreadyFound: Set<keyof StatBlock>): StatBlock {
   const stats = emptyStats();
   for (const [rawKey, rawValue] of Object.entries(raw.stats ?? {})) {
     const key = LEGACY_KEY_TO_STAT[rawKey];
     if (!key || alreadyFound.has(key)) continue;
     if (typeof rawValue !== 'number' || rawValue === 0) continue;
-    stats[key] += LEGACY_ALREADY_FRACTION.has(rawKey) ? rawValue : rawValue;
+    stats[key] += rawValue;
   }
   return stats;
 }
@@ -273,7 +278,7 @@ export function resolvePurchasableItems(items: Record<string, DDragonItem>): Res
     if (/^\s*$/.test(raw.name ?? '')) continue;
     resolved.push(resolveItem(id, raw));
   }
-  resolved.sort((a, b) => a.name.localeCompare(b.name, 'de'));
+  resolved.sort((a, b) => a.name.localeCompare(b.name, 'en'));
   return resolved;
 }
 

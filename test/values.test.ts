@@ -27,7 +27,7 @@ describe('effectValue', () => {
     const result = effectValue(zeroFilledSpell(), 1, 5, [40, 60, 80, 100, 120]);
     expect(result.value).toBe(120);
     expect(result.source).toBe('registry');
-    expect(result.note).toMatch(/Data Dragon liefert hier 0/);
+    expect(result.note).toMatch(/Data Dragon returns 0 here/);
   });
 
   it('falls back when the spell is missing entirely', () => {

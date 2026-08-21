@@ -92,9 +92,9 @@ function adaptiveAmount(stats: ChampionStats, base: number, adRatio: number, apR
 
 const ELECTROCUTE: RuneDefinition = {
   id: 8112,
-  name: 'Strom-Schock',
+  name: 'Electrocute',
   modelled: true,
-  note: '3 getrennte Angriffe oder Fähigkeiten auf denselben Champion innerhalb von 3 s.',
+  note: '3 separate attacks or abilities on the same champion within 3s.',
   createRuntime() {
     let hits = 0;
     let firstHitAt = -Infinity;
@@ -116,11 +116,11 @@ const ELECTROCUTE: RuneDefinition = {
         const amount = adaptiveAmount(ctx.stats, byLevel(30, 180, ctx.stats.level), 0.4, 0.25);
         ctx.dealDamage({
           sourceId: 'rune:8112',
-          sourceLabel: 'Strom-Schock',
+          sourceLabel: 'Electrocute',
           sourceKind: 'rune',
           type: adaptiveType(ctx.stats),
           amount,
-          notes: ['3 Treffer innerhalb von 3 s'],
+          notes: ['3 hits within 3s'],
         });
         procced = true;
         readyAt = ctx.time + byLevel(25, 20, ctx.stats.level);
@@ -130,11 +130,11 @@ const ELECTROCUTE: RuneDefinition = {
 };
 
 /**
- * Sturm der Klingen.
+ * Hail of Blades.
  *
- * Numbers from Data Dragon's own rune text for the patch: 90 % attack speed for
- * melee champions (60 % ranged), up to three attacks, no more than 3 s between
- * them, 10 s cooldown, and 2–20 (+12 % bonus AD, +10 % AP) true damage on each
+ * Numbers from Data Dragon's own rune text for the patch: 90% attack speed for
+ * melee champions (60% ranged), up to three attacks, no more than 3s between
+ * them, 10s cooldown, and 2–20 (+12% bonus AD, +10% AP) true damage on each
  * of those attacks.
  *
  * Two rules from the same text carry real weight for Vi and are modelled:
@@ -145,20 +145,20 @@ const ELECTROCUTE: RuneDefinition = {
  *    therefore booked over the 2.5 cap rather than into it.
  *
  * The buff ends on the third attack, not on a timer, so it is applied with the
- * 3 s window as its duration and cleared explicitly once the attacks are spent.
+ * 3s window as its duration and cleared explicitly once the attacks are spent.
  */
 const HAIL_OF_BLADES: RuneDefinition = {
   id: 9923,
-  name: 'Sturm der Klingen',
+  name: 'Hail of Blades',
   modelled: true,
   note:
-    '90 % Angriffstempo (Nahkampf) für 3 Angriffe gegen Champions, ' +
-    'plus 1 Angriff je Angriffstimer-Reset — Vis E zählt dazu. ' +
-    'Wahrer Zusatzschaden auf jeden dieser Angriffe. Das Angriffstempo darf die Kappe von 2,5 überschreiten. ' +
-    'Die Abklingzeit von 10 s wird ab der Aktivierung gerechnet.',
+    '90% attack speed (melee) for 3 attacks against champions, ' +
+    'plus 1 extra attack per attack timer reset — Vi\'s E counts. ' +
+    'Bonus true damage on each of those attacks. The attack speed is allowed to exceed the 2.5 cap. ' +
+    'The 10s cooldown starts on activation.',
   createRuntime() {
-    const LABEL = 'Sturm der Klingen';
-    /** Melee value; the rune grants 60 % to ranged champions. */
+    const LABEL = 'Hail of Blades';
+    /** Melee value; the rune grants 60% to ranged champions. */
     const ATTACK_SPEED = 0.9;
     const ATTACKS = 3;
     const WINDOW_SECONDS = 3;
@@ -219,8 +219,8 @@ const HAIL_OF_BLADES: RuneDefinition = {
           type: 'true',
           amount: byLevel(2, 20, ctx.stats.level) + 0.12 * ctx.stats.bonusAttackDamage + 0.1 * ctx.stats.abilityPower,
           // Counted against the limit as it stands: attack resets raise it, so
-          // "3 von 4" is a legitimate reading of an extended window.
-          notes: [`Angriff ${spent} von ${spent + attacksLeft - 1}`],
+          // "3 of 4" is a legitimate reading of an extended window.
+          notes: [`Attack ${spent} of ${spent + attacksLeft - 1}`],
         });
 
         attacksLeft -= 1;
@@ -235,7 +235,7 @@ const HAIL_OF_BLADES: RuneDefinition = {
         ctx.addEvent({
           kind: 'buff',
           label: LABEL,
-          detail: `Angriffstimer zurückgesetzt · ${attacksLeft} Angriffe übrig`,
+          detail: `Attack timer reset · ${attacksLeft} attacks left`,
         });
       },
     };
@@ -244,9 +244,9 @@ const HAIL_OF_BLADES: RuneDefinition = {
 
 const DARK_HARVEST: RuneDefinition = {
   id: 8128,
-  name: 'Dunkle Ernte',
+  name: 'Dark Harvest',
   modelled: true,
-  note: 'Löst aus, sobald das Ziel unter 50 % Leben fällt. Seelen werden über der Combo nicht gesammelt — Startwert konfigurierbar über die Seelenanzahl.',
+  note: 'Triggers as soon as the target drops below 50% health. Souls are not collected across the combo — the starting value is configurable via the soul count.',
   createRuntime() {
     let readyAt = 0;
     return {
@@ -256,11 +256,11 @@ const DARK_HARVEST: RuneDefinition = {
         const amount = adaptiveAmount(ctx.stats, 20, 0.25, 0.15);
         ctx.dealDamage({
           sourceId: 'rune:8128',
-          sourceLabel: 'Dunkle Ernte',
+          sourceLabel: 'Dark Harvest',
           sourceKind: 'rune',
           type: adaptiveType(ctx.stats),
           amount,
-          notes: ['Ziel unter 50 % Leben', 'ohne gesammelte Seelen gerechnet'],
+          notes: ['target below 50% health', 'calculated without collected souls'],
         });
         readyAt = ctx.time + 40;
       },
@@ -270,9 +270,9 @@ const DARK_HARVEST: RuneDefinition = {
 
 const PRESS_THE_ATTACK: RuneDefinition = {
   id: 8005,
-  name: 'Zum Angriff',
+  name: 'Press the Attack',
   modelled: true,
-  note: '3 aufeinanderfolgende Basisangriffe auf denselben Champion; danach 8 % erhöhter Schaden aus allen Quellen für 6 s.',
+  note: '3 consecutive basic attacks on the same champion; afterwards 8% increased damage from all sources for 6s.',
   createRuntime() {
     let attacks = 0;
     let procced = false;
@@ -286,18 +286,18 @@ const PRESS_THE_ATTACK: RuneDefinition = {
         if (attacks < 3) return;
         ctx.dealDamage({
           sourceId: 'rune:8005',
-          sourceLabel: 'Zum Angriff',
+          sourceLabel: 'Press the Attack',
           sourceKind: 'rune',
           type: adaptiveType(ctx.stats),
           amount: byLevel(40, 180, ctx.stats.level),
-          notes: ['3. aufeinanderfolgender Basisangriff'],
+          notes: ['3rd consecutive basic attack'],
         });
         procced = true;
         ampUntil = ctx.time + 6;
         ctx.applyTargetAmplification({
           percent: 0.08,
           durationSeconds: 6,
-          label: 'Zum Angriff · Ziel erleidet +8 % Schaden',
+          label: 'Press the Attack · target takes +8% damage',
         });
       },
     };
@@ -306,9 +306,9 @@ const PRESS_THE_ATTACK: RuneDefinition = {
 
 const CONQUEROR: RuneDefinition = {
   id: 8010,
-  name: 'Eroberer',
+  name: 'Conqueror',
   modelled: true,
-  note: 'Nahkämpfer erhalten 2 Stapel pro Treffer, bis zu 12. Stapel werden über die Combo aufgebaut.',
+  note: 'Melee champions gain 2 stacks per hit, up to 12. Stacks build up over the course of the combo.',
   createRuntime() {
     let stacks = 0;
     return {
@@ -321,7 +321,7 @@ const CONQUEROR: RuneDefinition = {
         ctx.applyTemporaryStats({
           stats: { attackDamage: perStack * 2 },
           durationSeconds: 6,
-          label: `Eroberer · ${stacks}/12 Stapel (+${(perStack * stacks).toFixed(0)} AD)`,
+          label: `Conqueror · ${stacks}/12 stacks (+${(perStack * stacks).toFixed(0)} AD)`,
         });
       },
     };
@@ -332,9 +332,9 @@ const CONQUEROR: RuneDefinition = {
 
 const CHEAP_SHOT: RuneDefinition = {
   id: 8126,
-  name: 'Fieser Trick',
+  name: 'Cheap Shot',
   modelled: true,
-  note: 'Setzt voraus, dass das Ziel beeinträchtigt ist — hier an Vis R-Luftstoß gekoppelt.',
+  note: 'Requires the target to be impaired — tied to Vi\'s R knock-up here.',
   createRuntime() {
     let readyAt = 0;
     let ultCastAt = -Infinity;
@@ -346,11 +346,11 @@ const CHEAP_SHOT: RuneDefinition = {
         if (ctx.time - ultCastAt > 1.25) return;
         ctx.dealDamage({
           sourceId: 'rune:8126',
-          sourceLabel: 'Fieser Trick',
+          sourceLabel: 'Cheap Shot',
           sourceKind: 'rune',
           type: 'true',
           amount: byLevel(10, 45, ctx.stats.level),
-          notes: ['Ziel durch R beeinträchtigt'],
+          notes: ['target impaired by R'],
         });
         readyAt = ctx.time + 4;
       },
@@ -360,70 +360,70 @@ const CHEAP_SHOT: RuneDefinition = {
 
 const SUDDEN_IMPACT: RuneDefinition = {
   id: 8143,
-  name: 'Plötzlicher Einschlag',
+  name: 'Sudden Impact',
   modelled: true,
-  note: 'Vis Q und R sind Sprints, lösen also dauerhaft aus. Als konstante Letalität und Magiedurchdringung gerechnet.',
+  note: 'Vi\'s Q and R are dashes, so this is permanently up. Counted as constant lethality and magic penetration.',
   stats: () => ({ lethality: 7, magicPenFlat: 6 }),
 };
 
 const EYEBALL_COLLECTION: RuneDefinition = {
   id: 8138,
-  name: 'Augapfelsammlung',
+  name: 'Eyeball Collection',
   modelled: true,
-  note: 'Voll gestapelt gerechnet (+6 adaptive Kraft).',
+  note: 'Counted as fully stacked (+6 adaptive force).',
   stats: () => ({ attackDamage: 6 }),
 };
 
 const COUP_DE_GRACE: RuneDefinition = {
   id: 8014,
-  name: 'Gnadenstoß',
+  name: 'Coup de Grace',
   modelled: true,
-  note: '+8 % Schaden gegen Champions unter 40 % Leben.',
+  note: '+8% damage against champions below 40% health.',
   amplify: (ctx) => (ctx.targetCurrentHealth / ctx.targetMaxHealth <= 0.4 ? 0.08 : 0),
 };
 
 const CUT_DOWN: RuneDefinition = {
   id: 8017,
-  name: 'Niederstrecken',
+  name: 'Cut Down',
   modelled: true,
-  note: 'Bis zu +8 %, abhängig davon, wie viel mehr maximales Leben das Ziel hat.',
+  note: 'Up to +8%, depending on how much more maximum health the target has.',
   amplify: (ctx) => {
     const ratio = ctx.targetMaxHealth / Math.max(1, ctx.stats.maxHealth);
     if (ratio <= 1.0) return 0;
-    // Scales linearly from 0 % at equal health to 8 % at +100 % health.
+    // Scales linearly from 0% at equal health to 8% at +100% health.
     return Math.min(0.08, ((ratio - 1) / 1.0) * 0.08);
   },
 };
 
 const LAST_STAND: RuneDefinition = {
   id: 8299,
-  name: 'Letztes Gefecht',
+  name: 'Last Stand',
   modelled: true,
-  note: 'Hängt von Vis eigenem Leben ab — hier mit vollem Leben gerechnet, wirkt daher nicht.',
+  note: 'Depends on Vi\'s own health — calculated at full health here, so it has no effect.',
   amplify: () => 0,
 };
 
 const LEGEND_ALACRITY: RuneDefinition = {
   id: 9104,
-  name: 'Legende: Hast',
+  name: 'Legend: Alacrity',
   modelled: true,
-  note: 'Voll gestapelt gerechnet (+15 % Angriffstempo).',
+  note: 'Counted as fully stacked (+15% attack speed).',
   stats: () => ({ attackSpeed: 0.15 }),
 };
 
 const TRANSCENDENCE: RuneDefinition = {
   id: 8210,
-  name: 'Transzendenz',
+  name: 'Transcendence',
   modelled: true,
-  note: '+10 Fähigkeitstempo ab Level 10 (ab Level 5: +5).',
+  note: '+10 ability haste from level 10 onwards (from level 5: +5).',
   stats: ({ level }) => ({ abilityHaste: level >= 10 ? 10 : level >= 5 ? 5 : 0 }),
 };
 
 const GATHERING_STORM: RuneDefinition = {
   id: 8236,
-  name: 'Aufziehender Sturm',
+  name: 'Gathering Storm',
   modelled: true,
-  note: 'Wächst alle 10 Minuten. Hier über die Spielzeit-Annahme in den Einstellungen gerechnet.',
+  note: 'Grows every 10 minutes. Calculated here from the game time assumed in the settings.',
   stats: ({ level }) => {
     // Approximate game time from level: roughly 2 minutes per level.
     const tenMinuteBlocks = Math.floor((level * 2) / 10);
@@ -434,9 +434,9 @@ const GATHERING_STORM: RuneDefinition = {
 
 const ABSOLUTE_FOCUS: RuneDefinition = {
   id: 8233,
-  name: 'Absoluter Fokus',
+  name: 'Absolute Focus',
   modelled: true,
-  note: 'Setzt voraus, dass Vi über 70 % Leben hat — hier immer aktiv.',
+  note: 'Requires Vi to be above 70% health — always active here.',
   stats: ({ level }) => ({ attackDamage: byLevel(1.8, 18, level) * 0.6 }),
 };
 
@@ -445,51 +445,51 @@ const ABSOLUTE_FOCUS: RuneDefinition = {
 export const SHARD_DEFINITIONS: RuneDefinition[] = [
   {
     id: 5008,
-    name: 'Adaptive Kraft',
+    name: 'Adaptive Force',
     modelled: true,
-    note: '+9 adaptive Kraft → +5,4 Angriffsschaden für AD-Champions.',
+    note: '+9 adaptive force → +5.4 attack damage for AD champions.',
     stats: () => ({ attackDamage: 5.4 }),
   },
   {
     id: 5005,
-    name: 'Angriffstempo',
+    name: 'Attack Speed',
     modelled: true,
-    note: '+10 % Angriffstempo.',
+    note: '+10% attack speed.',
     stats: () => ({ attackSpeed: 0.1 }),
   },
   {
     id: 5007,
-    name: 'Fähigkeitstempo',
+    name: 'Ability Haste',
     modelled: true,
-    note: '+8 Fähigkeitstempo.',
+    note: '+8 ability haste.',
     stats: () => ({ abilityHaste: 8 }),
   },
   {
     id: 5010,
-    name: 'Lauftempo',
+    name: 'Movement Speed',
     modelled: true,
-    note: '+2 % Lauftempo — ohne Schadenswirkung.',
+    note: '+2% movement speed — no effect on damage.',
     stats: () => ({ moveSpeedPercent: 0.02 }),
   },
   {
     id: 5011,
-    name: 'Leben',
+    name: 'Health',
     modelled: true,
-    note: '+65 Leben.',
+    note: '+65 health.',
     stats: () => ({ hp: 65 }),
   },
   {
     id: 5001,
-    name: 'Leben (skalierend)',
+    name: 'Health (scaling)',
     modelled: true,
-    note: 'Skaliert mit dem Level.',
+    note: 'Scales with level.',
     stats: ({ level }) => ({ hp: byLevel(10, 180, level) }),
   },
   {
     id: 5013,
-    name: 'Zähigkeit & Verlangsamungsresistenz',
+    name: 'Tenacity and Slow Resist',
     modelled: true,
-    note: '+10 % Zähigkeit — ohne Schadenswirkung.',
+    note: '+10% tenacity — no effect on damage.',
     stats: () => ({ tenacity: 0.1 }),
   },
 ];

@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 interface Props {
   version: string;
   versions: string[];
@@ -7,6 +9,13 @@ interface Props {
   onVersionChange: (version: string) => void;
   onReload: () => void;
   onReset: () => void;
+  /**
+   * The build's config tabs, rendered inside the header row.
+   *
+   * They share the row rather than taking their own, because everything here is
+   * pinned to the top of the screen and pays for its height out of the analysis.
+   */
+  tabs?: ReactNode;
 }
 
 export function AppHeader({
@@ -18,6 +27,7 @@ export function AppHeader({
   onVersionChange,
   onReload,
   onReset,
+  tabs,
 }: Props) {
   return (
     <header className="app-header">
@@ -25,16 +35,18 @@ export function AppHeader({
         <div className="brand">
           <span className="brand-mark" aria-hidden="true" />
           <div className="brand-text">
-            <h1>Schadensrechner</h1>
-            <span className="brand-sub">League of Legends · Combo-Simulation</span>
+            <h1>Damage Calculator</h1>
+            <span className="brand-sub">League of Legends · combo simulation</span>
           </div>
         </div>
 
+        {tabs}
+
         <div className="app-header-controls">
-          {loading && <span className="tag">lädt …</span>}
+          {loading && <span className="tag">loading …</span>}
           {offline ? (
             <span className="tag danger" title={error ?? undefined}>
-              Offline — Snapshot {version}
+              Offline — snapshot {version}
             </span>
           ) : (
             <label className="patch-select">
@@ -52,20 +64,20 @@ export function AppHeader({
               </select>
             </label>
           )}
-          <button className="btn subtle" onClick={onReload}>
-            Neu laden
+          <button className="btn subtle" onClick={onReload} title="Reload patch data">
+            Reload
           </button>
-          <button className="btn subtle danger" onClick={onReset}>
-            Build zurücksetzen
+          <button className="btn subtle danger" onClick={onReset} title="Reset build">
+            Reset
           </button>
         </div>
       </div>
 
       {offline && (
         <div className="app-banner">
-          <strong>Data Dragon nicht erreichbar.</strong> {error} — der Rechner läuft mit einem
-          minimalen Offline-Snapshot: Vis Basiswerte sind vorhanden, Items und Runen nicht. Sobald
-          die Verbindung steht, „Neu laden“ drücken.
+          <strong>Data Dragon unreachable.</strong> {error} — the calculator is running on a
+          minimal offline snapshot: Vi's base stats are there, items and runes are not. Press
+          “Reload” once the connection is back.
         </div>
       )}
     </header>

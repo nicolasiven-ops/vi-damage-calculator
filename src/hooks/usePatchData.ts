@@ -62,7 +62,7 @@ export function usePatchData(locale: string = DEFAULT_LOCALE): PatchData {
         const message =
           err instanceof DDragonError
             ? err.message
-            : 'Data Dragon konnte nicht geladen werden.';
+            : 'Data Dragon could not be loaded.';
         setError(message);
         setBundle(offlineBundle());
       } finally {
@@ -119,7 +119,7 @@ export interface ChampionDetailState {
 const IDLE_GAME_DATA: GameDataStatus = {
   state: 'idle',
   patch: null,
-  message: 'Spieldaten wurden nicht geladen.',
+  message: 'Game data was not loaded.',
   report: null,
 };
 
@@ -149,7 +149,7 @@ export function useChampionDetail(
         gameDataStatus: {
           ...IDLE_GAME_DATA,
           message: offline
-            ? 'Offline-Modus: es werden ausschließlich gepflegte Konstanten verwendet.'
+            ? 'Offline mode: maintained constants only.'
             : IDLE_GAME_DATA.message,
         },
       });
@@ -177,7 +177,7 @@ export function useChampionDetail(
           gameDataStatus: {
             state: 'loading',
             patch: null,
-            message: 'Spieldaten werden geladen …',
+            message: 'Loading game data …',
             report: null,
           },
         });
@@ -190,7 +190,7 @@ export function useChampionDetail(
           error:
             err instanceof DDragonError
               ? err.message
-              : `Championdaten für ${championId} konnten nicht geladen werden.`,
+              : `Champion data for ${championId} could not be loaded.`,
           gameData: null,
           gameDataStatus: IDLE_GAME_DATA,
         });
@@ -222,8 +222,8 @@ export function useChampionDetail(
             patch: null,
             message:
               err instanceof DDragonError
-                ? `${err.message} — es werden gepflegte Konstanten verwendet.`
-                : 'Spieldaten konnten nicht geladen werden — es werden gepflegte Konstanten verwendet.',
+                ? `${err.message} — falling back to maintained constants.`
+                : 'Game data could not be loaded — falling back to maintained constants.',
             report: null,
           },
         }));

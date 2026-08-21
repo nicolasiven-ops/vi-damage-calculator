@@ -65,18 +65,17 @@ export function ItemPanel({ items, itemIds, version, offline, onChange }: Props)
 
   return (
     <Panel
-      index="03"
       title="Items"
       actions={
-        <span className="gold-total mono" title="Gesamtkosten der Ausrüstung">
-          {totalGold.toLocaleString('de-DE')} G
+        <span className="gold-total mono" title="Total gold cost of the build">
+          {totalGold.toLocaleString('en-US')} G
         </span>
       }
     >
       {offline && (
         <p className="empty-note">
-          Data Dragon ist nicht erreichbar — ohne die Item-Datenbank lassen sich keine Items
-          auswählen. Der Rechner arbeitet solange nur mit Vis Basiswerten.
+          Data Dragon is unreachable — without the item database there are no items to pick from.
+          Until it is back, the calculator runs on Vi's base stats alone.
         </p>
       )}
 
@@ -88,7 +87,7 @@ export function ItemPanel({ items, itemIds, version, offline, onChange }: Props)
               key={index}
               className={`item-slot${activeSlot === index ? ' active' : ''}${item ? ' filled' : ''}`}
               onClick={() => setActiveSlot(activeSlot === index ? null : index)}
-              title={item ? item.name : `Slot ${index + 1} — leer`}
+              title={item ? item.name : `Slot ${index + 1} — empty`}
             >
               {item ? (
                 <img src={imageUrls.item(version, item.imageFile)} alt={item.name} />
@@ -96,7 +95,7 @@ export function ItemPanel({ items, itemIds, version, offline, onChange }: Props)
                 <span className="item-slot-empty">+</span>
               )}
               {item && !hasModelledEffect(item.id) && item.descriptionText.length > 0 && (
-                <span className="item-slot-flag" title="Passiv nicht modelliert">
+                <span className="item-slot-flag" title="Passive not modelled">
                   !
                 </span>
               )}
@@ -107,7 +106,7 @@ export function ItemPanel({ items, itemIds, version, offline, onChange }: Props)
 
       {itemIds.some((id) => id !== '') && (
         <button className="btn subtle" onClick={() => onChange(['', '', '', '', '', ''])}>
-          Alle Items entfernen
+          Clear all items
         </button>
       )}
 
@@ -116,7 +115,7 @@ export function ItemPanel({ items, itemIds, version, offline, onChange }: Props)
           <div className="item-picker-controls">
             <input
               type="search"
-              placeholder={`Slot ${activeSlot + 1} — Item suchen …`}
+              placeholder={`Slot ${activeSlot + 1} — search items …`}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               autoFocus
@@ -131,14 +130,14 @@ export function ItemPanel({ items, itemIds, version, offline, onChange }: Props)
                     setQuery('');
                   }}
                 >
-                  {filter === 'all' ? 'Alle' : ITEM_CLASS_LABELS[filter]}
+                  {filter === 'all' ? 'All' : ITEM_CLASS_LABELS[filter]}
                 </button>
               ))}
             </div>
             {searching && (
               <span className="field-hint">
-                Die Suche durchsucht alle Klassen — {filtered.length}{' '}
-                {filtered.length === 1 ? 'Treffer' : 'Treffer'}.
+                Search covers every class — {filtered.length}{' '}
+                {filtered.length === 1 ? 'match' : 'matches'}.
               </span>
             )}
           </div>
@@ -146,7 +145,7 @@ export function ItemPanel({ items, itemIds, version, offline, onChange }: Props)
           <div className="item-grid scroll-y">
             {itemIds[activeSlot] !== '' && (
               <button className="item-option clear" onClick={() => setSlot(activeSlot, '')}>
-                <span className="item-option-name">Slot leeren</span>
+                <span className="item-option-name">Clear slot</span>
               </button>
             )}
             {filtered.slice(0, 400).map((item) => (
@@ -162,16 +161,16 @@ export function ItemPanel({ items, itemIds, version, offline, onChange }: Props)
                   <span className="item-option-stats">{summariseStats(item.stats)}</span>
                 </span>
                 <span className="item-option-meta">
-                  <span className="mono">{item.gold.toLocaleString('de-DE')}</span>
+                  <span className="mono">{item.gold.toLocaleString('en-US')}</span>
                   {hasModelledEffect(item.id) && (
-                    <span className="tag good" title="Passiv wird simuliert">
-                      Passiv
+                    <span className="tag good" title="Passive is simulated">
+                      Passive
                     </span>
                   )}
                 </span>
               </button>
             ))}
-            {filtered.length === 0 && <p className="empty-note">Keine Treffer.</p>}
+            {filtered.length === 0 && <p className="empty-note">No matches.</p>}
           </div>
         </div>
       )}
@@ -194,7 +193,7 @@ function SelectedItemNotes({ items }: { items: ResolvedItem[] }) {
     <div className="item-notes">
       {modelled.length > 0 && (
         <div className="item-note">
-          <span className="tag good">simuliert</span>
+          <span className="tag good">simulated</span>
           <ul>
             {modelled.map((item) => (
               <li key={item.id}>
@@ -206,11 +205,11 @@ function SelectedItemNotes({ items }: { items: ResolvedItem[] }) {
       )}
       {unmodelled.length > 0 && (
         <div className="item-note">
-          <span className="tag warn">nur Werte</span>
+          <span className="tag warn">stats only</span>
           <ul>
             {unmodelled.map((item) => (
               <li key={item.id}>
-                <strong>{item.name}</strong> — Stats zählen voll, das Passiv ist nicht modelliert.
+                <strong>{item.name}</strong> — stats count in full, the passive is not modelled.
               </li>
             ))}
           </ul>
@@ -218,11 +217,11 @@ function SelectedItemNotes({ items }: { items: ResolvedItem[] }) {
       )}
       {unparsed.length > 0 && (
         <div className="item-note">
-          <span className="tag danger">ungelesen</span>
+          <span className="tag danger">unread</span>
           <ul>
             {unparsed.map((item) => (
               <li key={item.id}>
-                <strong>{item.name}</strong> — nicht zuordenbare Statuszeile:{' '}
+                <strong>{item.name}</strong> — stat line could not be mapped:{' '}
                 {item.unparsedStatLines.join(', ')}
               </li>
             ))}
@@ -244,6 +243,6 @@ export function summariseStats(stats: StatBlock): string {
 }
 
 export function formatStat(key: keyof StatBlock, value: number): string {
-  if (PERCENT_STATS.has(key)) return `${(value * 100).toFixed(value * 100 % 1 === 0 ? 0 : 1)} %`;
+  if (PERCENT_STATS.has(key)) return `${(value * 100).toFixed(value * 100 % 1 === 0 ? 0 : 1)}%`;
   return value.toFixed(Math.abs(value) < 10 && value % 1 !== 0 ? 1 : 0);
 }

@@ -17,13 +17,32 @@
  * it is exactly where the target dies.
  */
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import type { ComboAnalysis } from '../engine/analysis';
 import { DAMAGE_TYPE_LABELS, type DamageInstance, type DamageType } from '../engine/types';
+import {
+  AXIS_LEFT,
+  AXIS_RIGHT,
+  axisTicks,
+  formatTick,
+  plotWidthOf,
+  timeToX,
+  timeWindowOf,
+  windowSpan,
+} from './timeAxis';
 
-const WIDTH = 940;
-const HEIGHT = 380;
-const PADDING = { top: 24, right: 132, bottom: 44, left: 66 };
+/*
+ * Fixed height, measured width.
+ *
+ * The chart used to draw into a fixed 940×380 viewBox scaled to fit, which meant
+ * its height followed the window: at 1440 px wide it grew past 400 px and pushed
+ * the timeline off the screen. Now the viewBox tracks the container's real width
+ * and the height stays put, so the plot gets wider on a big screen instead of
+ * taller — and the labels keep one size at every width.
+ */
+const HEIGHT = 260;
+const MIN_WIDTH = 560;
+const PADDING = { top: 18, right: AXIS_RIGHT, bottom: 40, left: AXIS_LEFT };
 
 const SERIES_ORDER: DamageType[] = ['physical', 'magic', 'true'];
 const SERIES_COLOR: Record<DamageType, string> = {
@@ -35,6 +54,12 @@ const SERIES_COLOR: Record<DamageType, string> = {
 interface Props {
   analysis: ComboAnalysis;
   targetStartingHealth: number;
+  /** The step highlighted right now, from hover anywhere or from the pin. */
+  linkedStepUid?: string | null;
+  /** The step pinned by clicking; survives the cursor leaving the chart. */
+  pinnedStepUid?: string | null;
+  onHoverStep?: (uid: string | null) => void;
+  onPinStep?: (uid: string | null) => void;
 }
 
 /**
@@ -57,8 +82,64 @@ interface Step {
 /** Two hits count as simultaneous when the clock cannot tell them apart. */
 const SAME_INSTANT = 1e-6;
 
-export function DamageChart({ analysis, targetStartingHealth }: Props) {
+export function DamageChart({
+  analysis,
+  targetStartingHealth,
+  linkedStepUid,
+  pinnedStepUid,
+  onHoverStep,
+  onPinStep,
+}: Props) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+
+  const [WIDTH, setWidth] = useState(940);
+  const observerRef = useRef<ResizeObserver | null>(null);
+
+  /*
+   * Measured through a callback ref rather than an effect.
+   *
+   * On the first render the combo has no damage yet — patch data is still
+   * loading — so this component returns early and the plot element does not
+   * exist. An effect with an empty dependency list runs exactly then, finds
+   * nothing, and never runs again: the chart stayed at its default width
+   * forever. A callback ref fires whenever the element appears or is replaced.
+   */
+  const attachPlot = useCallback((element: HTMLDivElement | null) => {
+    observerRef.current?.disconnect();
+    observerRef.current = null;
+    if (!element) return;
+
+    const measure = (value: number): boolean => {
+      if (value <= 0) return false;
+      setWidth(Math.max(MIN_WIDTH, Math.round(value)));
+      return true;
+    };
+
+    /*
+     * Measured up front, retried until it works, then watched.
+     *
+     * Neither half is enough alone. The observer only delivers callbacks with
+     * rendered frames, so a tab opened in the background never gets one — but
+     * that same tab also reports width 0 while it has no layout, which makes the
+     * first synchronous read useless. Retrying on animation frames covers the
+     * gap in both directions and stops as soon as there is a real width.
+     */
+    if (!measure(element.getBoundingClientRect().width)) {
+      let attempts = 0;
+      const retry = (): void => {
+        if (!element.isConnected || attempts > 30) return;
+        attempts += 1;
+        if (!measure(element.getBoundingClientRect().width)) requestAnimationFrame(retry);
+      };
+      requestAnimationFrame(retry);
+    }
+
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) measure(entry.contentRect.width);
+    });
+    observer.observe(element);
+    observerRef.current = observer;
+  }, []);
 
   const activeSeries = useMemo(
     () => SERIES_ORDER.filter((type) => analysis.byType.some((entry) => entry.type === type)),
@@ -95,18 +176,20 @@ export function DamageChart({ analysis, targetStartingHealth }: Props) {
   }, [analysis.curve]);
 
   const maxTime = Math.max(0.6, steps[steps.length - 1]?.time ?? 1);
-  const endTime = maxTime * 1.06;
+  // Shared with the Gantt view below, so a moment sits at the same x in both.
+  const window = timeWindowOf(analysis.timeToFirstDamage, analysis.duration);
+  const endTime = window.end;
   const maxValue = Math.max(analysis.totalMitigated, targetStartingHealth) * 1.08 || 1;
 
   const x = (time: number) =>
-    PADDING.left + (time / endTime) * (WIDTH - PADDING.left - PADDING.right);
+    timeToX(time, WIDTH, window);
   const y = (value: number) =>
     HEIGHT - PADDING.bottom - (value / maxValue) * (HEIGHT - PADDING.top - PADDING.bottom);
 
   if (analysis.curve.length === 0) {
     return (
       <p className="empty-note">
-        Keine Schadensinstanzen — die Combo enthält noch keine Aktion, die Schaden verursacht.
+        No damage yet — the combo has no step that deals any.
       </p>
     );
   }
@@ -132,9 +215,40 @@ export function DamageChart({ analysis, targetStartingHealth }: Props) {
   }
 
   const yTicks = niceTicks(maxValue, 5);
-  const xTicks = niceTicks(endTime, 6);
+  // Roughly one time label per 170 px, so they never collide as the plot narrows.
+  const xTicks = axisTicks(window, WIDTH);
 
-  const hovered = hoverIndex !== null ? steps[hoverIndex] : null;
+  /** The instant closest to the pointer, so the whole plot is one hit target. */
+  function nearestStepIndex(event: { clientX: number; currentTarget: SVGSVGElement }): number {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const ratio = WIDTH / rect.width;
+    const localX = (event.clientX - rect.left) * ratio;
+    const time = window.start + ((localX - AXIS_LEFT) / plotWidthOf(WIDTH)) * windowSpan(window);
+    let nearest = 0;
+    let best = Infinity;
+    steps.forEach((entry, index) => {
+      const distance = Math.abs(entry.time - time);
+      if (distance < best) {
+        best = distance;
+        nearest = index;
+      }
+    });
+    return nearest;
+  }
+
+  /** True when every hit at this instant belongs to the given combo step. */
+  const stepOf = (step: Step): string | null => step.instances[0]?.stepUid ?? null;
+  const belongsTo = (step: Step, uid: string | null | undefined): boolean =>
+    !!uid && step.instances.some((instance) => instance.stepUid === uid);
+
+  /*
+   * With nothing hovered the readout falls back to the pinned instant, so a
+   * click leaves something to read rather than just a highlight.
+   */
+  const hovered =
+    hoverIndex !== null
+      ? steps[hoverIndex]
+      : (steps.find((step) => belongsTo(step, pinnedStepUid)) ?? null);
 
   return (
     <figure className="chart-figure">
@@ -147,36 +261,29 @@ export function DamageChart({ analysis, targetStartingHealth }: Props) {
         ))}
         <span className="chart-legend-item muted">
           <span className="chart-swatch dashed" />
-          Leben des Ziels
+          Target health
         </span>
       </div>
 
-      <div className="chart-scroll">
+      <div className="chart-scroll" ref={attachPlot}>
         <svg
           viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+          style={{ height: HEIGHT }}
           className="chart-svg"
           role="img"
-          aria-label={`Kumulierter Schaden über ${maxTime.toFixed(2)} Sekunden, aufgeteilt nach Schadensart`}
-          onMouseLeave={() => setHoverIndex(null)}
-          onMouseMove={(event) => {
-            const svg = event.currentTarget;
-            const rect = svg.getBoundingClientRect();
-            const ratio = WIDTH / rect.width;
-            const localX = (event.clientX - rect.left) * ratio;
-            const time = ((localX - PADDING.left) / (WIDTH - PADDING.left - PADDING.right)) * endTime;
-            let nearest = 0;
-            let best = Infinity;
-            steps.forEach((entry, index) => {
-              const distance = Math.abs(entry.time - time);
-              if (distance < best) {
-                best = distance;
-                nearest = index;
-              }
-            });
-            setHoverIndex(nearest);
+          aria-label={`Cumulative damage over ${maxTime.toFixed(2)} seconds, split by damage type`}
+          onMouseLeave={() => {
+            setHoverIndex(null);
+            onHoverStep?.(null);
           }}
+          onMouseMove={(event) => {
+            const nearest = nearestStepIndex(event);
+            setHoverIndex(nearest);
+            onHoverStep?.(stepOf(steps[nearest]!));
+          }}
+          onClick={(event) => onPinStep?.(stepOf(steps[nearestStepIndex(event)]!))}
         >
-          <title>Kumulierter Schaden über Zeit</title>
+          <title>Cumulative damage over time</title>
 
           {/* Grid — recessive, behind everything */}
           {yTicks.map((tick) => (
@@ -232,23 +339,34 @@ export function DamageChart({ analysis, targetStartingHealth }: Props) {
                 y={y(targetStartingHealth) + 4}
                 className="chart-reference-label"
               >
-                {Math.round(targetStartingHealth).toLocaleString('de-DE')} LP
+                {Math.round(targetStartingHealth).toLocaleString('en-US')} HP
               </text>
             </>
           )}
 
-          {/* One marker per instant, not per hit: simultaneous hits share it */}
-          {steps.slice(1).map((step, index) => (
-            <circle
-              key={step.instances[0]!.id}
-              cx={x(step.time)}
-              cy={y(step.total)}
-              r={hoverIndex === index + 1 ? 6 : 4}
-              fill="var(--surface-1)"
-              stroke={SERIES_COLOR[step.instances[step.instances.length - 1]!.type]}
-              strokeWidth={2}
-            />
-          ))}
+          {/*
+           * One marker per instant, not per hit: simultaneous hits share it.
+           * A marker belonging to the highlighted combo step gets a gold ring,
+           * which is what ties a click here to the card in the strip above.
+           */}
+          {steps.slice(1).map((step, index) => {
+            const isLinked = belongsTo(step, linkedStepUid);
+            return (
+              <circle
+                key={step.instances[0]!.id}
+                cx={x(step.time)}
+                cy={y(step.total)}
+                r={hoverIndex === index + 1 || isLinked ? 6 : 4}
+                fill="var(--surface-1)"
+                stroke={
+                  isLinked
+                    ? 'var(--gold-300)'
+                    : SERIES_COLOR[step.instances[step.instances.length - 1]!.type]
+                }
+                strokeWidth={isLinked ? 3 : 2}
+              />
+            );
+          })}
 
           {/* Direct labels on bands tall enough to hold them */}
           {activeSeries.map((type, level) => {
@@ -267,7 +385,7 @@ export function DamageChart({ analysis, targetStartingHealth }: Props) {
                 className="chart-band-label"
                 fill={SERIES_COLOR[type]}
               >
-                {Math.round(value).toLocaleString('de-DE')}
+                {Math.round(value).toLocaleString('en-US')}
               </text>
             );
           })}
@@ -303,7 +421,7 @@ export function DamageChart({ analysis, targetStartingHealth }: Props) {
               y={HEIGHT - PADDING.bottom + 20}
               className="chart-tick middle"
             >
-              {tick.toFixed(1)} s
+              {formatTick(tick)}
             </text>
           ))}
           <text
@@ -311,44 +429,13 @@ export function DamageChart({ analysis, targetStartingHealth }: Props) {
             y={HEIGHT - 8}
             className="chart-axis-title"
           >
-            Zeit seit Combo-Start
+            Time since combo start
           </text>
         </svg>
       </div>
-
-      {hovered && (
-        <figcaption className="chart-tooltip" role="status">
-          <span className="chart-tooltip-time mono">{hovered.time.toFixed(2)} s</span>
-          {hovered.instances.length === 0 ? (
-            <span className="chart-tooltip-source">Combo-Start</span>
-          ) : (
-            // Everything that landed at this instant, each hit on its own line.
-            <span className="chart-tooltip-hits">
-              {hovered.instances.map((instance) => (
-                <span className="chart-tooltip-hit" key={instance.id}>
-                  <span className="chart-tooltip-source">{instance.sourceLabel}</span>
-                  <span className="chart-tooltip-value mono">
-                    +{Math.round(instance.mitigated).toLocaleString('de-DE')}
-                  </span>
-                  <span
-                    className="chart-tooltip-type"
-                    style={{ color: SERIES_COLOR[instance.type] }}
-                  >
-                    {DAMAGE_TYPE_LABELS[instance.type]}
-                  </span>
-                </span>
-              ))}
-            </span>
-          )}
-          <span className="chart-tooltip-total mono">
-            gesamt {Math.round(hovered.total).toLocaleString('de-DE')}
-          </span>
-        </figcaption>
-      )}
     </figure>
   );
 }
-
 /** Round tick values to something a human would have chosen. */
 function niceTicks(max: number, count: number): number[] {
   if (max <= 0) return [0];

@@ -38,7 +38,6 @@ export function ChampionPanel({
 }: Props) {
   return (
     <Panel
-      index="02"
       title={championName}
       actions={<span className="tag gold">Level {level}</span>}
     >
@@ -51,9 +50,9 @@ export function ChampionPanel({
           />
         )}
         <div className="champion-head-body">
-          <span className="champion-title">{detail?.title ?? 'Die Sheriffin von Piltover'}</span>
+          <span className="champion-title">{detail?.title ?? 'the Piltover Enforcer'}</span>
           <label className="field">
-            <span className="field-label">Championlevel</span>
+            <span className="field-label">Champion level</span>
             <input
               type="range"
               min={1}
@@ -78,7 +77,7 @@ export function ChampionPanel({
               <div className="ability-rank-body">
                 <span className="ability-name">{ability.name}</span>
                 {isPassive ? (
-                  <span className="field-hint">Passiv</span>
+                  <span className="field-hint">Passive</span>
                 ) : (
                   <div className="rank-pips">
                     {Array.from({ length: ability.maxRank }, (_, index) => index + 1).map((rank) => (
@@ -88,8 +87,8 @@ export function ChampionPanel({
                         onClick={() =>
                           onRankChange(ability.slot, ranks[ability.slot] === rank ? rank - 1 : rank)
                         }
-                        aria-label={`${ability.name} Rang ${rank}`}
-                        title={`Rang ${rank}`}
+                        aria-label={`${ability.name} rank ${rank}`}
+                        title={`Rank ${rank}`}
                       />
                     ))}
                   </div>
@@ -125,33 +124,33 @@ function spellIcon(
 export function StatSheet({ stats }: { stats: ChampionStats }) {
   const rows: { label: string; value: string; detail?: string }[] = [
     {
-      label: 'Angriffsschaden',
+      label: 'Attack Damage',
       value: stats.totalAttackDamage.toFixed(0),
-      detail: `${stats.baseAttackDamage.toFixed(0)} Basis + ${stats.bonusAttackDamage.toFixed(0)} Bonus`,
+      detail: `${stats.baseAttackDamage.toFixed(0)} base + ${stats.bonusAttackDamage.toFixed(0)} bonus`,
     },
     {
-      label: 'Leben',
+      label: 'Health',
       value: stats.maxHealth.toFixed(0),
-      detail: `${stats.baseHealth.toFixed(0)} Basis + ${stats.bonusHealth.toFixed(0)} Bonus`,
+      detail: `${stats.baseHealth.toFixed(0)} base + ${stats.bonusHealth.toFixed(0)} bonus`,
     },
     {
-      label: 'Angriffstempo',
+      label: 'Attack Speed',
       value: stats.totalAttackSpeed.toFixed(3),
-      detail: `+${(stats.bonusAttackSpeed * 100).toFixed(0)} % Bonus`,
+      detail: `+${(stats.bonusAttackSpeed * 100).toFixed(0)}% bonus`,
     },
-    { label: 'Fähigkeitstempo', value: stats.abilityHaste.toFixed(0) },
+    { label: 'Ability Haste', value: stats.abilityHaste.toFixed(0) },
     {
-      label: 'Rüstungsdurchdringung',
-      value: `${(stats.armorPenPercent * 100).toFixed(0)} %`,
-      detail: `${stats.lethality.toFixed(0)} Letalität`,
+      label: 'Armor Penetration',
+      value: `${(stats.armorPenPercent * 100).toFixed(0)}%`,
+      detail: `${stats.lethality.toFixed(0)} lethality`,
     },
-    { label: 'Fähigkeitsstärke', value: stats.abilityPower.toFixed(0) },
-    { label: 'Rüstung', value: stats.armor.toFixed(0) },
-    { label: 'Magieresistenz', value: stats.magicResist.toFixed(0) },
+    { label: 'Ability Power', value: stats.abilityPower.toFixed(0) },
+    { label: 'Armor', value: stats.armor.toFixed(0) },
+    { label: 'Magic Resistance', value: stats.magicResist.toFixed(0) },
     {
-      label: 'Kritische Treffer',
-      value: `${(stats.critChance * 100).toFixed(0)} %`,
-      detail: `×${stats.critMultiplier.toFixed(2)} Schaden`,
+      label: 'Critical Strike',
+      value: `${(stats.critChance * 100).toFixed(0)}%`,
+      detail: `×${stats.critMultiplier.toFixed(2)} damage`,
     },
     { label: 'Mana', value: stats.maxMana.toFixed(0) },
   ];

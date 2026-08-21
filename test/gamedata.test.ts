@@ -1,4 +1,4 @@
-/**
+﻿/**
  * The bin parser, checked against real game data.
  *
  * Unlike `fixtures.ts`, the payloads here are *not* synthetic: they are the raw
@@ -107,7 +107,7 @@ describe('validateGameData', () => {
     q.mSpell!.cooldownTime = [12, 10.5, 9, 7.5, 6, 6, 6];
     const report = validateGameData(parseChampionBin(shifted, 'Vi', '16.16'), SPELL_BY_ID);
     expect(report.ok).toBe(false);
-    expect(report.mismatches[0]).toMatchObject({ spellId: 'ViQ', field: 'Abklingzeit', rank: 1 });
+    expect(report.mismatches[0]).toMatchObject({ spellId: 'ViQ', field: 'cooldown', rank: 1 });
   });
 
   it('reports nothing checkable as a failure, not a pass', () => {
@@ -117,8 +117,8 @@ describe('validateGameData', () => {
 });
 
 /**
- * Wiki, patch 16.16: 40/60/80/100/120 (+ 60 % bonus AD), rising to
- * 100/150/200/250/300 (+ 150 % bonus AD) at full charge.
+ * Wiki, patch 16.16: 40/60/80/100/120 (+ 60% bonus AD), rising to
+ * 100/150/200/250/300 (+ 150% bonus AD) at full charge.
  */
 describe('Vault Breaker (Q)', () => {
   it('reads the uncharged formula', () => {
@@ -134,7 +134,7 @@ describe('Vault Breaker (Q)', () => {
   });
 
   it('scales with bonus AD, not total AD', () => {
-    // The whole point of the cross-check: 60 % of 100 bonus AD is 60, not 96.
+    // The whole point of the cross-check: 60% of 100 bonus AD is 60, not 96.
     expect(evaluate(calc('ViQ', 'TotalDamage'), 1, stats({ baseAd: 60, bonusAd: 100 }))).toBeCloseTo(100, 4);
   });
 
@@ -146,19 +146,19 @@ describe('Vault Breaker (Q)', () => {
   });
 
   it('formats the formula the way the tooltip reads', () => {
-    expect(formatCalculation(calc('ViQ', 'TotalDamage'), 1)).toBe('40 + 60 % Bonus-AD');
-    expect(formatCalculation(calc('ViQ', 'MaxDamageTooltip'), 1)).toBe('(40 + 60 % Bonus-AD) × 2,5');
+    expect(formatCalculation(calc('ViQ', 'TotalDamage'), 1)).toBe('40 + 60% bonus AD');
+    expect(formatCalculation(calc('ViQ', 'MaxDamageTooltip'), 1)).toBe('(40 + 60% bonus AD) × 2.5');
   });
 });
 
-/** Wiki: 4/5/6/7/8 % (+ 3.5 % per 100 bonus AD) of the target's maximum health. */
+/** Wiki: 4/5/6/7/8% (+ 3.5% per 100 bonus AD) of the target's maximum health. */
 describe('Denting Blows (W)', () => {
   it('reads a percentage of maximum health', () => {
     const calculation = calc('ViW', 'TotalDamageTooltip');
     expect(calculation!.displayAsPercent).toBe(true);
     // Rank 1 with no bonus AD: 4 %.
     expect(evaluate(calculation, 1, stats({ bonusAd: 0 }))).toBeCloseTo(0.04, 6);
-    // Rank 5 with 200 bonus AD: 8 % + 7 % = 15 %.
+    // Rank 5 with 200 bonus AD: 8% + 7% = 15 %.
     expect(evaluate(calculation, 5, stats({ bonusAd: 200 }))).toBeCloseTo(0.15, 6);
   });
 
@@ -183,12 +183,12 @@ describe('Denting Blows (W)', () => {
 
   it('formats percent formulas in percent units', () => {
     expect(formatCalculation(calc('ViW', 'TotalDamageTooltip'), 1)).toBe(
-      '4 % + 3,5 % pro 100 Bonus-AD',
+      '4% + 3.5% per 100 bonus AD',
     );
   });
 });
 
-/** Wiki: 10/30/50/70/90 (+ 110 % AD) (+ 100 % AP). */
+/** Wiki: 10/30/50/70/90 (+ 110% AD) (+ 100% AP). */
 describe('Relentless Force (E)', () => {
   it('scales with total AD and with AP', () => {
     const calculation = calc('ViE', 'TotalDamageTooltip');
@@ -198,7 +198,7 @@ describe('Relentless Force (E)', () => {
   });
 
   it('evaluates to the tooltip number', () => {
-    // Rank 3: 50 base + 110 % of 160 total AD + 100 % of 50 AP.
+    // Rank 3: 50 base + 110% of 160 total AD + 100% of 50 AP.
     const value = evaluate(calculation('ViE'), 3, stats({ baseAd: 60, bonusAd: 100, ap: 50 }));
     expect(value).toBeCloseTo(50 + 1.1 * 160 + 50, 4);
   });
@@ -213,7 +213,7 @@ describe('Relentless Force (E)', () => {
   });
 });
 
-/** Wiki: 150/250/350 (+ 90 % bonus AD). */
+/** Wiki: 150/250/350 (+ 90% bonus AD). */
 describe('Cease and Desist (R)', () => {
   it('reads three ranks of base damage', () => {
     const perRank = [1, 2, 3].map((rank) => breakdown(calc('ViR', 'Damage'), rank)!.flat);
@@ -225,7 +225,7 @@ describe('Cease and Desist (R)', () => {
   });
 });
 
-/** Wiki: shields 12 % of maximum health for 3 s, cooldown 16 − 12 by level. */
+/** Wiki: shields 12% of maximum health for 3 s, cooldown 16 âˆ’ 12 by level. */
 describe('Blast Shield (P)', () => {
   it('shields a share of maximum health', () => {
     expect(evaluate(calc('ViPassive', 'TotalShield'), 1, stats({ maxHealth: 2500 }))).toBeCloseTo(300, 4);
@@ -312,7 +312,7 @@ describe('unreadable formulas', () => {
  *   - maximum health is stat id 11, not 12. The id moved with patch 15.7.
  *
  * The expected numbers are Vi's kit as it stood then: Q at 45/70/95/120/145
- * (+ 80 % bonus AD) doubling at full charge, and a 14 % shield.
+ * (+ 80% bonus AD) doubling at full charge, and a 14% shield.
  */
 describe('older patch formats', () => {
   const OLD_BIN = probe<Record<string, unknown>>('vi-bin-15.6.json');
@@ -334,7 +334,7 @@ describe('older patch formats', () => {
   });
 
   it('reads formulas that reference unnamed effect slots', () => {
-    // W: 4 % at rank 1, and 2.857 % per 100 bonus AD in that patch.
+    // W: 4% at rank 1, and 2.857% per 100 bonus AD in that patch.
     const w = oldCalc('ViW', 'TotalDamageTooltip');
     expect(breakdown(w, 1)!.flat).toBeCloseTo(0.04, 6);
     expect(evaluate(w, 1, stats({ bonusAd: 100 }))).toBeCloseTo(0.04 + 0.02857, 5);
@@ -349,7 +349,7 @@ describe('older patch formats', () => {
     const misread = parseChampionBin(OLD_BIN, 'Vi', '16.16');
     const shield = findCalculation(findSpell(misread, 'ViPassive'), 'TotalShield');
     expect(shield!.complete).toBe(false);
-    expect(shield!.parts[0]).toMatchObject({ reason: 'unbekannte Statuskennung mStat=11' });
+    expect(shield!.parts[0]).toMatchObject({ reason: 'unknown stat id mStat=11' });
   });
 
   it('still cross-checks against Data Dragon of that patch', () => {
@@ -386,3 +386,4 @@ describe('statLookup', () => {
     expect(lookup.value('attackSpeed', 'bonus')).toBeCloseTo(0.4, 6);
   });
 });
+

@@ -186,11 +186,11 @@ export interface ChampionGameData {
  * maintained constant that is labelled as maintained.
  *
  * Verified against Vi, cross-checked with the official wiki:
- *   0  → ability power   (E: + 100 % AP)
- *   2  → attack damage   (Q: + 60 % bonus AD · R: + 90 % bonus AD · E: + 110 % AD)
+ *   0  → ability power   (E: +100% AP)
+ *   2  → attack damage   (Q: +60% bonus AD · R: +90% bonus AD · E: +110% AD)
  *   9  → attack speed    (E's modifier line: total attack speed − 1)
- *  12  → maximum health  (P: shields 12 % of maximum health) — from patch 15.7
- *  11  → maximum health  (P: shielded 14 % back then) — up to patch 15.6
+ *  12  → maximum health  (P: shields 12% of maximum health) — from patch 15.7
+ *  11  → maximum health  (P: shielded 14% back then) — up to patch 15.6
  *
  * The health id moved between 15.6 and 15.7, found by walking Vi's passive
  * across the patches in between. Ids below 11 did not move: the same file that
@@ -230,9 +230,9 @@ function statTableFor(patch: string): Record<number, StatKey> {
 /**
  * `mStatFormula` picks which slice of the stat is used.
  *
- * Verified on Vi: absent (so 0) means *total* — her E scales with 110 % total
- * AD and her passive shields 12 % of maximum health — while 2 means *bonus*:
- * Q's 60 %, W's 3.5 % per 100 and R's 90 % are all bonus AD on the wiki.
+ * Verified on Vi: absent (so 0) means *total* — her E scales with 110% total
+ * AD and her passive shields 12% of maximum health — while 2 means *bonus*:
+ * Q's 60%, W's 3.5% per 100 and R's 90% are all bonus AD on the wiki.
  *
  * Id 1 is very likely "base", but no Vi ability uses it, so it stays rejected
  * until a champion with a published base-stat ratio confirms it.
@@ -296,7 +296,7 @@ function statPart(raw: RawPart, perRank: number[], label: string, ctx: SpellCont
   // `mStat` is omitted for ability power, which is enum id 0.
   const statId = raw.mStat ?? 0;
   const stat = ctx.stats[statId];
-  if (!stat) return { kind: 'unsupported', reason: `unbekannte Statuskennung mStat=${statId}` };
+  if (!stat) return { kind: 'unsupported', reason: `unknown stat id mStat=${statId}` };
 
   // `mStatFormula` is omitted for total, which is enum id 0.
   const scalingId = raw.mStatFormula ?? 0;
@@ -304,7 +304,7 @@ function statPart(raw: RawPart, perRank: number[], label: string, ctx: SpellCont
   if (!scaling) {
     return {
       kind: 'unsupported',
-      reason: `unbekannte Skalierungskennung mStatFormula=${scalingId}`,
+      reason: `unknown scaling id mStatFormula=${scalingId}`,
     };
   }
 
@@ -312,7 +312,7 @@ function statPart(raw: RawPart, perRank: number[], label: string, ctx: SpellCont
 }
 
 function parsePart(raw: RawPart, ctx: SpellContext): CalcPart {
-  const type = raw.__type ?? '(ohne Typ)';
+  const type = raw.__type ?? '(no type)';
 
   switch (type) {
     /** A named per-rank value, straight out of `DataValues`. */
@@ -320,7 +320,7 @@ function parsePart(raw: RawPart, ctx: SpellContext): CalcPart {
       const name = raw.mDataValue ?? '';
       const values = lookupDataValue(ctx.dataValues, name);
       if (!values) {
-        return { kind: 'unsupported', reason: `unbekannter Datenwert ${name || '(ohne Namen)'}` };
+        return { kind: 'unsupported', reason: `unknown data value ${name || '(unnamed)'}` };
       }
       return { kind: 'flat', perRank: values, label: name };
     }
@@ -335,9 +335,9 @@ function parsePart(raw: RawPart, ctx: SpellContext): CalcPart {
       const index = raw.mEffectIndex ?? 0;
       const values = ctx.effectAmounts[index - 1] ?? null;
       if (!values) {
-        return { kind: 'unsupported', reason: `leerer Effektwert mEffectIndex=${index}` };
+        return { kind: 'unsupported', reason: `empty effect value mEffectIndex=${index}` };
       }
-      return { kind: 'flat', perRank: values, label: `Effekt ${index}` };
+      return { kind: 'flat', perRank: values, label: `Effect ${index}` };
     }
 
     /** A literal. */
@@ -349,7 +349,7 @@ function parsePart(raw: RawPart, ctx: SpellContext): CalcPart {
       const name = raw.mDataValue ?? '';
       const values = lookupDataValue(ctx.dataValues, name);
       if (!values) {
-        return { kind: 'unsupported', reason: `unbekannter Datenwert ${name || '(ohne Namen)'}` };
+        return { kind: 'unsupported', reason: `unknown data value ${name || '(unnamed)'}` };
       }
       return statPart(raw, values, name, ctx);
     }
@@ -387,7 +387,7 @@ function parsePart(raw: RawPart, ctx: SpellContext): CalcPart {
     }
 
     default:
-      return { kind: 'unsupported', reason: `unbekannter Formelteil ${type}` };
+      return { kind: 'unsupported', reason: `unknown formula part ${type}` };
   }
 }
 
@@ -411,9 +411,9 @@ function parseCalculation(
     const target = raw.mModifiedGameCalculation;
     const base = siblings[target];
     if (seen.has(target)) {
-      parts = [{ kind: 'unsupported', reason: `Ringverweis über ${target}` }];
+      parts = [{ kind: 'unsupported', reason: `circular reference through ${target}` }];
     } else if (!base) {
-      parts = [{ kind: 'unsupported', reason: `verweist auf unbekannte Berechnung ${target}` }];
+      parts = [{ kind: 'unsupported', reason: `references unknown calculation ${target}` }];
     } else {
       seen.add(target);
       const resolved = parseCalculation(target, base, siblings, ctx, seen);
@@ -425,7 +425,7 @@ function parseCalculation(
     parts = (raw.mFormulaParts ?? []).map((part) => parsePart(part, ctx));
   }
 
-  if (parts.length === 0) parts = [{ kind: 'unsupported', reason: 'Berechnung ohne Formelteile' }];
+  if (parts.length === 0) parts = [{ kind: 'unsupported', reason: 'calculation without formula parts' }];
 
   const complete = [...parts, ...multipliers].every((part) => part.kind !== 'unsupported');
   return { key, parts, multipliers, displayAsPercent, complete };

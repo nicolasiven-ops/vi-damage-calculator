@@ -23,9 +23,9 @@ interface Props {
 
 /** Stat shard rows. Data Dragon does not describe these, so they are fixed. */
 const SHARD_ROWS: { label: string; ids: number[] }[] = [
-  { label: 'Offensiv', ids: [5008, 5005, 5007] },
-  { label: 'Flexibel', ids: [5008, 5010, 5001] },
-  { label: 'Defensiv', ids: [5011, 5013, 5001] },
+  { label: 'Offense', ids: [5008, 5005, 5007] },
+  { label: 'Flex', ids: [5008, 5010, 5001] },
+  { label: 'Defense', ids: [5011, 5013, 5001] },
 ];
 
 export function RunePanel({ trees, build, offline, onChange }: Props) {
@@ -50,9 +50,9 @@ export function RunePanel({ trees, build, offline, onChange }: Props) {
 
   if (offline || trees.length === 0) {
     return (
-      <Panel index="04" title="Runen">
+      <Panel title="Runes">
         <p className="empty-note">
-          Data Dragon ist nicht erreichbar — die Runenbäume können nicht geladen werden.
+          Data Dragon is unreachable — the rune trees cannot be loaded.
         </p>
       </Panel>
     );
@@ -114,11 +114,10 @@ export function RunePanel({ trees, build, offline, onChange }: Props) {
 
   return (
     <Panel
-      index="04"
-      title="Runen"
+      title="Runes"
       actions={
         <div className="rune-header-actions">
-          <span className="tag">{selectedCount} gewählt</span>
+          <span className="tag">{selectedCount} selected</span>
           <button
             className="btn subtle"
             onClick={() =>
@@ -132,13 +131,13 @@ export function RunePanel({ trees, build, offline, onChange }: Props) {
               })
             }
           >
-            Zurücksetzen
+            Reset
           </button>
         </div>
       }
     >
       <div className="field">
-        <span className="field-label">Primärer Pfad</span>
+        <span className="field-label">Primary path</span>
         <div className="rune-tree-row">
           {trees.map((tree) => (
             <button
@@ -157,7 +156,7 @@ export function RunePanel({ trees, build, offline, onChange }: Props) {
       {primary && (
         <div className="rune-rows">
           <RuneRow
-            label="Schlüsselstein"
+            label="Keystone"
             runes={primary.slots[0]?.runes ?? []}
             isSelected={(rune) => build.keystoneId === rune.id}
             onPick={(rune) =>
@@ -168,7 +167,7 @@ export function RunePanel({ trees, build, offline, onChange }: Props) {
           {primary.slots.slice(1).map((slot, rowIndex) => (
             <RuneRow
               key={rowIndex}
-              label={`Reihe ${rowIndex + 1}`}
+              label={`Row ${rowIndex + 1}`}
               runes={slot.runes}
               isSelected={(rune) => build.primaryRuneIds[rowIndex] === rune.id}
               onPick={(rune) => pickPrimary(rowIndex, rune.id)}
@@ -180,7 +179,7 @@ export function RunePanel({ trees, build, offline, onChange }: Props) {
       <hr className="divider" />
 
       <div className="field">
-        <span className="field-label">Sekundärer Pfad</span>
+        <span className="field-label">Secondary path</span>
         <div className="rune-tree-row">
           {trees
             .filter((tree) => tree.id !== build.primaryTreeId)
@@ -203,20 +202,20 @@ export function RunePanel({ trees, build, offline, onChange }: Props) {
           {secondary.slots.slice(1).map((slot, rowIndex) => (
             <RuneRow
               key={rowIndex}
-              label={`Reihe ${rowIndex + 1}`}
+              label={`Row ${rowIndex + 1}`}
               runes={slot.runes}
               isSelected={(rune) => build.secondaryRuneIds.includes(rune.id)}
               onPick={(rune) => pickSecondary(rowIndex, rune.id, secondaryRowById)}
             />
           ))}
-          <p className="field-hint">Zwei Runen aus zwei verschiedenen Reihen.</p>
+          <p className="field-hint">Two runes from two different rows.</p>
         </div>
       )}
 
       <hr className="divider" />
 
       <div className="field">
-        <span className="field-label">Attributsplitter</span>
+        <span className="field-label">Stat shards</span>
         <div className="rune-rows">
           {SHARD_ROWS.map((row, rowIndex) => (
             <div className="rune-row" key={row.label}>
@@ -243,10 +242,9 @@ export function RunePanel({ trees, build, offline, onChange }: Props) {
 
       {unmodelled.length > 0 && (
         <p className="rune-warning">
-          <span className="tag warn">nicht modelliert</span> {unmodelled.length}{' '}
-          {unmodelled.length === 1 ? 'gewählte Rune wirkt' : 'gewählte Runen wirken'} sich in der
-          Simulation nicht aus — sie {unmodelled.length === 1 ? 'ist' : 'sind'} im Ergebnis nicht
-          enthalten.
+          <span className="tag warn">not modelled</span> {unmodelled.length}{' '}
+          {unmodelled.length === 1 ? 'selected rune has' : 'selected runes have'} no effect in the
+          simulation — {unmodelled.length === 1 ? 'it is' : 'they are'} not included in the result.
         </p>
       )}
     </Panel>
@@ -277,7 +275,7 @@ function RuneRow({ label, runes, isSelected, onPick, large }: RowProps) {
               }`}
               onClick={() => onPick(rune)}
               title={`${rune.name}\n${stripHtml(rune.shortDesc)}${
-                definition ? `\n\nSimulation: ${definition.note}` : '\n\nNicht modelliert.'
+                definition ? `\n\nSimulation: ${definition.note}` : '\n\nNot modelled.'
               }`}
             >
               <img src={imageUrls.rune(rune.icon)} alt={rune.name} />

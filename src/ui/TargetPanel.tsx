@@ -33,16 +33,16 @@ const PRESETS: { name: string; target: Partial<TargetConfig> }[] = [
     target: { name: 'Tank', maxHealth: 3600, armor: 220, magicResist: 130, unitType: 'champion' },
   },
   {
-    name: 'Drache',
-    target: { name: 'Drache', maxHealth: 4500, armor: 60, magicResist: 40, unitType: 'monster' },
+    name: 'Dragon',
+    target: { name: 'Dragon', maxHealth: 4500, armor: 60, magicResist: 40, unitType: 'monster' },
   },
   {
     name: 'Baron',
     target: { name: 'Baron Nashor', maxHealth: 12000, armor: 120, magicResist: 70, unitType: 'monster' },
   },
   {
-    name: 'Vasall',
-    target: { name: 'Vasall', maxHealth: 900, armor: 30, magicResist: 20, unitType: 'minion' },
+    name: 'Minion',
+    target: { name: 'Minion', maxHealth: 900, armor: 30, magicResist: 20, unitType: 'minion' },
   },
 ];
 
@@ -50,7 +50,7 @@ export function TargetPanel({ target, champions, onChange }: Props) {
   const [sourceChampion, setSourceChampion] = useState('');
 
   const championList = useMemo(
-    () => Object.values(champions).sort((a, b) => a.name.localeCompare(b.name, 'de')),
+    () => Object.values(champions).sort((a, b) => a.name.localeCompare(b.name, 'en')),
     [champions],
   );
 
@@ -74,8 +74,7 @@ export function TargetPanel({ target, champions, onChange }: Props) {
 
   return (
     <Panel
-      index="05"
-      title="Ziel"
+      title="Target"
       actions={<span className="tag">{target.name}</span>}
     >
       <div className="preset-row">
@@ -92,7 +91,7 @@ export function TargetPanel({ target, champions, onChange }: Props) {
 
       {championList.length > 1 && (
         <div className="field">
-          <span className="field-label">Aus Champion übernehmen</span>
+          <span className="field-label">Copy from champion</span>
           <div className="field-row">
             <select
               value={sourceChampion}
@@ -101,7 +100,7 @@ export function TargetPanel({ target, champions, onChange }: Props) {
                 if (event.target.value) applyChampion(event.target.value, target.level);
               }}
             >
-              <option value="">Champion wählen …</option>
+              <option value="">Select champion …</option>
               {championList.map((champion) => (
                 <option key={champion.id} value={champion.id}>
                   {champion.name}
@@ -124,7 +123,7 @@ export function TargetPanel({ target, champions, onChange }: Props) {
             </label>
           </div>
           <span className="field-hint">
-            Übernimmt nur Basiswerte ohne Items — Rüstung und Leben danach frei anpassbar.
+            Copies base stats only, without items — armor and health stay editable afterwards.
           </span>
         </div>
       )}
@@ -133,7 +132,7 @@ export function TargetPanel({ target, champions, onChange }: Props) {
 
       <div className="field-row">
         <label className="field">
-          <span className="field-label">Maximales Leben</span>
+          <span className="field-label">Maximum health</span>
           <input
             type="number"
             min={1}
@@ -142,7 +141,7 @@ export function TargetPanel({ target, champions, onChange }: Props) {
           />
         </label>
         <label className="field">
-          <span className="field-label">Aktuelles Leben</span>
+          <span className="field-label">Current health</span>
           <div className="input-with-suffix">
             <input
               type="number"
@@ -160,7 +159,7 @@ export function TargetPanel({ target, champions, onChange }: Props) {
 
       <div className="field-row">
         <label className="field">
-          <span className="field-label">Rüstung</span>
+          <span className="field-label">Armor</span>
           <input
             type="number"
             value={round1(target.armor)}
@@ -168,7 +167,7 @@ export function TargetPanel({ target, champions, onChange }: Props) {
           />
         </label>
         <label className="field">
-          <span className="field-label">Magieresistenz</span>
+          <span className="field-label">Magic resistance</span>
           <input
             type="number"
             value={round1(target.magicResist)}
@@ -179,7 +178,7 @@ export function TargetPanel({ target, champions, onChange }: Props) {
 
       <div className="field-row">
         <label className="field">
-          <span className="field-label">Schadensreduktion</span>
+          <span className="field-label">Damage reduction</span>
           <div className="input-with-suffix">
             <input
               type="number"
@@ -192,22 +191,22 @@ export function TargetPanel({ target, champions, onChange }: Props) {
             />
             <span className="input-suffix">%</span>
           </div>
-          <span className="field-hint">Exhaust, Wächter-Items, Randuins …</span>
+          <span className="field-hint">Exhaust, Warden's Mail, Randuin's Omen …</span>
         </label>
         <label className="field">
-          <span className="field-label">Flache Reduktion</span>
+          <span className="field-label">Flat reduction</span>
           <input
             type="number"
             min={0}
             value={round1(target.flatDamageReduction)}
             onChange={(event) => patch({ flatDamageReduction: Math.max(0, Number(event.target.value)) })}
           />
-          <span className="field-hint">Dorans Schild, Bein­platten …</span>
+          <span className="field-hint">Doran's Shield, Bone Plating …</span>
         </label>
       </div>
 
       <div className="field">
-        <span className="field-label">Einheitentyp</span>
+        <span className="field-label">Unit type</span>
         <div className="segmented">
           {(['champion', 'minion', 'monster'] as const).map((type) => (
             <button
@@ -215,12 +214,12 @@ export function TargetPanel({ target, champions, onChange }: Props) {
               aria-pressed={target.unitType === type}
               onClick={() => patch({ unitType: type })}
             >
-              {type === 'champion' ? 'Champion' : type === 'minion' ? 'Vasall' : 'Monster'}
+              {type === 'champion' ? 'Champion' : type === 'minion' ? 'Minion' : 'Monster'}
             </button>
           ))}
         </div>
         <span className="field-hint">
-          Beeinflusst Obergrenzen wie die 300-Schadens-Kappe von Beulenschlägen.
+          Affects caps such as the 300 damage cap on Denting Blows.
         </span>
       </div>
     </Panel>
