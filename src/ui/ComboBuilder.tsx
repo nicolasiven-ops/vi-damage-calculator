@@ -414,14 +414,15 @@ function FloatingControl({
   anchor: React.RefObject<HTMLElement | null>;
   children: React.ReactNode;
 }) {
-  const [spot, setSpot] = useState<{ left: number; top: number } | null>(null);
+  const [spot, setSpot] = useState<{ left: number; top: number; width: number } | null>(null);
 
   useLayoutEffect(() => {
     function place(): void {
       const element = anchor.current;
       if (!element) return;
       const box = element.getBoundingClientRect();
-      setSpot({ left: box.left + box.width / 2, top: box.top - 8 });
+      // The width comes from the card, so the two edges line up exactly.
+      setSpot({ left: box.left + box.width / 2, top: box.top - 6, width: box.width });
     }
     place();
     // Capture phase: the strip's own scrolling does not bubble.
@@ -437,7 +438,7 @@ function FloatingControl({
   return (
     <div
       className="combo-charge floating"
-      style={{ left: spot.left, top: spot.top }}
+      style={{ left: spot.left, top: spot.top, width: spot.width }}
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => event.stopPropagation()}
     >

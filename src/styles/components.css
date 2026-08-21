@@ -563,11 +563,52 @@
   flex-direction: row;
   align-items: center;
   gap: var(--space-2);
-  padding: 3px 6px;
+  padding: 2px 6px;
   border: 1px solid var(--line);
   border-radius: 2px;
   background: var(--surface-raised);
-  width: 168px;
+}
+
+/*
+ * A thin rail with a small handle.
+ *
+ * The browser's own range control is built for a form, and at this size its
+ * thumb was taller than the strip holding it.
+ */
+.combo-charge input[type='range'] {
+  height: 12px;
+  appearance: none;
+  background: transparent;
+}
+
+.combo-charge input[type='range']::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--gold-500), var(--gold-300));
+}
+
+.combo-charge input[type='range']::-webkit-slider-thumb {
+  appearance: none;
+  width: 10px;
+  height: 10px;
+  margin-top: -3.5px;
+  border-radius: 50%;
+  border: 1px solid var(--gold-200);
+  background: var(--surface-1);
+}
+
+.combo-charge input[type='range']::-moz-range-track {
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--gold-500), var(--gold-300));
+}
+
+.combo-charge input[type='range']::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid var(--gold-200);
+  background: var(--surface-1);
 }
 
 .combo-charge input[type='range'] {
