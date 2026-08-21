@@ -182,6 +182,14 @@ export interface ChampionRuntime {
     options: { chargeSeconds: number },
   ): CastTiming;
   /**
+   * What one cast of this ability costs, in the champion's own resource.
+   *
+   * Asked of the champion rather than read from a table here, because only the
+   * champion knows which patch value applies and at which rank — and because a
+   * champion whose abilities cost nothing simply does not implement it.
+   */
+  abilityCost?(slot: AbilitySlot, ctx: SimContext, rank: number): number;
+  /**
    * The charges this ability holds, when a plain cooldown is the wrong model.
    * Return null for abilities that simply go on cooldown.
    *

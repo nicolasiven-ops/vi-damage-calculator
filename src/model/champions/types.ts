@@ -333,6 +333,28 @@ export function varCoefficient(
   return { value: fallback, source: 'registry', note };
 }
 
+/**
+ * Read a per-rank mana cost.
+ *
+ * Zero is a real answer here, unlike for a cooldown: plenty of abilities are
+ * free, and Vi's ultimate is one of the ones that is not. So a zero from Data
+ * Dragon is taken at face value and only a missing field falls back.
+ */
+export function costValue(
+  spell: DDragonSpell | undefined,
+  rank: number,
+  fallback: readonly number[],
+): SourcedNumber {
+  const fromDDragon = spell?.cost?.[Math.max(0, rank - 1)];
+  if (typeof fromDDragon === 'number' && Number.isFinite(fromDDragon)) {
+    return { value: fromDDragon, source: 'ddragon' };
+  }
+  return {
+    value: fallback[Math.max(0, Math.min(fallback.length - 1, rank - 1))] ?? 0,
+    source: 'registry',
+  };
+}
+
 /** Read a per-rank cooldown, falling back to a constant. Zero means missing. */
 export function cooldownValue(
   spell: DDragonSpell | undefined,

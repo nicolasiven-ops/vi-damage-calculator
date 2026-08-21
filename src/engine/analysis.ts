@@ -81,6 +81,8 @@ export interface ComboAnalysis {
   healingDone: number;
   /** Health the target regenerated while the combo ran. */
   targetRegenerated: number;
+  /** Steps the combo never reached, because the target was already dead. */
+  unusedSteps: string[];
   warnings: string[];
   /**
    * Everything that happened but dealt no damage: casts and their timing,
@@ -221,6 +223,7 @@ export function analyse(
     shieldGained: result.shieldGained,
     healingDone: result.healingDone,
     targetRegenerated: result.targetRegenerated,
+    unusedSteps: result.unusedSteps,
     warnings: [...result.warnings, ...hardLimitWarnings(attacker)],
     events: result.events,
     spans: result.spans,

@@ -500,6 +500,7 @@ export default function App() {
           durationSeconds={analysis?.duration}
           linkedStepUid={linkedStepUid}
           pinnedStepUid={pinnedStepUid}
+          unusedStepUids={analysis?.unusedSteps}
           onPinStep={(uid) => setPinnedStepUid((current) => (current === uid ? null : uid))}
         />
       </div>

@@ -166,6 +166,18 @@ export function simulate(
   let targetRegenerated = 0;
   const regenPerTick = Math.max(0, input.target.healthRegenPerFive ?? 0) / 10;
   let lastRegenAt = 0;
+
+  /**
+   * The attacker's resource pool.
+   *
+   * Starts full — a combo is a thing you open a fight with — and is spent by
+   * casts and refilled by regeneration on the same half-second clock the game
+   * uses. A combo that runs out of mana is not a combo, and until now the app
+   * reported one as though it were.
+   */
+  let currentMana = input.attackerStats.maxMana;
+  let manaSpent = 0;
+  const manaRegenPerTick = Math.max(0, input.attackerStats.manaRegen) / 10;
   let instanceCounter = 0;
   let eventCounter = 0;
   let spanCounter = 0;
@@ -244,6 +256,8 @@ export function simulate(
       index,
       time,
       attacker: stats,
+      /** The attacker's resource at this instant, so the bar can move. */
+      attackerResource: { current: currentMana, max: input.attackerStats.maxMana },
       target: {
         currentHealth: targetCurrentHealth,
         maxHealth: targetMaxHealth,
@@ -370,15 +384,24 @@ export function simulate(
    * minutes long. This only ever adds health for time the combo actually spent.
    */
   function regenerate(): void {
-    if (regenPerTick <= 0) return;
+    if (regenPerTick <= 0 && manaRegenPerTick <= 0) return;
     const ticks = Math.floor((time - lastRegenAt) / REGEN_TICK);
     if (ticks <= 0) return;
     lastRegenAt += ticks * REGEN_TICK;
+
     // The dead do not heal, and nothing regenerates past full.
-    if (targetCurrentHealth <= 0 || targetCurrentHealth >= targetMaxHealth) return;
-    const healed = Math.min(ticks * regenPerTick, targetMaxHealth - targetCurrentHealth);
-    targetCurrentHealth += healed;
-    targetRegenerated += healed;
+    if (regenPerTick > 0 && targetCurrentHealth > 0 && targetCurrentHealth < targetMaxHealth) {
+      const healed = Math.min(ticks * regenPerTick, targetMaxHealth - targetCurrentHealth);
+      targetCurrentHealth += healed;
+      targetRegenerated += healed;
+    }
+
+    if (manaRegenPerTick > 0) {
+      currentMana = Math.min(
+        input.attackerStats.maxMana,
+        currentMana + ticks * manaRegenPerTick,
+      );
+    }
   }
 
   function advance(seconds: number): void {
@@ -669,6 +692,7 @@ export function simulate(
       amplification: ampFactor - 1,
     });
 
+    const healthBefore = targetCurrentHealth;
     targetCurrentHealth = Math.max(0, targetCurrentHealth - result.mitigated);
 
     instanceCounter += 1;
@@ -694,6 +718,26 @@ export function simulate(
       ],
     };
     instances.push(instance);
+
+    /*
+     * The kill gets its own line, once.
+     *
+     * It is the moment the whole page is about, and in a table of thirty hits it
+     * was previously readable only by noticing that a health column had reached
+     * zero. The overkill is on the same line, because "dead with 300 to spare"
+     * and "dead by 4" are different answers.
+     */
+    if (healthBefore > 0 && targetCurrentHealth <= 0) {
+      const overkill = Math.max(0, result.mitigated - healthBefore);
+      addEvent({
+        kind: 'info',
+        label: 'Target eliminated',
+        detail:
+          overkill > 0.5
+            ? `by ${args.sourceLabel} · ${overkill.toFixed(0)} overkill`
+            : `by ${args.sourceLabel}`,
+      });
+    }
 
     // Vamp. Physical vamp applies to physical damage only; omnivamp to all.
     const vampRate =
@@ -914,6 +958,22 @@ export function simulate(
      * — and the wait is written into the timeline, so the gap between two casts
      * has a stated reason instead of being a mystery.
      */
+    /*
+     * The resource is checked before anything else about the cast.
+     *
+     * Waiting for mana is not the same as waiting for a cooldown: the game does
+     * not queue the cast, it refuses it. So this reports what was missing and
+     * moves on rather than advancing the clock to a moment that might never
+     * come — regeneration alone can take a minute.
+     */
+    const cost = championRuntime.abilityCost?.(slot, ctx, rank) ?? 0;
+    if (cost > currentMana + 0.0005) {
+      ctx.warn(
+        `${slot} costs ${cost.toFixed(0)} mana and only ${currentMana.toFixed(0)} is left — step skipped.`,
+      );
+      return;
+    }
+
     const blocked = blockedUntil(slot);
     if (blocked) {
       if (blocked.at > MAX_SIMULATED_SECONDS) {
@@ -936,6 +996,16 @@ export function simulate(
         detail: `${slot}: ${blocked.reason}`,
       });
       advanceTo(blocked.at);
+    }
+
+    if (cost > 0) {
+      currentMana = Math.max(0, currentMana - cost);
+      manaSpent += cost;
+      addEvent({
+        kind: 'info',
+        label: `${slot} costs ${cost.toFixed(0)}`,
+        detail: `${currentMana.toFixed(0)} of ${input.attackerStats.maxMana.toFixed(0)} left`,
+      });
     }
 
     const castStart = time;
@@ -1193,9 +1263,33 @@ export function simulate(
 
   takeSnapshot(-1);
 
+  /** Steps the combo never got to, because the target was already dead. */
+  const unusedSteps: string[] = [];
+
   for (const [stepIndex, step] of input.combo.entries()) {
     if (time >= MAX_SIMULATED_SECONDS) {
       ctx.warn(`Simulation stopped after ${MAX_SIMULATED_SECONDS} s.`);
+      break;
+    }
+    /*
+     * The combo stops when the target does.
+     *
+     * Everything after the kill is damage into a corpse: it inflated the totals,
+     * stretched the timeline past the moment that mattered and made the DPS a
+     * rate over seconds nobody was fighting for. The steps are kept — they are
+     * still part of the plan you typed — and reported as unused so the strip can
+     * grey them out.
+     */
+    if (targetCurrentHealth <= 0) {
+      unusedSteps.push(...input.combo.slice(stepIndex).map((entry) => entry.uid));
+      addEvent({
+        kind: 'info',
+        label: 'Combo stopped',
+        detail:
+          input.combo.length - stepIndex === 1
+            ? 'the target was already dead — one step left unused'
+            : `the target was already dead — ${input.combo.length - stepIndex} steps left unused`,
+      });
       break;
     }
     currentStepUid = step.uid;
@@ -1275,6 +1369,7 @@ export function simulate(
     instances,
     events,
     snapshots,
+    unusedSteps,
     // Sorted so a view can draw them in the order they began, whatever order
     // the simulation happened to record them in.
     spans: [...spans].sort((a, b) => a.start - b.start || a.end - b.end),
@@ -1285,6 +1380,7 @@ export function simulate(
     targetHpRemaining: targetCurrentHealth,
     shieldGained,
     healingDone,
+    manaSpent,
     targetRegenerated,
     warnings,
   };

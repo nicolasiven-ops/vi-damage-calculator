@@ -13,6 +13,8 @@ import type { ChampionStats } from '../model/stats';
 export interface FightMoment {
   /** The attacker's stats as they stood, buffs included. */
   attacker: ChampionStats;
+  /** The attacker's resource at this moment, spent by casts. */
+  attackerResource: { current: number; max: number };
   shieldGained: number;
   target: StatSnapshot['target'];
   /** Seconds into the combo. */
@@ -67,6 +69,10 @@ export function fightMoment(
   if (!source) {
     return {
       attacker: fallback.attacker,
+      attackerResource: {
+        current: fallback.attacker.maxMana,
+        max: fallback.attacker.maxMana,
+      },
       shieldGained: 0,
       target: fallback.target,
       time: 0,
@@ -80,6 +86,7 @@ export function fightMoment(
 
   return {
     attacker: source.attacker,
+    attackerResource: source.attackerResource,
     shieldGained: source.shieldGained,
     target: source.target,
     time: source.time,

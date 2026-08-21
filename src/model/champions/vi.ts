@@ -41,6 +41,7 @@ import {
   calcRatio,
   calcValue,
   cooldownValue,
+  costValue,
   gameValue,
   spellTiming,
   type AbilityMeta,
@@ -73,6 +74,8 @@ const FALLBACK = {
     /** Damage and dash range ramp over this window, not over the full hold. */
     maxChargeSeconds: 1.25,
     cooldown: [12, 10.5, 9, 7.5, 6],
+    /** Mana, from Data Dragon 16.16.1: 50/60/70/80/90. */
+    cost: [50, 60, 70, 80, 90],
     /**
      * The knock-up on impact.
      *
@@ -103,11 +106,15 @@ const FALLBACK = {
     apRatio: 1.0,
     charges: 2,
     rechargeSeconds: [12, 11, 10, 9, 8],
+    /** Mana, from Data Dragon 16.16.1: 26/32/38/44/50. */
+    cost: [26, 32, 38, 44, 50],
   },
   r: {
     base: [150, 250, 350],
     bonusAdRatio: 0.9,
     cooldown: [140, 115, 90],
+    /** 100 at every rank. */
+    cost: [100, 100, 100],
     knockupSeconds: 1.3,
     /**
      * Cast time, from Riot's own file: `ViR.mSpell.mCastTime` is 0.25 on 16.16,
@@ -371,6 +378,20 @@ class ViRuntime implements ChampionRuntime {
       default:
         return parts([{ label: 'input', seconds: ctx.timings.inputDelay }]);
     }
+  }
+
+  /**
+   * What a cast costs, per rank, from Data Dragon with the registry behind it.
+   *
+   * W is passive and free; the other three are not, and a combo that spends more
+   * mana than Vi has is not a combo she can press.
+   */
+  abilityCost(slot: AbilitySlot, _ctx: SimContext, rank: number): number {
+    const meta = VI_MODULE.abilities.find((ability) => ability.slot === slot);
+    const spell = meta?.ddragonId ? this.ctx.spellById[meta.ddragonId] : undefined;
+    const fallback =
+      slot === 'Q' ? FALLBACK.q.cost : slot === 'E' ? FALLBACK.e.cost : slot === 'R' ? FALLBACK.r.cost : [0];
+    return costValue(spell, rank, fallback).value;
   }
 
   castAbility(slot: AbilitySlot, ctx: SimContext, options: { chargeSeconds: number }): void {

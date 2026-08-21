@@ -76,6 +76,13 @@ interface Props {
   /** The step held by a click in the analysis, shown more strongly. */
   pinnedStepUid?: string | null;
   /**
+   * Steps the simulation never reached, because the target was already dead.
+   *
+   * Kept in the list and dimmed: deleting them would be editing the plan on the
+   * player's behalf, and a build that overkills is worth seeing as one.
+   */
+  unusedStepUids?: string[];
+  /**
    * Toggle the focused step.
    *
    * The card is where you point at a press, so clicking one focuses that
@@ -94,6 +101,7 @@ export function ComboBuilder({
   durationSeconds,
   linkedStepUid,
   pinnedStepUid,
+  unusedStepUids,
   onPinStep,
 }: Props) {
   const sensors = useSensors(
@@ -237,6 +245,7 @@ export function ComboBuilder({
                     summoners={summoners}
                     linked={linkedStepUid === entry.uid}
                     pinned={pinnedStepUid === entry.uid}
+                    unused={unusedStepUids?.includes(entry.uid) ?? false}
                     onPin={() => onPinStep?.(entry.uid)}
                     onRemove={() => remove(entry.uid)}
                     onUpdate={(patch) => update(entry.uid, patch)}
@@ -264,6 +273,8 @@ interface StepProps {
   linked: boolean;
   /** True while a click in the analysis holds this step. */
   pinned: boolean;
+  /** True when the target died before this step. */
+  unused: boolean;
   onPin: () => void;
   onRemove: () => void;
   /** Editing this step's own numbers: charge length, wait length. */
@@ -279,6 +290,7 @@ function SortableStep({
   summoners,
   linked,
   pinned,
+  unused,
   onPin,
   onRemove,
   onUpdate,
@@ -338,7 +350,8 @@ function SortableStep({
       style={style}
       className={`combo-card ${descriptor.className}${isDragging ? ' dragging' : ''}${
         linked ? ' is-linked' : ''
-      }${pinned ? ' is-pinned' : ''}`}
+      }${pinned ? ' is-pinned' : ''}${unused ? ' is-unused' : ''}`}
+      title={unused ? 'The target was already dead — this step never happened' : undefined}
       onClick={onPin}
       {...attributes}
       {...listeners}

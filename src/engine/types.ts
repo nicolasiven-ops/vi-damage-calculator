@@ -297,6 +297,8 @@ export interface StatSnapshot {
   time: number;
   /** The attacker's full stat block at this moment, buffs included. */
   attacker: ChampionStats;
+  /** The attacker's resource pool at this moment: spent by casts, regenerated. */
+  attackerResource: { current: number; max: number };
   target: {
     currentHealth: number;
     maxHealth: number;
@@ -331,6 +333,15 @@ export interface StatSnapshot {
 export interface SimulationResult {
   /** Health the target regenerated while the combo ran. */
   targetRegenerated: number;
+  /** Mana the combo spent. */
+  manaSpent: number;
+  /**
+   * Steps the combo never reached, because the target was already dead.
+   *
+   * They stay in the combo — they are part of the plan — and the strip greys
+   * them out rather than pretending they landed.
+   */
+  unusedSteps: string[];
   instances: DamageInstance[];
   events: TimelineEvent[];
   /** One entry per combo step, plus the state before the first — see StatSnapshot. */

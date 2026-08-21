@@ -241,8 +241,12 @@ export function AnalysisPanel({
             health={{ current: moment.attacker.maxHealth, max: moment.attacker.maxHealth }}
             shield={moment.shieldGained}
             resource={
-              moment.attacker.maxMana > 0
-                ? { current: moment.attacker.maxMana, max: moment.attacker.maxMana, label: 'mana' }
+              moment.attackerResource.max > 0
+                ? {
+                    current: moment.attackerResource.current,
+                    max: moment.attackerResource.max,
+                    label: 'mana',
+                  }
                 : null
             }
           />

@@ -311,6 +311,69 @@ describe('cooldowns', () => {
     expect(castSpan!.parts?.some((part) => part.label === 'locked')).toBe(true);
   });
 
+  /**
+   * The combo stops at the kill: everything after it is damage into a corpse,
+   * and counting it inflates every total on the page.
+   */
+  it('stops the combo once the target is dead and reports the unused steps', () => {
+    // Frail enough that a charged Q is certainly lethal, whatever the patch
+    // does to Vi's numbers.
+    const frail = { ...TARGET, maxHealth: 60, armor: 0 };
+    const result = run(
+      [
+        step({ kind: 'ability', slot: 'Q' }, 1.25),
+        step({ kind: 'attack' }),
+        step({ kind: 'attack' }),
+        step({ kind: 'attack' }),
+      ],
+      { target: frail },
+    );
+    expect(result.killTime).not.toBeNull();
+    // The first hit is enough, so the three attacks never happen.
+    expect(result.unusedSteps.length).toBeGreaterThan(0);
+    expect(result.instances.filter((entry) => entry.sourceKind === 'attack')).toHaveLength(0);
+    expect(result.events.some((event) => event.label === 'Target eliminated')).toBe(true);
+    expect(result.events.some((event) => event.label === 'Combo stopped')).toBe(true);
+  });
+
+  /**
+   * Mana is spent, and a cast nobody can pay for does not happen.
+   */
+  it('spends mana on casts and refuses the one it cannot pay for', () => {
+    const result = run([
+      step({ kind: 'ability', slot: 'Q' }, 0),
+      step({ kind: 'ability', slot: 'R' }),
+    ]);
+    const after = result.snapshots[result.snapshots.length - 1]!;
+    /*
+     * The expected sum comes from the fixture rather than from a number typed
+     * here: the fixture is a snapshot of a real patch, and Riot moves costs.
+     */
+    const expected =
+      (FIXTURE_SPELLS_BY_ID.ViQ?.cost[4] ?? 0) + (FIXTURE_SPELLS_BY_ID.ViR?.cost[2] ?? 0);
+    expect(expected).toBeGreaterThan(0);
+    expect(result.manaSpent).toBeCloseTo(expected, 0);
+    /*
+     * Not exactly the difference: mana regenerates while the combo runs, so the
+     * pool is the spend plus whatever came back over those seconds. It can only
+     * ever be more than the naive figure, never less.
+     */
+    const naive = after.attackerResource.max - expected;
+    expect(after.attackerResource.current).toBeGreaterThanOrEqual(naive - 0.01);
+    expect(after.attackerResource.current).toBeLessThan(naive + 30);
+  });
+
+  it('skips an ability the pool cannot pay for', () => {
+    const dry = resolveChampionStats(FIXTURE_CHAMPION_STATS, 11, {
+      ...emptyStats(),
+      // A negative pool is not a thing; this drains it to almost nothing.
+      mana: -FIXTURE_CHAMPION_STATS.mp * 10,
+    });
+    const result = run([step({ kind: 'ability', slot: 'R' })], { attackerStats: dry });
+    expect(result.instances.filter((entry) => entry.slot === 'R')).toHaveLength(0);
+    expect(result.warnings.some((warning) => /mana/i.test(warning))).toBe(true);
+  });
+
   it('waits out a 90 s ultimate rather than double-counting it', () => {
     const result = run([
       step({ kind: 'ability', slot: 'R' }),
