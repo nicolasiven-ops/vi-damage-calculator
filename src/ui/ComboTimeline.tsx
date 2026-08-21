@@ -364,9 +364,20 @@ export function ComboTimeline({
       );
     });
 
-    if (which === 'combo') return out;
-
     for (const group of GROUP_LANES) {
+      /*
+       * Procs travel with the combo, the rest with the detail.
+       *
+       * An item or rune proc is *damage a step caused* — Sheen firing is the
+       * consequence of the ability before it — so it belongs under the steps it
+       * came from. Buffs, shreds, crowd control and sustain are states rather
+       * than hits: they describe the fight around the combo, which is a
+       * different reading and a different window.
+       */
+      const withCombo = group.lane === 'proc';
+      if (which === 'combo' && !withCombo) continue;
+      if (which === 'groups' && withCombo) continue;
+
       const key = `lane:${group.lane}`;
       const hasContent = (spansByRow.get(key)?.length ?? 0) > 0 || (hitsByRow.get(key)?.length ?? 0) > 0;
       if (!hasContent) continue;
