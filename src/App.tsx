@@ -358,21 +358,6 @@ export default function App() {
             />
           </div>
 
-          <div className="config-slot" data-tab="target" id="config-target">
-            <TargetPanel
-              target={build.target}
-              champions={bundle?.champions ?? {}}
-              onChange={(target) => patchBuild({ target })}
-            />
-          </div>
-
-          <div className="config-slot" data-tab="sim" id="config-sim">
-            <SettingsPanel
-              critMode={build.critMode}
-              timings={build.timings}
-              onChange={patchBuild}
-            />
-          </div>
         </aside>
 
         <main className="app-main">
@@ -403,6 +388,33 @@ export default function App() {
           </section>
         )}
         </main>
+
+        {/*
+         * The other side of the fight. Same column treatment as the build, on
+         * the far side of the numbers: what you are shooting at, and under which
+         * assumptions the shot is simulated.
+         */}
+        <aside
+          className="app-config app-config-target"
+          data-active={configTab ?? ''}
+          aria-label="Target"
+        >
+          <div className="config-slot" data-tab="target" id="config-target">
+            <TargetPanel
+              target={build.target}
+              champions={bundle?.champions ?? {}}
+              onChange={(target) => patchBuild({ target })}
+            />
+          </div>
+
+          <div className="config-slot" data-tab="sim" id="config-sim">
+            <SettingsPanel
+              critMode={build.critMode}
+              timings={build.timings}
+              onChange={patchBuild}
+            />
+          </div>
+        </aside>
       </div>
 
       <footer className="app-footer">
