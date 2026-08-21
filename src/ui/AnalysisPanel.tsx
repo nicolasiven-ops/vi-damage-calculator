@@ -115,7 +115,7 @@ type TimelineRow =
  * resolutions. Stacked, they would fill the screen without telling anyone
  * more. One window, three tabs.
  */
-type ResultView = 'timeline' | 'details' | 'detailed' | 'sources';
+type ResultView = 'timeline' | 'details' | 'detailed' | 'sources' | 'formulas';
 
 /**
  * The three ways to read the same run, as the tabs name them.
@@ -129,6 +129,7 @@ const VIEW_TITLES: Record<ResultView, string> = {
   details: 'Timeline - List',
   detailed: 'Detailed View',
   sources: 'Damage sources',
+  formulas: 'Formula Inspector',
 };
 
 const STATUS_TAGS: Record<GameDataStatus['state'], { label: string; tone: string }> = {
@@ -393,7 +394,8 @@ export function AnalysisPanel({
         title="Detailed Analysis"
         actions={
           <div className="view-tabs">
-            {(['timeline', 'details', 'detailed', 'sources'] as ResultView[]).map((entry) => (
+            {(['timeline', 'details', 'detailed', 'sources', 'formulas'] as ResultView[]).map(
+              (entry) => (
               <button
                 key={entry}
                 className={`view-tab${view === entry ? ' is-active' : ''}`}
@@ -424,6 +426,10 @@ export function AnalysisPanel({
           />
         )}
 
+
+        {view === 'formulas' && (
+          <HitFormulas analysis={analysis} pinnedStepUid={pinnedStepUid} />
+        )}
 
         {view === 'sources' && (
           <>
@@ -531,17 +537,6 @@ export function AnalysisPanel({
        * for. What is left in the middle is what only the middle can hold: where
        * the damage came from, over the whole combo.
        */}
-      {/*
-       * The inspector: one card per hit, two lines each.
-       *
-       * Its own window because it is the answer to a different question than the
-       * timeline's — not when did this happen but why is it this number — and
-       * because the cards want the full width.
-       */}
-      <Panel className="analysis-inspector" title="Formula Inspector">
-        <HitFormulas analysis={analysis} pinnedStepUid={pinnedStepUid} />
-      </Panel>
-
       {/*
        * The bottom window: where the numbers come from.
        *

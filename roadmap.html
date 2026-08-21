@@ -28,6 +28,7 @@
           <li class="lab-nav-break">Done</li>
           <li><a href="#shipped">Shipped so far</a></li>
           <li class="lab-nav-break">Main features</li>
+          <li><a href="#mix">The best ratio of stats</a></li>
           <li><a href="#solver">The combo solver</a></li>
           <li><a href="#worth">What a stat is worth</a></li>
           <li><a href="#sweep">Against more than one target</a></li>
@@ -199,6 +200,125 @@
             the coverage test fails on an unclassified one, and the first mechanic
             (stacking amplifiers) is implemented and pinned by tests. 13 of 218
             modelled, 11 examined and dismissed, and the rest is the work.
+          </p>
+        </section>
+
+        <!-- ================================================= Stat mix -->
+        <section class="lab-section" id="mix">
+          <div class="lab-section-head">
+            <span class="lab-num">MIX</span>
+            <h2>The best ratio of stats against this target</h2>
+            <div class="lab-cost">
+              <span class="lab-pill needs">main feature</span>
+              <span class="lab-pill ready">engine is ready</span>
+            </div>
+          </div>
+          <p class="lab-why">
+            Not "which stat is strongest" — that question has an easy and useless answer.
+            <strong>Which mixture is best?</strong> Against a 1,000-health carry with 30
+            armour, lethality is worth a great deal per point; but every point of it makes
+            the next point of attack damage worth more, and enough attack damage makes
+            crit worth more than either. The stats are not a ranking, they are a recipe,
+            and the recipe changes with the target.
+          </p>
+
+          <h3 class="lab-sub">Why the interactions are real, and which way they run</h3>
+          <p class="lab-why">
+            Worth writing down, because two of the three are counter-intuitive and the
+            feature is only trustworthy if it agrees with the arithmetic:
+          </p>
+          <div class="lab-stage plain">
+            <ul class="lab-scrap">
+              <li>
+                <b>Lethality gets <em>better</em> as armour falls, then falls off a
+                cliff</b>
+                <span>Damage scales with 100 / (100 + armour).</span>
+                <em>The derivative with respect to flat penetration is proportional to
+                1 / (100 + armour)², so each point removed is worth more than the one
+                before — accelerating, not diminishing. It stops dead the moment armour
+                reaches zero, because there is nothing left to remove: the value goes from
+                its maximum to exactly nothing. That cliff is the single most useful thing
+                this tool could show you.</em>
+              </li>
+              <li>
+                <b>Attack damage and penetration multiply each other</b>
+                <span>Damage ≈ AD × 100 / (100 + armour).</span>
+                <em>Your instinct was right about the direction: more penetration makes
+                every point of AD worth more. The reason is not that lethality
+                diminishes — it is that the two sit on opposite sides of one
+                multiplication, so each raises the other's marginal value.</em>
+              </li>
+              <li>
+                <b>Crit and attack damage multiply too</b>
+                <span>Expected damage ≈ AD × (1 + chance × (multiplier − 1)).</span>
+                <em>A point of crit chance is worth a fixed fraction of your attack
+                damage, so it is worth more the more of it you have — and vice versa. Crit
+                is also worth nothing to an ability-heavy combo and everything to an
+                attack-heavy one, which is why this has to be measured per combo and not
+                looked up.</em>
+              </li>
+            </ul>
+          </div>
+
+          <h3 class="lab-sub">How it is computed: buy one gold at a time</h3>
+          <p class="lab-why">
+            No formula, and no search over combinations either. The engine already answers
+            "what does this build do" in milliseconds, so the recipe is found by
+            <strong>spending an imaginary gold budget greedily</strong>:
+          </p>
+          <div class="lab-stage plain">
+            <div class="lab-kv">
+              <div class="lab-kv-row">
+                <span>1. Price every stat</span>
+                <span class="mono">from the cheapest single-stat component in item.json</span>
+              </div>
+              <div class="lab-kv-row">
+                <span>2. Measure each one's next step</span>
+                <span class="mono">+100 g of it, re-simulate, Δdamage ÷ 100 g</span>
+              </div>
+              <div class="lab-kv-row">
+                <span>3. Buy the winner, repeat</span>
+                <span class="mono">until the budget is gone</span>
+              </div>
+              <div class="lab-kv-row is-total">
+                <span>Out falls</span>
+                <span class="mono">a mixture, and the order it was bought in</span>
+              </div>
+            </div>
+          </div>
+          <p class="lab-caption">
+            The greedy loop <em>is</em> the interaction model: it needs no theory about
+            lethality and crit, because after each purchase it re-measures everything
+            against the build it just changed. The switching points come out for free —
+            "lethality until 18, then attack damage, then crit from 3,400 g onwards" — and
+            those are worth more than the final mixture, because a real game passes through
+            them in order.
+          </p>
+
+          <h3 class="lab-sub">How it is shown</h3>
+          <p class="lab-why">
+            The radar is the picture: one axis per stat, the polygon being the share of the
+            budget the greedy loop put into each. A shape is the right form for a ratio —
+            you recognise "penetration-heavy against a squishy" and "resistance-shredding
+            against a tank" as shapes long before you read the numbers, and two targets
+            side by side become two polygons.
+          </p>
+          <p class="lab-why">
+            With one honest caveat drawn on the panel rather than hidden: a radar's axes
+            have no common unit, so the polygon must be <strong>share of gold</strong> —
+            something that genuinely sums to one — and never "value", which would let the
+            scaling of each axis decide the shape. Beside it: the switching path, and the
+            damage the recommended mixture actually produces against the current
+            mixture. That last number is what makes it a tool rather than a diagram.
+          </p>
+          <p class="lab-caption">
+            <strong>The limits, stated on the panel.</strong> It optimises one combo
+            against one target with no regard for the six-slot constraint, defensive need,
+            or what an item bundles alongside the stat you wanted. It answers "what would
+            pure damage against <em>him</em> look like", which is a sharper question than
+            any build guide answers and still not the whole of building. Pairing it with
+            <a href="#contrib">what each item contributes</a> closes that gap: one says
+            what the ideal mixture is, the other what the shop can actually sell you.
           </p>
         </section>
 
