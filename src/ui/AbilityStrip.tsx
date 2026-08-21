@@ -76,13 +76,21 @@ export function AbilityStrip({ tiles, onRankChange }: Props) {
                */}
               {tile.readiness && tile.readiness.readyIn > 0.05 && (
                 <>
+                  {/*
+                   * A wedge from twelve o'clock, clockwise, the way the client
+                   * draws it — not a bar. A bar has to start somewhere, and
+                   * wherever that is, it reads as a value rather than as time
+                   * running out.
+                   */}
                   <span
                     className="ability-cd-wipe"
                     style={{
-                      width: `${Math.min(
-                        100,
-                        (tile.readiness.readyIn / Math.max(0.1, tile.readiness.cooldown)) * 100,
-                      )}%`,
+                      background: `conic-gradient(rgba(3, 6, 12, 0.74) ${
+                        Math.min(
+                          100,
+                          (tile.readiness.readyIn / Math.max(0.1, tile.readiness.cooldown)) * 100,
+                        ).toFixed(1)
+                      }%, transparent 0)`,
                     }}
                   />
                   <span className="ability-cd-seconds mono">

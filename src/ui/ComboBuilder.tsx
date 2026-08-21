@@ -246,6 +246,10 @@ export function ComboBuilder({
                     linked={linkedStepUid === entry.uid}
                     pinned={pinnedStepUid === entry.uid}
                     unused={unusedStepUids?.includes(entry.uid) ?? false}
+                    unlearned={
+                      entry.action.kind === 'ability' &&
+                      (learnedRanks[entry.action.slot] ?? 0) < 1
+                    }
                     onPin={() => onPinStep?.(entry.uid)}
                     onRemove={() => remove(entry.uid)}
                     onUpdate={(patch) => update(entry.uid, patch)}
@@ -275,6 +279,8 @@ interface StepProps {
   pinned: boolean;
   /** True when the target died before this step. */
   unused: boolean;
+  /** True when the ability has no rank: it can be planned, it just does nothing. */
+  unlearned: boolean;
   onPin: () => void;
   onRemove: () => void;
   /** Editing this step's own numbers: charge length, wait length. */
@@ -291,6 +297,7 @@ function SortableStep({
   linked,
   pinned,
   unused,
+  unlearned,
   onPin,
   onRemove,
   onUpdate,
@@ -350,8 +357,16 @@ function SortableStep({
       style={style}
       className={`combo-card ${descriptor.className}${isDragging ? ' dragging' : ''}${
         linked ? ' is-linked' : ''
-      }${pinned ? ' is-pinned' : ''}${unused ? ' is-unused' : ''}`}
-      title={unused ? 'The target was already dead — this step never happened' : undefined}
+      }${pinned ? ' is-pinned' : ''}${unused ? ' is-unused' : ''}${
+        unlearned ? ' is-unlearned' : ''
+      }`}
+      title={
+        unlearned
+          ? 'Not learned — the step stays in the plan and contributes nothing'
+          : unused
+            ? 'The target was already dead — this step never happened'
+            : undefined
+      }
       onClick={onPin}
       {...attributes}
       {...listeners}

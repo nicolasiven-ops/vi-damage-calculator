@@ -701,6 +701,22 @@
  * Dimmed rather than removed: it is still part of the combo you typed, and the
  * gap between what you planned and what was needed is worth looking at.
  */
+/*
+ * A step for an ability with no rank.
+ *
+ * Allowed in the combo on purpose — planning the rotation you intend to have is
+ * useful — and marked, because it contributes nothing until the point is spent.
+ */
+.combo-card.is-unlearned {
+  opacity: 0.5;
+}
+
+.combo-card.is-unlearned .combo-label::after {
+  content: ' · not learned';
+  color: var(--status-bad);
+  font-size: 10px;
+}
+
 .combo-card.is-unused {
   opacity: 0.42;
   filter: saturate(0.5);
@@ -930,17 +946,14 @@
 }
 
 /*
- * The cooldown, drawn on the icon the way the client draws it.
- *
- * The dark part is what is left to wait: it shrinks off to the left as the
- * ability comes back, and the seconds sit on top of it because that is the
- * number anyone actually reads off a HUD.
+ * The cooldown, drawn on the icon the way the client draws it: a dark wedge from
+ * twelve o'clock that sweeps away clockwise as the ability comes back. The
+ * gradient is set inline because its stop *is* the remaining time; the seconds
+ * sit on top of it, because that is the number anyone reads off a HUD.
  */
 .ability-cd-wipe {
   position: absolute;
-  inset: 0 auto 0 0;
-  background: rgba(3, 6, 12, 0.72);
-  transition: width 120ms linear;
+  inset: 0;
   pointer-events: none;
 }
 
@@ -1669,10 +1682,17 @@
 
 /* ---------------------------------------------------- view switcher */
 
+/*
+ * Five readings do not fit one line at every width, so the row wraps rather
+ * than running out of its own header.
+ */
 .view-tabs {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: var(--space-1);
+  min-width: 0;
 }
 
 .view-tab {
