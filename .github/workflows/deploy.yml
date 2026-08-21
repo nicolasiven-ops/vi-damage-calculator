@@ -19,9 +19,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # Node 24 for its npm 11: the lock file is written by npm 11 locally, and
+      # npm 10 resolves Vite 8's optional esbuild peer differently, which makes
+      # `npm ci` reject the very lock file `npm install` just produced.
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
       - run: npm ci
       - run: npm test
