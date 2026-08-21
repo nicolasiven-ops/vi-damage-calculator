@@ -165,38 +165,6 @@
   gap: var(--space-2);
 }
 
-.preset-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: var(--space-2);
-}
-
-.preset-card {
-  text-align: left;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: var(--space-3);
-  background: var(--surface-input);
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  transition: border-color 120ms;
-}
-
-.preset-card:hover {
-  border-color: var(--gold-400);
-}
-
-.preset-name {
-  color: var(--gold-200);
-  font-size: 13px;
-}
-
-.preset-desc {
-  color: var(--text-muted);
-  font-size: 11.5px;
-}
-
 .action-palette {
   display: flex;
   flex-direction: column;
@@ -1024,25 +992,16 @@
   overflow: hidden;
 }
 
-/*
- * One height per row, detail line or not.
- *
- * Otherwise a sheet's height depends on how many of its rows happen to carry a
- * second line — which differs between the two sidebars and between the four
- * pages, and made the same eight stats a different-sized block on each side.
- */
+/* One line per stat: label, what changed, the number. */
 .stat-row {
   display: grid;
   grid-template-columns: 1fr auto auto;
-  grid-template-areas: 'label delta value' 'detail delta value';
+  grid-template-areas: 'label delta value';
   gap: 0 var(--space-3);
   padding: 6px var(--space-3);
-  /* 46 px is a row with a detail line under its label; without one it would be
-     44, and two px per row is how the two sheets ended up 7 px apart. */
-  min-height: 46px;
+  min-height: 38px;
   background: var(--surface-1);
   align-items: center;
-  align-content: center;
   box-shadow: inset 0 -1px 0 var(--line-soft);
 }
 
@@ -1089,21 +1048,6 @@
   font-size: 14px;
   color: var(--gold-100);
   font-weight: 600;
-}
-
-.stat-detail {
-  grid-area: detail;
-  font-size: 10.5px;
-  color: var(--text-muted);
-  /*
-   * One line, always. A detail that wraps makes its row taller than the same
-   * row on the other side, and the two sheets then disagree by exactly that
-   * line — which is how a whole sidebar ends up out of step.
-   */
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
 }
 
 /* ===================================================================== items */
@@ -1880,6 +1824,17 @@
 .tile.hero .tile-value {
   font-size: 34px;
   color: var(--gold-200);
+}
+
+/* Small and quiet, on the same line as the number it qualifies. */
+.tile-suffix {
+  margin-left: 6px;
+  font-family: var(--font-sans, inherit);
+  font-size: 10.5px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 
 .tile-detail {

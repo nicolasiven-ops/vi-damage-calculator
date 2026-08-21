@@ -112,7 +112,15 @@ export default function App() {
   const pinnedStepUid = build.combo.some((entry) => entry.uid === rawPinnedStepUid)
     ? rawPinnedStepUid
     : null;
-  const linkedStepUid = hoveredStepUid ?? pinnedStepUid;
+  /*
+   * A pin holds. Hover only picks the moment while nothing is pinned.
+   *
+   * The other way round, moving the mouse across the timeline on the way to
+   * anything else pulled the numbers off the step you had just clicked — which
+   * makes a click useless for reading a moment, and reading a moment is what it
+   * is for.
+   */
+  const linkedStepUid = pinnedStepUid ?? hoveredStepUid;
   const patch = usePatchData(DEFAULT_LOCALE);
   const bundle = patch.bundle;
 

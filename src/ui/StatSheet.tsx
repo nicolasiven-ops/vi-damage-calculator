@@ -166,7 +166,6 @@ export function StatSheet({ stats, live, previous }: Props) {
                   </span>
                 )}
                 <span className="stat-value mono">{row.value}</span>
-                {row.detail && <span className="stat-detail">{row.detail}</span>}
               </div>
             ))}
           </div>
@@ -185,7 +184,6 @@ export function StatSheet({ stats, live, previous }: Props) {
 interface Row {
   label: string;
   value: string;
-  detail?: string;
   delta?: { direction: 'up' | 'down'; text: string };
 }
 
@@ -208,15 +206,14 @@ function buildRows(page: PageId, now: Reading, previous: StatComparison | null):
     label: string,
     pick: Pick,
     format: (value: number) => string = int,
-    extra?: { detail?: string; display?: (value: number) => string },
+    display?: (value: number) => string,
   ): Row {
     const value = pick(now);
     const past = before ? pick(before) : Number.NaN;
     const moved = known(value) && known(past) && Math.abs(value - past) > 0.0005;
     return {
       label,
-      value: (extra?.display ?? format)(value),
-      detail: extra?.detail,
+      value: (display ?? format)(value),
       delta: moved
         ? { direction: value > past ? 'up' : 'down', text: format(Math.abs(value - past)) }
         : undefined,
@@ -232,14 +229,7 @@ function buildRows(page: PageId, now: Reading, previous: StatComparison | null):
   const armorPick: Pick = (r) => r.live.armor ?? r.stats.armor;
   const mrPick: Pick = (r) => r.live.magicResist ?? r.stats.magicResist;
 
-  const attackDamage = row('Attack Damage', (r) => r.stats.totalAttackDamage, int, {
-    // The base is the champion's, the same at every level for everyone playing
-    // them; what the build did is the bonus.
-    detail:
-      known(stats.bonusAttackDamage) && stats.bonusAttackDamage > 0
-        ? `+${int(stats.bonusAttackDamage)} bonus`
-        : undefined,
-  });
+  const attackDamage = row('Attack Damage', (r) => r.stats.totalAttackDamage);
   const abilityPower = row('Ability Power', (r) => r.stats.abilityPower);
   // No footnote about shred or penetration: the value is what the target has
   // right now, the arrow says it moved, and the timeline says what moved it.
@@ -252,19 +242,13 @@ function buildRows(page: PageId, now: Reading, previous: StatComparison | null):
    * hard. A multiplier on its own line read as a footnote to the chance, when it
    * is the other half of the same stat.
    */
-  const crit = row('Critical Strike', (r) => r.stats.critChance, pct, {
-    display: (value) =>
-      known(stats.critMultiplier) ? `${pct(value)} / ×${stats.critMultiplier.toFixed(2)}` : pct(value),
-  });
+  const crit = row('Critical Strike', (r) => r.stats.critChance, pct, (value) =>
+    known(stats.critMultiplier) ? `${pct(value)} / ×${stats.critMultiplier.toFixed(2)}` : pct(value),
+  );
   const moveSpeed = row('Move Speed', (r) => r.stats.moveSpeed);
-  const health = row('Health', (r) => r.live.currentHealth ?? r.stats.maxHealth, int, {
-    display: (value) =>
-      live.currentHealth !== undefined ? `${int(value)} / ${int(stats.maxHealth)}` : int(value),
-    detail:
-      known(stats.bonusHealth) && stats.bonusHealth > 0
-        ? `+${int(stats.bonusHealth)} bonus`
-        : undefined,
-  });
+  const health = row('Health', (r) => r.live.currentHealth ?? r.stats.maxHealth, int, (value) =>
+    live.currentHealth !== undefined ? `${int(value)} / ${int(stats.maxHealth)}` : int(value),
+  );
 
   switch (page) {
     case 'overview':
@@ -290,12 +274,18 @@ function buildRows(page: PageId, now: Reading, previous: StatComparison | null):
       return [
         // Flat then percent, in one value: 18 lethality and a Last Whisper is
         // "18 / 35%", which is how penetration is read and bought.
-        row('Armor Penetration', (r) => r.stats.lethality, int, {
-          display: (value) => `${int(value)} / ${pct(stats.armorPenPercent)}`,
-        }),
-        row('Magic Penetration', (r) => r.stats.magicPenFlat, int, {
-          display: (value) => `${int(value)} / ${pct(stats.magicPenPercent)}`,
-        }),
+        row(
+          'Armor Penetration',
+          (r) => r.stats.lethality,
+          int,
+          (value) => `${int(value)} / ${pct(stats.armorPenPercent)}`,
+        ),
+        row(
+          'Magic Penetration',
+          (r) => r.stats.magicPenFlat,
+          int,
+          (value) => `${int(value)} / ${pct(stats.magicPenPercent)}`,
+        ),
         row('Life Steal', (r) => r.stats.lifesteal, pct),
         row('Omnivamp', (r) => r.stats.omnivamp, pct),
         row('Physical Vamp', (r) => r.stats.physicalVamp, pct),
@@ -304,24 +294,15 @@ function buildRows(page: PageId, now: Reading, previous: StatComparison | null):
     case 'defense':
       return [
         health,
-        row('Health Regeneration', (r) => r.stats.healthRegen, one, {
-          detail: known(stats.healthRegen) ? 'per 5 seconds' : undefined,
-        }),
+        row('Health Regeneration', (r) => r.stats.healthRegen, one),
         row('Tenacity', (r) => r.stats.tenacity, pct),
         ...(live.shield !== undefined ? [row('Shield', (r) => r.live.shield ?? 0, int)] : []),
       ];
 
     case 'utility':
       return [
-        row('Mana', (r) => r.stats.maxMana, int, {
-          detail:
-            known(stats.bonusMana) && stats.bonusMana > 0
-              ? `+${int(stats.bonusMana)} bonus`
-              : undefined,
-        }),
-        row('Mana Regeneration', (r) => r.stats.manaRegen, one, {
-          detail: known(stats.manaRegen) ? 'per 5 seconds' : undefined,
-        }),
+        row('Mana', (r) => r.stats.maxMana),
+        row('Mana Regeneration', (r) => r.stats.manaRegen, one),
         // Its own row rather than folded into Ability Haste: it does not touch
         // the ultimate, and a single number would say it does.
         row('Basic Ability Haste', (r) => r.stats.basicAbilityHaste),

@@ -11,7 +11,7 @@
  * that produced it, which is what makes the strip readable as a cause.
  */
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import {
   DndContext,
   KeyboardSensor,
@@ -86,50 +86,6 @@ interface Props {
   onPinStep?: (uid: string | null) => void;
 }
 
-const PRESETS: { name: string; description: string; build: () => ComboStep[] }[] = [
-  {
-    name: 'Standard engage',
-    description: 'Q (full) → AA → E → R → AA',
-    build: () => [
-      makeStep({ kind: 'ability', slot: 'Q' }, 1.25),
-      makeStep({ kind: 'attack' }),
-      makeStep({ kind: 'ability', slot: 'E' }),
-      makeStep({ kind: 'ability', slot: 'R' }),
-      makeStep({ kind: 'attack' }),
-    ],
-  },
-  {
-    name: 'Ult engage',
-    description: 'R → AA → E → Q → AA',
-    build: () => [
-      makeStep({ kind: 'ability', slot: 'R' }),
-      makeStep({ kind: 'attack' }),
-      makeStep({ kind: 'ability', slot: 'E' }),
-      makeStep({ kind: 'ability', slot: 'Q' }, 1.25),
-      makeStep({ kind: 'attack' }),
-    ],
-  },
-  {
-    name: 'Full burst',
-    description: 'Everything including Ignite, until W procs twice',
-    build: () => [
-      makeStep({ kind: 'ability', slot: 'Q' }, 1.25),
-      makeStep({ kind: 'attack' }),
-      makeStep({ kind: 'ability', slot: 'E' }),
-      makeStep({ kind: 'ability', slot: 'R' }),
-      makeStep({ kind: 'summoner', summonerId: 'SummonerDot' }),
-      makeStep({ kind: 'attack' }),
-      makeStep({ kind: 'ability', slot: 'E' }),
-      makeStep({ kind: 'attack' }),
-    ],
-  },
-  {
-    name: 'Auto-attacks only',
-    description: '6 basic attacks — the pure-DPS baseline',
-    build: () => Array.from({ length: 6 }, () => makeStep({ kind: 'attack' })),
-  },
-];
-
 export function ComboBuilder({
   combo,
   abilities,
@@ -143,8 +99,6 @@ export function ComboBuilder({
   onHoverStep,
   onPinStep,
 }: Props) {
-  const [showPresets, setShowPresets] = useState(false);
-
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -187,9 +141,6 @@ export function ComboBuilder({
             : ''}
         </span>
         <div className="combo-bar-spacer" />
-        <button className="btn subtle" onClick={() => setShowPresets((value) => !value)}>
-          Presets
-        </button>
         <button
           className="btn subtle danger"
           onClick={() => onChange(() => [])}
@@ -198,24 +149,6 @@ export function ComboBuilder({
           Clear
         </button>
       </div>
-
-      {showPresets && (
-        <div className="preset-grid">
-          {PRESETS.map((preset) => (
-            <button
-              key={preset.name}
-              className="preset-card"
-              onClick={() => {
-                onChange(() => preset.build());
-                setShowPresets(false);
-              }}
-            >
-              <span className="preset-name">{preset.name}</span>
-              <span className="preset-desc">{preset.description}</span>
-            </button>
-          ))}
-        </div>
-      )}
 
       <div className="combo-bar-track">
         <div className="action-palette">
@@ -283,8 +216,8 @@ export function ComboBuilder({
 
         {combo.length === 0 ? (
           <p className="empty-note">
-            Noch keine Schritte. Links eine Aktion anklicken oder eine Vorlage laden — danach
-            lassen sich die Karten per Drag &amp; Drop umsortieren.
+            Noch keine Schritte. Links eine Aktion anklicken — danach lassen sich die Karten
+            per Drag &amp; Drop umsortieren.
           </p>
         ) : (
           <DndContext

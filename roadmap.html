@@ -33,12 +33,15 @@
           <li><a href="#spread">The crit spread</a></li>
           <li><a href="#formula">The formula at the hit</a></li>
           <li class="lab-nav-break">Honest simulation</li>
+          <li><a href="#items">Item passives, all of them</a></li>
           <li><a href="#mana">Mana, spent and regained</a></li>
           <li><a href="#regen">Regeneration over time</a></li>
           <li><a href="#smite">Smite, all four of them</a></li>
           <li><a href="#haste">The rest of the haste family</a></li>
-          <li class="lab-nav-break">The big one</li>
+          <li><a href="#selflock">What the caster is locked out of</a></li>
+          <li class="lab-nav-break">Towards the duel</li>
           <li><a href="#champions">More than one champion</a></li>
+          <li><a href="#windows">The windows</a></li>
           <li class="lab-nav-break">Reference</li>
           <li><a href="#gaps">Known gaps</a></li>
         </ol>
@@ -246,10 +249,96 @@
           </p>
         </section>
 
+        <!-- ================================================= Item passives -->
+        <section class="lab-section" id="items">
+          <div class="lab-section-head">
+            <span class="lab-num">06</span>
+            <h2>Item passives, all of them</h2>
+            <div class="lab-cost">
+              <span class="lab-pill needs">honesty item</span>
+              <span class="lab-pill needs">the biggest number gap</span>
+            </div>
+          </div>
+          <p class="lab-why">
+            Fifteen item passives are modelled. There are hundreds of items, and every
+            unmodelled one is a build whose damage the app under-reports — not by a
+            rounding error but by whole abilities' worth. A Sundered Sky that does not
+            crit its first hit, a Black Cleaver that does not stack, an Eclipse that
+            never fires: the stat line is counted in full, and the part that made you buy
+            the item contributes nothing.
+          </p>
+          <p class="lab-why">
+            The app is at least honest about it — each such item is badged in the panel
+            and listed in the notes as "stats count in full, the passive is not
+            modelled". That is the right behaviour and no substitute for the number.
+            <strong>This is the largest single gap between what the calculator says and
+            what the game does</strong>, which is why it sits above every view on this
+            page.
+          </p>
+          <div class="lab-stage plain">
+            <ul class="lab-scrap">
+              <li>
+                <b>On-hit and on-cast riders</b>
+                <span>Extra damage folded into an attack or triggered by a cast.</span>
+                <em>The hooks exist and are used by the spellblade family, Nashor's,
+                Wit's End and Titanic Hydra. This is the cheapest category to extend: one
+                entry per item, and the engine already calls it.</em>
+              </li>
+              <li>
+                <b>Conditional first hits</b>
+                <span>Sundered Sky's guaranteed crit, Eclipse's two-hit window,
+                Voltaic's energised proc.</span>
+                <em>Three are in; the pattern is a counter plus an internal cooldown,
+                which the runtime already supports. Mostly a matter of reading each
+                tooltip carefully and writing the test that pins it.</em>
+              </li>
+              <li>
+                <b>Stacking amplifiers</b>
+                <span>Spear of Shojin's Focused Will, anything that grows while you keep
+                dealing damage.</span>
+                <em>Needs one thing the interface does not have: the amplify hook is told
+                the damage <em>type</em> but not whether it came from an ability, a
+                passive or an attack. Shojin only amplifies the first two, so this
+                category waits on that signature.</em>
+              </li>
+              <li>
+                <b>Actives</b>
+                <span>Everything with a button: Youmuu's, Hydra's, Randuin's on the
+                target's side.</span>
+                <em>A combo can already hold an item step; nothing resolves it. Needs the
+                step to name which item, and the item to declare a cast time and a
+                cooldown — the same shape abilities already use.</em>
+              </li>
+              <li>
+                <b>Health and resistance scaling</b>
+                <span>Passives that read the target's maximum health, or your own.</span>
+                <em>BotRK and Titanic are in and prove the shape works; the rest are the
+                same lookup against numbers the simulation already has.</em>
+              </li>
+              <li>
+                <b>The target's items</b>
+                <span>Randuin's damage reduction, Bramble's grievous wounds, armour from
+                the shield.</span>
+                <em>The target's gear currently contributes stats only, by design — but a
+                Randuin's that soaks nothing makes the tank matchup read better than it
+                is. This one belongs with the duel work.</em>
+              </li>
+            </ul>
+          </div>
+          <p class="lab-caption">
+            <strong>The order that pays.</strong> Not alphabetically and not by
+            popularity — by how wrong the app currently is about a build someone would
+            actually bring. For Vi that means the mythic-tier bruiser items first, then
+            the lethality line, then the on-hit line. Every entry arrives with a test
+            that fixes its number, because an item passive modelled from memory is worse
+            than one that is honestly absent.
+          </p>
+        </section>
+
         <!-- ================================================= Mana -->
         <section class="lab-section" id="mana">
           <div class="lab-section-head">
-            <span class="lab-num">06</span>
+            <span class="lab-num">07</span>
             <h2>Mana, spent and regained</h2>
             <div class="lab-cost">
               <span class="lab-pill needs">honesty item</span>
@@ -279,7 +368,7 @@
         <!-- ================================================= Regen -->
         <section class="lab-section" id="regen">
           <div class="lab-section-head">
-            <span class="lab-num">07</span>
+            <span class="lab-num">08</span>
             <h2>Regeneration over the length of the combo</h2>
             <div class="lab-cost">
               <span class="lab-pill needs">honesty item</span>
@@ -305,7 +394,7 @@
         <!-- ================================================= Smite -->
         <section class="lab-section" id="smite">
           <div class="lab-section-head">
-            <span class="lab-num">08</span>
+            <span class="lab-num">09</span>
             <h2>Smite, all of it</h2>
             <div class="lab-cost">
               <span class="lab-pill needs">honesty item</span>
@@ -331,7 +420,7 @@
         <!-- ================================================= Haste family -->
         <section class="lab-section" id="haste">
           <div class="lab-section-head">
-            <span class="lab-num">09</span>
+            <span class="lab-num">10</span>
             <h2>The rest of the haste family</h2>
             <div class="lab-cost">
               <span class="lab-pill needs">honesty item</span>
@@ -354,10 +443,48 @@
           </p>
         </section>
 
+        <!-- ================================================= Self-lock -->
+        <section class="lab-section" id="selflock">
+          <div class="lab-section-head">
+            <span class="lab-num">11</span>
+            <h2>What the caster is locked out of</h2>
+            <div class="lab-cost">
+              <span class="lab-pill needs">honesty item</span>
+              <span class="lab-pill needs">number to verify</span>
+            </div>
+          </div>
+          <p class="lab-why">
+            Some abilities cost the caster more than their cast time: Vi's ultimate takes
+            her along with it, and she cannot attack again until the animation lets her
+            go. The app currently charges the ultimate a dash-travel constant and then
+            allows the next attack immediately, which makes every R → attack sequence
+            land sooner than it can in game — and the attack timer, the shred window and
+            the whole clock after it inherit that error.
+          </p>
+          <p class="lab-why">
+            The distinction to get right is not "how long the cast takes" but
+            <strong>what the caster may do while it happens</strong>. Vi's Q already
+            separates the two in one direction — the cooldown starts on release, before
+            the dash finishes — so the shape exists: a cast timing with parts, where a
+            part can delay acting without delaying the cooldown. A lockout is that idea
+            in reverse: time after the effect in which the champion may not attack.
+          </p>
+          <p class="lab-caption">
+            <strong>What it needs.</strong> The number, from Riot's own data rather than a
+            feel — the champion bin file the app already parses carries the cast and
+            animation fields, and the honest version of this feature quotes the field it
+            came from, the way every ability value in the app already does. Then a part
+            in the cast timing marked as a lock, applied to the attack timer instead of
+            only to the clock. If the data turns out not to carry it, the number becomes a
+            stated assumption in the timing constants, editable and labelled as one —
+            never a silent constant.
+          </p>
+        </section>
+
         <!-- ================================================= Champions -->
         <section class="lab-section" id="champions">
           <div class="lab-section-head">
-            <span class="lab-num">10</span>
+            <span class="lab-num">12</span>
             <h2>More than one champion</h2>
             <div class="lab-cost">
               <span class="lab-pill needs">large</span>
@@ -384,6 +511,39 @@
             change that proves the module interface. Then the target acting, because it
             needs incoming damage, which needs mitigation on your side, which needs the
             defensive half of the stat model the sheet already shows.
+          </p>
+        </section>
+
+        <!-- ================================================= Windows -->
+        <section class="lab-section" id="windows">
+          <div class="lab-section-head">
+            <span class="lab-num">13</span>
+            <h2>The windows: what the target can do while this happens</h2>
+            <div class="lab-cost">
+              <span class="lab-pill needs">for the duel</span>
+              <span class="lab-pill ready">timeline is ready</span>
+            </div>
+          </div>
+          <p class="lab-why">
+            The timeline already knows every stretch of time a combo spends: charging,
+            dashing, locked in an animation, waiting on a cooldown. Turn that around and
+            it answers a question about the other side — <strong>when could they have
+            reacted, and to what?</strong> A 1.25-second charge is 1.25 seconds of
+            warning. A knock-up is a stretch in which they could not answer at all. The
+            gaps between are the windows a Flash or a Cleanse fits into.
+          </p>
+          <p class="lab-why">
+            On its own that is a good reading of a combo. Under a duel it becomes the
+            spine of the thing: two champions on one clock, and every window on one side
+            is a decision point on the other. That is why it sits here rather than in the
+            workshop — it is the piece the 1v1 needs before the 1v1 can mean anything.
+          </p>
+          <p class="lab-caption">
+            The proposal and its mock-up are in the workshop as
+            <a href="workshop.html#react">section 35</a>. What it needs beyond that: the
+            spans marked by whether the target is <em>able to act</em> during them, which
+            means the engine has to record crowd control it applies as a state and not
+            only as a bar — and the same for what the caster is locked out of, below.
           </p>
         </section>
 

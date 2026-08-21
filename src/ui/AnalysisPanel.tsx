@@ -265,11 +265,19 @@ export function AnalysisPanel({
           <Tile
             className={figures.killed ? 'verdict-kill' : 'verdict-survive'}
             label={figures.killed ? 'Target dies' : 'Target survives'}
+            /*
+             * Measured from the first hit, not from the first press.
+             *
+             * The run-up — a held Q, a dash, an input delay — is time nobody is
+             * taking damage in, and counting it made a fast combo look slow. The
+             * suffix says which clock this is, because the two differ by seconds.
+             */
             value={
               figures.killed && figures.killTime !== null
-                ? `${figures.killTime.toFixed(2)} s`
+                ? `${Math.max(0, figures.killTime - analysis.timeToFirstDamage).toFixed(2)} s`
                 : `${Math.round(figures.remaining).toLocaleString('en-US')} HP`
             }
+            suffix={figures.killed && figures.killTime !== null ? 'after first impact' : undefined}
             detail={
               figures.killed
                 ? `${Math.round(figures.overkill).toLocaleString('en-US')} overkill — room to spare`
@@ -599,12 +607,15 @@ function FormulaInspector({
 function Tile({
   label,
   value,
+  suffix,
   detail,
   hero,
   className,
 }: {
   label: string;
   value: string;
+  /** Reads with the number rather than under it: "2.77 s after first impact". */
+  suffix?: string;
   detail?: string;
   hero?: boolean;
   className?: string;
@@ -612,7 +623,10 @@ function Tile({
   return (
     <div className={`tile${hero ? ' hero' : ''}${className ? ` ${className}` : ''}`}>
       <span className="tile-label">{label}</span>
-      <span className="tile-value mono">{value}</span>
+      <span className="tile-value mono">
+        {value}
+        {suffix && <span className="tile-suffix">{suffix}</span>}
+      </span>
       {detail && <span className="tile-detail">{detail}</span>}
     </div>
   );
