@@ -152,8 +152,15 @@ export function defaultBuild(): BuildState {
     shardIds: [null, null, null],
     summonerIds: ['SummonerFlash', 'SummonerDot'],
     target: { ...DEFAULT_TARGET },
-    targetMode: 'custom',
-    targetChampionId: '',
+    /*
+     * A real champion by default, not a typed number.
+     *
+     * Champion mode is the mode that answers a question people have — "does this
+     * kill her" — and it fills in armour, health and growth from the patch
+     * instead of asking for three numbers before it can say anything.
+     */
+    targetMode: 'champion',
+    targetChampionId: 'Ahri',
     customTarget: { ...DEFAULT_TARGET },
     customPresetId: '',
     targetLoadout: emptyLoadout(),

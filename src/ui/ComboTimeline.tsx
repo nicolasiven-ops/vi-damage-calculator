@@ -54,7 +54,6 @@ interface Props {
   abilities: AbilityMeta[];
   linkedStepUid?: string | null;
   pinnedStepUid?: string | null;
-  onHoverStep?: (uid: string | null) => void;
   onPinStep?: (uid: string | null) => void;
 }
 
@@ -226,7 +225,6 @@ export function ComboTimeline({
   abilities,
   linkedStepUid,
   pinnedStepUid,
-  onHoverStep,
   onPinStep,
 }: Props) {
   const [width, setWidth] = useState(940);
@@ -430,7 +428,6 @@ export function ComboTimeline({
         className={`gantt-span kind-${span.kind}${timer ? ' is-timer' : ''}${
           linked ? ' is-linked' : ''
         }${pinned ? ' is-pinned' : ''}`}
-        onMouseEnter={() => onHoverStep?.(span.stepUid ?? null)}
         onClick={() => onPinStep?.(span.stepUid ?? null)}
       >
         <title>
@@ -508,10 +505,7 @@ export function ComboTimeline({
         role="img"
         aria-label={`Combo timeline over ${formatSeconds(analysis.duration)} seconds, ${rows.length} rows`}
         onMouseMove={(event) => setCursorTime(timeAt(event))}
-        onMouseLeave={() => {
-          setCursorTime(null);
-          onHoverStep?.(null);
-        }}
+        onMouseLeave={() => setCursorTime(null)}
       >
         <defs>
           {/* Charge time is hatched: nothing happens during it except waiting. */}
@@ -581,7 +575,6 @@ export function ComboTimeline({
               y={row.top + row.tierPad + ROW_HEIGHT / 2 + 4}
               textAnchor="end"
               fill={row.color}
-              onMouseEnter={() => onHoverStep?.(stepUidOf(row.key) ?? null)}
               onClick={() => onPinStep?.(stepUidOf(row.key) ?? null)}
             >
               {row.label}
@@ -612,7 +605,6 @@ export function ComboTimeline({
               <g
                 key={instance.id}
                 className={`gantt-hit${linked ? ' is-linked' : ''}${pinned ? ' is-pinned' : ''}`}
-                onMouseEnter={() => onHoverStep?.(instance.stepUid ?? null)}
                 onClick={() => onPinStep?.(instance.stepUid ?? null)}
               >
                 <title>

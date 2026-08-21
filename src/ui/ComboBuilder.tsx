@@ -75,8 +75,6 @@ interface Props {
   linkedStepUid?: string | null;
   /** The step held by a click in the analysis, shown more strongly. */
   pinnedStepUid?: string | null;
-  /** Report the step under the cursor, so the analysis can point back. */
-  onHoverStep?: (uid: string | null) => void;
   /**
    * Toggle the focused step.
    *
@@ -96,7 +94,6 @@ export function ComboBuilder({
   durationSeconds,
   linkedStepUid,
   pinnedStepUid,
-  onHoverStep,
   onPinStep,
 }: Props) {
   const sensors = useSensors(
@@ -230,7 +227,7 @@ export function ComboBuilder({
               items={combo.map((entry) => entry.uid)}
               strategy={horizontalListSortingStrategy}
             >
-              <ol className="combo-strip" onMouseLeave={() => onHoverStep?.(null)}>
+              <ol className="combo-strip">
                 {combo.map((entry) => (
                   <SortableStep
                     key={entry.uid}
@@ -240,7 +237,6 @@ export function ComboBuilder({
                     summoners={summoners}
                     linked={linkedStepUid === entry.uid}
                     pinned={pinnedStepUid === entry.uid}
-                    onHover={(hovering) => onHoverStep?.(hovering ? entry.uid : null)}
                     onPin={() => onPinStep?.(entry.uid)}
                     onRemove={() => remove(entry.uid)}
                     onUpdate={(patch) => update(entry.uid, patch)}
@@ -267,7 +263,6 @@ interface StepProps {
   linked: boolean;
   /** True while a click in the analysis holds this step. */
   pinned: boolean;
-  onHover: (hovering: boolean) => void;
   onPin: () => void;
   onRemove: () => void;
   onUpdate: (patch: Partial<ComboStep>) => void;
@@ -281,7 +276,6 @@ function SortableStep({
   summoners,
   linked,
   pinned,
-  onHover,
   onPin,
   onRemove,
   onUpdate,
@@ -331,8 +325,6 @@ function SortableStep({
       className={`combo-card ${descriptor.className}${isDragging ? ' dragging' : ''}${
         linked ? ' is-linked' : ''
       }${pinned ? ' is-pinned' : ''}`}
-      onMouseEnter={() => onHover(true)}
-      onMouseLeave={() => onHover(false)}
       onClick={onPin}
       {...attributes}
       {...listeners}
@@ -350,7 +342,8 @@ function SortableStep({
       {step.action.kind === 'ability' && step.chargeSeconds !== undefined && (
         <label className="combo-charge" {...stopDrag}>
           <span className="combo-charge-label">
-            Charge <span className="mono">{step.chargeSeconds.toFixed(2)} s</span>
+            <span>Charge</span>
+            <span className="mono">{step.chargeSeconds.toFixed(2)} s</span>
           </span>
           <input
             type="range"
@@ -366,7 +359,8 @@ function SortableStep({
       {step.action.kind === 'wait' && (
         <label className="combo-charge" {...stopDrag}>
           <span className="combo-charge-label">
-            Duration <span className="mono">{step.action.seconds.toFixed(2)} s</span>
+            <span>Duration</span>
+            <span className="mono">{step.action.seconds.toFixed(2)} s</span>
           </span>
           <input
             type="range"

@@ -95,7 +95,6 @@ export default function App() {
    * need to agree on it — hovering a timeline row lights the card that caused
    * it, and hovering a card lights its rows.
    */
-  const [hoveredStepUid, setHoveredStepUid] = useState<string | null>(null);
   /**
    * A step pinned by clicking, which survives the cursor leaving.
    *
@@ -113,14 +112,14 @@ export default function App() {
     ? rawPinnedStepUid
     : null;
   /*
-   * A pin holds. Hover only picks the moment while nothing is pinned.
+   * The focused moment is the one you clicked. Nothing else moves it.
    *
-   * The other way round, moving the mouse across the timeline on the way to
-   * anything else pulled the numbers off the step you had just clicked — which
-   * makes a click useless for reading a moment, and reading a moment is what it
-   * is for.
+   * Hover used to pick it, which meant every trip of the mouse across the strip
+   * or the timeline rewrote the stat sheets and the bars on the way past. A
+   * number that changes because the cursor went somewhere is a number you cannot
+   * read.
    */
-  const linkedStepUid = pinnedStepUid ?? hoveredStepUid;
+  const linkedStepUid = pinnedStepUid;
   const patch = usePatchData(DEFAULT_LOCALE);
   const bundle = patch.bundle;
 
@@ -435,7 +434,6 @@ export default function App() {
           durationSeconds={analysis?.duration}
           linkedStepUid={linkedStepUid}
           pinnedStepUid={pinnedStepUid}
-          onHoverStep={setHoveredStepUid}
           onPinStep={(uid) => setPinnedStepUid((current) => (current === uid ? null : uid))}
         />
       </div>
@@ -543,7 +541,6 @@ export default function App() {
             gameDataStatus={champion.gameDataStatus}
             linkedStepUid={linkedStepUid}
             pinnedStepUid={pinnedStepUid}
-            onHoverStep={setHoveredStepUid}
             onPinStep={(uid) => setPinnedStepUid((current) => (current === uid ? null : uid))}
           />
         ) : (

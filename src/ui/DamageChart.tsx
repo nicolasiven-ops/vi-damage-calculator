@@ -58,7 +58,6 @@ interface Props {
   linkedStepUid?: string | null;
   /** The step pinned by clicking; survives the cursor leaving the chart. */
   pinnedStepUid?: string | null;
-  onHoverStep?: (uid: string | null) => void;
   onPinStep?: (uid: string | null) => void;
 }
 
@@ -87,7 +86,6 @@ export function DamageChart({
   targetStartingHealth,
   linkedStepUid,
   pinnedStepUid,
-  onHoverStep,
   onPinStep,
 }: Props) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
@@ -272,15 +270,14 @@ export function DamageChart({
           className="chart-svg"
           role="img"
           aria-label={`Cumulative damage over ${maxTime.toFixed(2)} seconds, split by damage type`}
-          onMouseLeave={() => {
-            setHoverIndex(null);
-            onHoverStep?.(null);
-          }}
-          onMouseMove={(event) => {
-            const nearest = nearestStepIndex(event);
-            setHoverIndex(nearest);
-            onHoverStep?.(stepOf(steps[nearest]!));
-          }}
+          /*
+            * The cursor moves the chart's own read-out and nothing else.
+            *
+            * It used to also set the focused step, so dragging the mouse across
+            * the chart rewrote the stat sheets on both sides on the way past.
+            */
+          onMouseLeave={() => setHoverIndex(null)}
+          onMouseMove={(event) => setHoverIndex(nearestStepIndex(event))}
           onClick={(event) => onPinStep?.(stepOf(steps[nearestStepIndex(event)]!))}
         >
           <title>Cumulative damage over time</title>

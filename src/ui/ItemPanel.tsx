@@ -7,7 +7,7 @@
  * different answer from "this item is fully accounted for".
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { imageUrls } from '../data/ddragon';
 import { hasModelledEffect } from '../model/itemEffects';
 import {
@@ -34,6 +34,24 @@ export function ItemPanel({ items, itemIds, version, offline, onChange }: Props)
   const [classFilter, setClassFilter] = useState<ItemClass | 'all'>('legendary');
   const [activeSlot, setActiveSlot] = useState<number | null>(null);
 
+  /*
+   * A click anywhere else closes the picker.
+   *
+   * It is a large panel that opens under six small buttons, and leaving it open
+   * while you work somewhere else means the next thing you click is behind it.
+   * The slots themselves are inside the guarded area, so clicking a second slot
+   * still switches rather than closing and reopening.
+   */
+  const pickerArea = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (activeSlot === null) return;
+    function onPointerDown(event: MouseEvent): void {
+      if (!pickerArea.current?.contains(event.target as Node)) setActiveSlot(null);
+    }
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, [activeSlot]);
+
   const byId = useMemo(() => new Map(items.map((item) => [item.id, item])), [items]);
 
   const needle = query.trim().toLowerCase();
@@ -59,6 +77,9 @@ export function ItemPanel({ items, itemIds, version, offline, onChange }: Props)
     next[index] = id;
     onChange(next);
     setActiveSlot(null);
+    // The search is spent once it has found the thing: the next pick starts from
+    // the whole catalogue rather than from the last word typed.
+    setQuery('');
   }
 
   const totalGold = itemIds.reduce((sum, id) => sum + (byId.get(id)?.gold ?? 0), 0);
@@ -79,6 +100,7 @@ export function ItemPanel({ items, itemIds, version, offline, onChange }: Props)
         </p>
       )}
 
+      <div className="item-picker-area" ref={pickerArea}>
       <div className="item-slots">
         {itemIds.map((id, index) => {
           const item = id ? byId.get(id) : undefined;
@@ -174,6 +196,7 @@ export function ItemPanel({ items, itemIds, version, offline, onChange }: Props)
           </div>
         </div>
       )}
+      </div>
 
       {/*
        * No footnotes here.

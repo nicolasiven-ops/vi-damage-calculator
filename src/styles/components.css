@@ -475,7 +475,7 @@
    * so the room above the cards has to be inside it. It costs 22 px once,
    * instead of the slider sitting on top of the icon it belongs to.
    */
-  padding: 22px 0 var(--space-1);
+  padding: 40px 0 var(--space-2);
   display: flex;
   gap: var(--space-2);
   flex: 1;
@@ -492,9 +492,9 @@
  */
 .combo-strip .combo-card {
   flex: 0 0 auto;
-  width: 152px;
-  /* One height for every card: the charge slider is an overlay, not a row. */
-  padding: 6px;
+  width: 186px;
+  /* One height for every card: the charge slider rides above it, not inside. */
+  padding: 9px 11px;
   gap: 0;
   justify-content: center;
   cursor: grab;
@@ -522,8 +522,8 @@
  */
 .combo-strip .combo-icon,
 .combo-strip .combo-glyph {
-  width: 36px;
-  height: 36px;
+  width: 42px;
+  height: 42px;
 }
 
 .combo-strip .combo-glyph {
@@ -532,12 +532,13 @@
 
 .combo-strip .combo-card-grip {
   align-items: center;
-  min-height: 36px;
+  gap: var(--space-3);
+  min-height: 42px;
 }
 
 .combo-strip .combo-label {
-  font-size: 12px;
-  line-height: 1.2;
+  font-size: 13px;
+  line-height: 1.25;
   -webkit-line-clamp: 2;
   line-clamp: 2;
 }
@@ -554,12 +555,12 @@
   position: absolute;
   left: -1px;
   right: -1px;
-  bottom: calc(100% + 3px);
+  bottom: calc(100% + 12px);
   flex-direction: row;
   align-items: center;
   gap: var(--space-2);
-  padding: 2px 4px;
-  border-radius: 2px;
+  padding: 4px 7px;
+  border-radius: 3px;
   background: var(--surface-raised);
   box-shadow: 0 0 0 1px var(--line), var(--shadow-pop);
   opacity: 0;
@@ -581,12 +582,15 @@
 }
 
 .combo-strip .combo-charge-label {
-  font-size: 10px;
+  display: flex;
+  gap: 5px;
+  font-size: 10.5px;
+  white-space: nowrap;
 }
 
-/* The unit is redundant next to a slider; the number is not. */
+/* The word fits now that the card is wider, and it says what the slider does. */
 .combo-strip .combo-charge-label > :not(.mono) {
-  display: none;
+  color: var(--text-muted);
 }
 
 .combo-strip .combo-card-tools {
@@ -1055,6 +1059,12 @@
 .gold-total {
   color: var(--gold-300);
   font-size: 12px;
+}
+
+/* The slots and their picker are one area, so a click inside it is not "outside". */
+.item-picker-area {
+  display: grid;
+  gap: var(--space-3);
 }
 
 .item-slots {

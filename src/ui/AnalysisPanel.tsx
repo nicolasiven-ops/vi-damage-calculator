@@ -66,7 +66,6 @@ interface Props {
   linkedStepUid?: string | null;
   /** The step pinned by clicking, which outlives the cursor. */
   pinnedStepUid?: string | null;
-  onHoverStep?: (uid: string | null) => void;
   /** Toggle the pin on a step — same step again clears it. */
   onPinStep?: (uid: string | null) => void;
 }
@@ -135,7 +134,6 @@ export function AnalysisPanel({
   moment,
   linkedStepUid,
   pinnedStepUid,
-  onHoverStep,
   onPinStep,
 }: Props) {
   const [view, setView] = useState<ResultView>('timeline');
@@ -335,7 +333,6 @@ export function AnalysisPanel({
           targetStartingHealth={startingHealth}
           linkedStepUid={linkedStepUid}
           pinnedStepUid={pinnedStepUid}
-          onHoverStep={onHoverStep}
           onPinStep={onPinStep}
         />
 
@@ -382,7 +379,6 @@ export function AnalysisPanel({
             abilities={abilities}
             linkedStepUid={linkedStepUid}
             pinnedStepUid={pinnedStepUid}
-            onHoverStep={onHoverStep}
             onPinStep={onPinStep}
           />
         )}
@@ -412,7 +408,7 @@ export function AnalysisPanel({
                 <th>Details</th>
               </tr>
             </thead>
-            <tbody onMouseLeave={() => onHoverStep?.(null)}>
+            <tbody>
               {timelineRows.map((row) =>
                 row.kind === 'event' ? (
                   <tr
@@ -420,7 +416,6 @@ export function AnalysisPanel({
                     className={`timeline-event-row${row.event.kind === 'wait' ? ' is-wait' : ''}${
                       linkedStepUid && row.event.stepUid === linkedStepUid ? ' is-linked' : ''
                     }${pinnedStepUid && row.event.stepUid === pinnedStepUid ? ' is-pinned' : ''}`}
-                    onMouseEnter={() => onHoverStep?.(row.event.stepUid ?? null)}
                     onClick={() => onPinStep?.(row.event.stepUid ?? null)}
                   >
                     <td className="mono">{row.event.time.toFixed(2)} s</td>
@@ -442,7 +437,6 @@ export function AnalysisPanel({
                       pinnedStepUid && row.instance.stepUid === pinnedStepUid ? ' is-pinned' : ''
                     }`.trim() || undefined
                   }
-                  onMouseEnter={() => onHoverStep?.(row.instance.stepUid ?? null)}
                   onClick={() => onPinStep?.(row.instance.stepUid ?? null)}
                 >
                   <td className="mono">{row.instance.time.toFixed(2)} s</td>
