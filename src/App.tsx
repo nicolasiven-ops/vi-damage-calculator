@@ -311,9 +311,18 @@ export default function App() {
         />
       </div>
 
-      {configTab !== null && (
-        <div className="config-drawer">
-          {configTab === 'champion' && stats && (
+      {/*
+       * Below the pinned top: configuration on the left, the numbers on the
+       * right. On a wide screen every panel is visible at once, which is the
+       * point of a workbench — the build and its consequences in one view. The
+       * tabs stay useful there as a summary of each panel and as a way to
+       * highlight one; below 1280px they go back to switching, because a
+       * 380px column plus a readable analysis does not fit.
+       */}
+      <div className="app-body">
+        <aside className="app-config" data-active={configTab ?? ''} aria-label="Build">
+          <div className="config-slot" data-tab="champion" id="config-champion">
+            {stats && (
             <ChampionPanel
               detail={champion.detail}
               version={bundle?.version ?? ''}
@@ -327,9 +336,10 @@ export default function App() {
                 patchBuild({ ranks: { ...build.ranks, [slot]: Math.max(0, rank) } })
               }
             />
-          )}
+            )}
+          </div>
 
-          {configTab === 'items' && (
+          <div className="config-slot" data-tab="items" id="config-items">
             <ItemPanel
               items={items}
               itemIds={build.itemIds}
@@ -337,36 +347,35 @@ export default function App() {
               offline={bundle?.offline ?? true}
               onChange={(itemIds) => patchBuild({ itemIds })}
             />
-          )}
+          </div>
 
-          {configTab === 'runes' && (
+          <div className="config-slot" data-tab="runes" id="config-runes">
             <RunePanel
               trees={bundle?.runeTrees ?? []}
               build={build}
               offline={bundle?.offline ?? true}
               onChange={patchBuild}
             />
-          )}
+          </div>
 
-          {configTab === 'target' && (
+          <div className="config-slot" data-tab="target" id="config-target">
             <TargetPanel
               target={build.target}
               champions={bundle?.champions ?? {}}
               onChange={(target) => patchBuild({ target })}
             />
-          )}
+          </div>
 
-          {configTab === 'sim' && (
+          <div className="config-slot" data-tab="sim" id="config-sim">
             <SettingsPanel
               critMode={build.critMode}
               timings={build.timings}
               onChange={patchBuild}
             />
-          )}
-        </div>
-      )}
+          </div>
+        </aside>
 
-      <main className="app-main">
+        <main className="app-main">
         {analysis && stats ? (
           <AnalysisPanel
             analysis={analysis}
@@ -393,7 +402,8 @@ export default function App() {
             </div>
           </section>
         )}
-      </main>
+        </main>
+      </div>
 
       <footer className="app-footer">
         <span>

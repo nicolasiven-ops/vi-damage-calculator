@@ -334,6 +334,58 @@
   color: var(--text-muted);
 }
 
+/**
+ * The configuration column.
+ *
+ * One DOM tree serves both layouts. Wide: every slot on show, stacked, and the
+ * active tab merely marks one. Narrow: the tabs are a switcher again and only
+ * the chosen slot is rendered visible. Doing it in CSS rather than in JS keeps
+ * a single source of truth for what a panel is and where its state lives.
+ */
+.app-config {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.config-slot {
+  min-width: 0;
+  scroll-margin-top: 140px;
+}
+
+/* The tab a panel belongs to is highlighted rather than isolated. */
+.app-config[data-active] > .config-slot { transition: opacity 120ms ease; }
+
+.app-config[data-active="champion"] > [data-tab="champion"] > .panel,
+.app-config[data-active="items"] > [data-tab="items"] > .panel,
+.app-config[data-active="runes"] > [data-tab="runes"] > .panel,
+.app-config[data-active="target"] > [data-tab="target"] > .panel,
+.app-config[data-active="sim"] > [data-tab="sim"] > .panel {
+  border-color: var(--gold-500);
+  box-shadow: 0 0 0 1px rgba(120, 90, 40, 0.35);
+}
+
+@media (max-width: 1279px) {
+  .app-config > .config-slot {
+    display: none;
+  }
+
+  .app-config[data-active="champion"] > [data-tab="champion"],
+  .app-config[data-active="items"] > [data-tab="items"],
+  .app-config[data-active="runes"] > [data-tab="runes"],
+  .app-config[data-active="target"] > [data-tab="target"],
+  .app-config[data-active="sim"] > [data-tab="sim"] {
+    display: block;
+  }
+
+  /* Nothing to highlight when only one panel is on screen anyway. */
+  .app-config > .config-slot > .panel {
+    border-color: var(--line);
+    box-shadow: none;
+  }
+}
+
 .config-drawer {
   width: min(1680px, 100%);
   margin: 0 auto;

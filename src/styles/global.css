@@ -83,12 +83,46 @@ a {
   flex-direction: column;
 }
 
-.app-main {
+/**
+ * The workbench floor: build on the left, consequences on the right.
+ *
+ * A damage calculator is a comparison tool, and comparing means seeing the
+ * inputs and the outputs together. On a wide screen there is room for both, so
+ * both are shown; the width goes to the analysis because that is the part with
+ * tables and a chart in it.
+ */
+.app-body {
   flex: 1;
   width: min(1680px, 100%);
   margin: 0 auto;
   padding: var(--space-5) var(--space-5) var(--space-7);
+  display: grid;
+  grid-template-columns: minmax(0, 380px) minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+/* Wider still: the sidebar grows a little rather than stretching the analysis. */
+@media (min-width: 1800px) {
+  .app-body {
+    width: min(2040px, 100%);
+    grid-template-columns: minmax(0, 440px) minmax(0, 1fr);
+  }
+}
+
+/*
+ * Below this the two columns stop working: the analysis needs the room, so
+ * configuration folds back into one panel at a time, chosen by the tabs.
+ */
+@media (max-width: 1279px) {
+  .app-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.app-main {
   display: block;
+  min-width: 0;
 }
 
 .column {
