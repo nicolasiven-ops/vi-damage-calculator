@@ -34,6 +34,8 @@ import { HitFormulas } from './HitFormulas';
 import type { FightMoment } from './moment';
 import { DamageChart } from './DamageChart';
 import { DpsChart } from './DpsChart';
+import { ItemValuePanel } from './ItemValuePanel';
+import type { ItemValueRow } from '../model/itemValue';
 import { Panel } from './components/Panel';
 
 interface Props {
@@ -71,6 +73,10 @@ interface Props {
    * The panel does not own the clock — every other panel reads the same moment —
    * so it only asks for it to start and stop.
    */
+  /** What each item in the build contributes, measured by leaving it out. */
+  itemValueRows?: ItemValueRow[];
+  /** For item icons. */
+  patchVersion?: string;
   playing?: boolean;
   /** Seconds into the run while playback is going; null when it is not. */
   playhead?: number | null;
@@ -138,6 +144,14 @@ type ResultView = 'timeline' | 'details' | 'detailed' | 'sources' | 'formulas';
  */
 type ShapeView = 'total' | 'gantt' | 'burst';
 
+/** The ledger's two readings: what the gold bought, and where numbers come from. */
+type LedgerView = 'items' | 'reference';
+
+const LEDGER_TITLES: Record<LedgerView, string> = {
+  items: 'Item value',
+  reference: 'Reference',
+};
+
 const SHAPE_TITLES: Record<ShapeView, string> = {
   total: 'Analysis - Total',
   gantt: 'Analysis - Gantt',
@@ -178,6 +192,8 @@ export function AnalysisPanel({
   combo,
   gameDataStatus,
   moment,
+  itemValueRows,
+  patchVersion,
   playing,
   playhead,
   onTogglePlay,
@@ -188,6 +204,7 @@ export function AnalysisPanel({
 }: Props) {
   const [view, setView] = useState<ResultView>('timeline');
   const [shape, setShape] = useState<ShapeView>('total');
+  const [ledger, setLedger] = useState<LedgerView>('items');
 
   /**
    * Damage and non-damage events in one chronological list.
@@ -501,8 +518,12 @@ export function AnalysisPanel({
         }
       >
         {view === 'timeline' && (
+          /*
+            * No playhead down here on purpose: the running line belongs to the
+            * panel being played. Two of them on one screen only competed for
+            * attention.
+            */
           <ComboTimeline
-            playhead={playhead ?? null}
             analysis={analysis}
             combo={combo}
             abilities={abilities}
@@ -630,14 +651,46 @@ export function AnalysisPanel({
        * whatever general reading comes next. Nothing in it is about one moment of
        * the combo, which is why it is not upstairs.
        */}
-      <Panel className="analysis-sources" title="Reference">
-        <FormulaInspector
-          module={module}
-          moduleCtx={moduleCtx}
-          ranks={ranks}
-          abilities={abilities}
-          gameDataStatus={gameDataStatus}
-        />
+      {/*
+        * The ledger: what the build's gold bought, and what the numbers behind
+        * it are. Both are records rather than results — one of the purchases,
+        * one of the formulas they feed.
+        */}
+      <Panel
+        className="analysis-sources"
+        title="Ledger"
+        actions={
+          <div className="view-tabs">
+            {(['items', 'reference'] as LedgerView[]).map((entry) => (
+              <button
+                key={entry}
+                className={`view-tab${ledger === entry ? ' is-active' : ''}`}
+                aria-pressed={ledger === entry}
+                onClick={() => setLedger(entry)}
+              >
+                {LEDGER_TITLES[entry]}
+              </button>
+            ))}
+          </div>
+        }
+      >
+        {ledger === 'items' && (
+          <ItemValuePanel
+            rows={itemValueRows ?? []}
+            version={patchVersion ?? ''}
+            unmodelled={(itemValueRows ?? []).filter((row) => !row.passiveModelled).length}
+          />
+        )}
+
+        {ledger === 'reference' && (
+          <FormulaInspector
+            module={module}
+            moduleCtx={moduleCtx}
+            ranks={ranks}
+            abilities={abilities}
+            gameDataStatus={gameDataStatus}
+          />
+        )}
       </Panel>
       </div>
     </div>

@@ -8,6 +8,9 @@ import { resolveAbilityNames, type ChampionModuleContext } from './model/champio
 import { resolvePurchasableItems } from './model/items';
 import { runeStats } from './model/runes';
 import { emptyStats, resolveChampionStats, sumStats } from './model/stats';
+import { resolveBonusStats, runBuild } from './state/runBuild';
+import { itemValues, type ItemValueRow } from './model/itemValue';
+import { itemVerdict } from './model/itemDecisions';
 import {
   activeItemIds,
   activeRuneIds,
@@ -30,6 +33,7 @@ import { SummonerPanel, type SummonerOption } from './ui/SummonerPanel';
 import { SettingsPanel } from './ui/SettingsPanel';
 import { LoadoutNotes } from './ui/LoadoutNotes';
 import { fightMoment, fightMomentAt } from './ui/moment';
+import { timeWindowOf } from './ui/timeAxis';
 import { unknownStats } from './ui/StatSheet';
 import { PRIMAL_SMITES } from './model/summoners';
 import { TargetPanel } from './ui/TargetPanel';
@@ -201,21 +205,25 @@ export default function App() {
     [champion.detail, champion.spellById, champion.gameData],
   );
 
+  /**
+   * The build's bonus stats, through the shared pipeline.
+   *
+   * Shared with every counterfactual run (see `runBuild.ts`), so "the same combo
+   * without this item" really is the same rules with one item missing.
+   */
   const bonusStats = useMemo(() => {
     if (!baseStats) return emptyStats();
-    const fromItems = activeItemIds(build)
-      .map((id) => itemById.get(id)?.stats)
-      .filter(Boolean) as ReturnType<typeof emptyStats>[];
-
-    // Runes that scale with the champion need a baseline to look at, so items
-    // are resolved first and runes layered on top.
-    const baseline = resolveChampionStats(baseStats, build.level, sumStats(fromItems));
-    const fromRunes = runeStats([...activeRuneIds(build), ...activeShardIds(build)], {
-      level: build.level,
-      baseline,
-    });
-
-    return sumStats([...fromItems, ...fromRunes, build.manualStats]);
+    return resolveBonusStats(
+      {
+        baseStats,
+        level: build.level,
+        itemIds: activeItemIds(build),
+        runeIds: activeRuneIds(build),
+        shardIds: activeShardIds(build),
+        manualStats: build.manualStats,
+      },
+      itemById,
+    );
   }, [baseStats, build, itemById]);
 
   const stats = useMemo(
@@ -310,6 +318,56 @@ export default function App() {
     );
     return analyse(result, effectiveTarget, stats);
   }, [baseStats, stats, bonusStats, build, moduleCtx, effectiveTarget]);
+
+  /**
+   * What every item in the build contributes, by taking it out and re-running.
+   *
+   * Six extra simulations per change, which is a fraction of a millisecond each
+   * — the measurement is cheap; it is the *comparability* that had to be built,
+   * and that is `runBuild`. Empty until there is a build to weigh.
+   */
+  const itemValueRows = useMemo<ItemValueRow[]>(() => {
+    if (!baseStats || !analysis) return [];
+    const ids = activeItemIds(build);
+    if (ids.length === 0) return [];
+
+    const inputs = {
+      baseStats,
+      level: build.level,
+      ranks: build.ranks,
+      itemIds: ids,
+      runeIds: activeRuneIds(build),
+      shardIds: activeShardIds(build),
+      summonerIds: activeSummonerIds(build),
+      manualStats: build.manualStats,
+      championId: build.championId,
+      combo: build.combo,
+      timings: build.timings,
+      critMode: build.critMode,
+      target: effectiveTarget,
+    };
+
+    return itemValues({
+      items: ids.map((id) => {
+        const item = itemById.get(id);
+        return {
+          id,
+          name: item?.name ?? id,
+          imageFile: item?.imageFile ?? '',
+          gold: item?.gold ?? 0,
+        };
+      }),
+      base: analysis,
+      runWithout: (itemId) =>
+        runBuild(
+          { ...inputs, itemIds: ids.filter((entry) => entry !== itemId) },
+          itemById,
+          VI_MODULE,
+          moduleCtx,
+        ).analysis,
+      isModelled: (itemId) => itemVerdict(itemId).kind === 'modelled',
+    });
+  }, [analysis, baseStats, build, effectiveTarget, itemById, moduleCtx]);
 
   const abilities = useMemo(
     () => resolveAbilityNames(VI_MODULE.abilities, moduleCtx),
@@ -765,7 +823,14 @@ export default function App() {
                 // Starting playback lets go of the pin: two things claiming the
                 // moment at once is the one state that reads as a bug.
                 setPinnedStepUid(null);
-                return 0;
+                /*
+                 * Start where the views start, not at zero. A fully charged Q
+                 * spends a second and a half before anything lands, and the
+                 * plots cut that run-up off — so beginning at zero meant
+                 * watching an empty graph while the clock ran somewhere
+                 * off-screen.
+                 */
+                return timeWindowOf(analysis.timeToFirstDamage, analysis.duration).start;
               })
             }
             targetResource={
@@ -784,6 +849,8 @@ export default function App() {
             ranks={build.ranks}
             combo={build.combo}
             gameDataStatus={champion.gameDataStatus}
+            itemValueRows={itemValueRows}
+            patchVersion={bundle?.version ?? ""}
             linkedStepUid={linkedStepUid}
             pinnedStepUid={pinnedStepUid}
             onPinStep={(uid) => setPinnedStepUid((current) => (current === uid ? null : uid))}
