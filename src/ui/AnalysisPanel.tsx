@@ -33,6 +33,7 @@ import { CombatantBars } from './CombatantBars';
 import { HitFormulas } from './HitFormulas';
 import type { FightMoment } from './moment';
 import { DamageChart } from './DamageChart';
+import { DpsChart } from './DpsChart';
 import { Panel } from './components/Panel';
 
 interface Props {
@@ -128,6 +129,22 @@ type TimelineRow =
 type ResultView = 'timeline' | 'details' | 'detailed' | 'sources' | 'formulas';
 
 /**
+ * The result itself, read three ways.
+ *
+ * The running total answers "how much", the Gantt answers "in what order", and
+ * the rate answers "how fast" — three different questions that were fighting for
+ * one panel's height. Stacked they cost the whole screen; as tabs each one gets
+ * room to be read.
+ */
+type ShapeView = 'total' | 'gantt' | 'burst';
+
+const SHAPE_TITLES: Record<ShapeView, string> = {
+  total: 'Analysis - Total',
+  gantt: 'Analysis - Gantt',
+  burst: 'Analysis - Burst',
+};
+
+/**
  * The three ways to read the same run, as the tabs name them.
  *
  * Two of them are the timeline — one drawn, one written — and saying so in the
@@ -170,6 +187,7 @@ export function AnalysisPanel({
   onPinStep,
 }: Props) {
   const [view, setView] = useState<ResultView>('timeline');
+  const [shape, setShape] = useState<ShapeView>('total');
 
   /**
    * Damage and non-damage events in one chronological list.
@@ -256,6 +274,20 @@ export function AnalysisPanel({
       <Panel
         className="analysis-main"
         title="Analysis"
+        center={
+          <div className="view-tabs">
+            {(['total', 'gantt', 'burst'] as ShapeView[]).map((entry) => (
+              <button
+                key={entry}
+                className={`view-tab${shape === entry ? ' is-active' : ''}`}
+                aria-pressed={shape === entry}
+                onClick={() => setShape(entry)}
+              >
+                {SHAPE_TITLES[entry]}
+              </button>
+            ))}
+          </div>
+        }
         actions={
           onTogglePlay ? (
             /*
@@ -400,14 +432,39 @@ export function AnalysisPanel({
           </div>
         )}
 
-        <DamageChart
-          playhead={playhead ?? null}
-          analysis={analysis}
-          targetStartingHealth={startingHealth}
-          linkedStepUid={linkedStepUid}
-          pinnedStepUid={pinnedStepUid}
-          onPinStep={onPinStep}
-        />
+        {shape === 'total' && (
+          <DamageChart
+            playhead={playhead ?? null}
+            analysis={analysis}
+            targetStartingHealth={startingHealth}
+            linkedStepUid={linkedStepUid}
+            pinnedStepUid={pinnedStepUid}
+            onPinStep={onPinStep}
+          />
+        )}
+
+        {shape === 'gantt' && (
+          <ComboTimeline
+            rows="combo"
+            playhead={playhead ?? null}
+            analysis={analysis}
+            combo={combo}
+            abilities={abilities}
+            linkedStepUid={linkedStepUid}
+            pinnedStepUid={pinnedStepUid}
+            onPinStep={onPinStep}
+          />
+        )}
+
+        {shape === 'burst' && (
+          <DpsChart
+            analysis={analysis}
+            playhead={playhead ?? null}
+            linkedStepUid={linkedStepUid}
+            pinnedStepUid={pinnedStepUid}
+            onPinStep={onPinStep}
+          />
+        )}
 
         {analysis.warnings.length > 0 && (
           <ul className="warning-list">
@@ -441,13 +498,6 @@ export function AnalysisPanel({
               </button>
             ))}
           </div>
-        }
-        center={
-          pinnedStepUid ? (
-            <button className="btn subtle" onClick={() => onPinStep?.(null)}>
-              Clear selection
-            </button>
-          ) : null
         }
       >
         {view === 'timeline' && (

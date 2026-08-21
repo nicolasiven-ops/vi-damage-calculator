@@ -53,6 +53,14 @@ interface Props {
   /** For the row names: ability names as Data Dragon spells them. */
   abilities: AbilityMeta[];
   linkedStepUid?: string | null;
+  /**
+   * Which rows to draw.
+   *
+   * 'combo' is the combo's own steps and nothing else — the reading that belongs
+   * next to the result, where the question is what was pressed and when. 'all'
+   * adds the groups that are not steps: procs, buffs, shreds, crowd control.
+   */
+  rows?: 'combo' | 'all';
   /** Where playback stands, in seconds; null when it is not running. */
   playhead?: number | null;
   pinnedStepUid?: string | null;
@@ -232,6 +240,7 @@ export function ComboTimeline({
   combo,
   abilities,
   linkedStepUid,
+  rows: which = 'all',
   playhead,
   pinnedStepUid,
   onPinStep,
@@ -366,11 +375,15 @@ export function ComboTimeline({
         `step:${step.uid}`,
         `${index + 1} · ${label}`,
         color,
-        index === 0 ? 'Combo' : null,
+        // With the groups left out there is only one group, so naming it is
+        // noise: the window's own title already says what this is.
+        index === 0 && which === 'all' ? 'Combo' : null,
         false,
         false,
       );
     });
+
+    if (which === 'combo') return out;
 
     for (const group of GROUP_LANES) {
       const key = `lane:${group.lane}`;
@@ -381,7 +394,7 @@ export function ComboTimeline({
     }
 
     return out;
-  }, [combo, abilities, spansByRow, hitsByRow]);
+  }, [combo, abilities, spansByRow, hitsByRow, which]);
 
   const lastRow = rows[rows.length - 1];
   const height = (lastRow ? lastRow.top + lastRow.height : RULER_HEIGHT) + 28;

@@ -3105,3 +3105,32 @@ code {
   fill: var(--status-good);
   font-size: 10.5px;
 }
+
+/* damage per second, with the stretches behind it */
+.dps-area {
+  fill: color-mix(in srgb, var(--series-physical) 26%, transparent);
+}
+.dps-line {
+  fill: none;
+  stroke: var(--series-physical);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+.dps-peak {
+  fill: var(--surface-1);
+  stroke: var(--gold-300);
+  stroke-width: 2.5;
+}
+.dps-peak-label {
+  fill: var(--gold-200);
+  font-size: 11px;
+}
+.dps-band {
+  cursor: pointer;
+}
+.dps-band-label {
+  fill: var(--ink-900, #05080f);
+  font-size: 10px;
+  font-weight: 600;
+  pointer-events: none;
+}
