@@ -73,6 +73,14 @@ const FALLBACK = {
     /** Damage and dash range ramp over this window, not over the full hold. */
     maxChargeSeconds: 1.25,
     cooldown: [12, 10.5, 9, 7.5, 6],
+    /**
+     * The knock-up on impact.
+     *
+     * `ViQ.DataValues[0] KnockbackDuration` is 0.75 in Riot's file on 16.16, and
+     * the ability's own rules text says it knocks the target into the air. Read
+     * from the game data where it is available.
+     */
+    knockupSeconds: 0.75,
   },
   w: {
     /** Fraction of the target's maximum health, per rank. */
@@ -413,6 +421,15 @@ class ViRuntime implements ChampionRuntime {
     const adRatio = minRatio.value + (maxRatio.value - minRatio.value) * ratio;
     const amount = base + adRatio * ctx.stats.bonusAttackDamage;
 
+    // Q throws the target: a short window in which it cannot answer.
+    const qKnockup = gameValue(
+      this.ctx,
+      SPELL_IDS.Q,
+      'KnockbackDuration',
+      rank,
+      FALLBACK.q.knockupSeconds,
+    );
+
     ctx.dealDamage({
       sourceId: 'Q',
       sourceLabel: this.label('Q', 'Vault Breaker'),
@@ -426,6 +443,8 @@ class ViRuntime implements ChampionRuntime {
         `${base.toFixed(0)} base + ${pct(adRatio)} bonus AD`,
       ],
     });
+
+    ctx.applyCrowdControl({ label: 'Airborne', durationSeconds: qKnockup.value });
 
     // Vault Breaker applies Denting Blows to everything it hits.
     this.applyDentingBlows(ctx);

@@ -501,7 +501,7 @@ export function simulate(
       });
     },
 
-    applyCrowdControl({ label, durationSeconds }) {
+    applyCrowdControl({ label, durationSeconds, detail: what }) {
       const until = time + durationSeconds;
       crowdControl.push({ label, expiresAt: until });
       const detail = `${seconds(durationSeconds)} s`;
@@ -512,7 +512,7 @@ export function simulate(
         start: time,
         end: until,
         label,
-        detail: `target cannot act · ${detail}`,
+        detail: `${what ?? 'target cannot act'} · ${detail}`,
         effectKind: 'debuff',
         effectOrigin: 'champion',
       });

@@ -35,14 +35,7 @@ interface Props {
   resource?: (BarValue & { label: string }) | null;
   /** Shown on the right of the name row instead of the health numbers. */
   note?: string;
-  /**
-   * Crowd control on this combatant at the moment shown.
-   *
-   * Its own rail under the health, because it answers a different question:
-   * not how much is left but whether they can do anything about it. The fade is
-   * the remaining time — full at the start of the effect, gone at its end.
-   */
-  crowdControl?: { label: string; seconds: number }[];
+
 }
 
 const int = (value: number): string => Math.round(value).toLocaleString('en-US');
@@ -57,7 +50,6 @@ export function CombatantBars({
   lost = 0,
   resource,
   note,
-  crowdControl,
 }: Props) {
   const healthShare = share(health);
   // Cannot run past the rail: a hit bigger than the health that was there is
@@ -103,22 +95,12 @@ export function CombatantBars({
       </div>
 
       {/*
-        * The crowd-control rail, only while something is on it.
+        * No crowd-control rail between the bars.
         *
-        * Nothing here changes a damage number — the target never acts in this
-        * simulation — but the airborne window is why the next two hits land
-        * unanswered, and a row of bars that leaves it out is missing the reason.
+        * It was a chip that sat inside the health block and read as something the
+        * health bar was saying. Crowd control is a stretch of time, so it belongs
+        * where stretches of time are drawn: its own lane on the timeline.
         */}
-      {crowdControl && crowdControl.length > 0 && (
-        <div className="cc-rail">
-          {crowdControl.map((entry) => (
-            <span className="cc-chip" key={entry.label}>
-              <span className="cc-label">{entry.label}</span>
-              <span className="cc-time mono">{entry.seconds.toFixed(2)} s</span>
-            </span>
-          ))}
-        </div>
-      )}
 
       {/* A resourceless champion gets an empty rail rather than a missing one,
           so the two sides stay the same height whatever they run on. */}

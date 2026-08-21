@@ -180,28 +180,6 @@ export function AnalysisPanel({
    * snapshot and the other from here, so the percentage below them is a ratio of
    * two numbers measured the same way.
    */
-  /**
-   * The crowd control worth showing next to the bars.
-   *
-   * A snapshot is a point in time, and Vi's knock-up ends at exactly the moment
-   * her own lock does — so at the instant the focused step is measured, the
-   * airborne window has just closed and a point-in-time reading shows nothing.
-   * What a reader wants is the window the step opened, so with a step in focus
-   * this reports what that step applied and for how long; otherwise it reports
-   * whatever is still running at the end.
-   */
-  const crowdControl = useMemo(() => {
-    if (moment.stepUid) {
-      return analysis.spans
-        .filter((span) => span.lane === 'cc' && span.stepUid === moment.stepUid)
-        .map((span) => ({ label: span.label, seconds: span.fullSeconds }));
-    }
-    return moment.target.crowdControl.map((entry) => ({
-      label: entry.label,
-      seconds: entry.secondsLeft,
-    }));
-  }, [analysis, moment]);
-
   const figures = useMemo(() => {
     const whole = {
       raw: analysis.totalRaw,
@@ -275,7 +253,6 @@ export function AnalysisPanel({
             health={{ current: moment.target.currentHealth, max: moment.target.maxHealth }}
             lost={moment.targetLostNow}
             resource={targetResource ?? null}
-            crowdControl={crowdControl}
           />
         </div>
 

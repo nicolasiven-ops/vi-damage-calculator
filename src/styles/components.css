@@ -2594,45 +2594,6 @@ code {
   mix-blend-mode: screen;
 }
 
-/*
- * Crowd control, on its own rail under the health.
- *
- * Read as a state rather than as a quantity: what the target is under, and how
- * much of it is left. The gradient runs the way the effect does — solid where it
- * bites, fading towards the moment it lets go.
- */
-.cc-rail {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-
-.cc-chip {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  padding: 2px 8px;
-  border-radius: 2px;
-  border: 1px solid rgba(208, 70, 60, 0.5);
-  background: linear-gradient(
-    90deg,
-    rgba(208, 70, 60, 0.45),
-    rgba(208, 70, 60, 0.12) 70%,
-    transparent
-  );
-  font-size: 10.5px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-primary);
-}
-
-.cc-time {
-  font-size: 10px;
-  color: var(--text-secondary);
-  text-transform: none;
-  letter-spacing: 0;
-}
-
 /* The numbers sit on the rail, centred, with a shadow so they stay readable
    over both the filled and the empty part. */
 .bar-caption {

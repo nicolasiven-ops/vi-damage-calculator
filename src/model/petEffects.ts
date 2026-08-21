@@ -77,7 +77,11 @@ const SCORCHCLAW: PetEffect = {
           notes: ['1.25% of maximum health per second'],
         });
       }
-      ctx.applyCrowdControl({ label: 'Slowed 30%', durationSeconds: 2 });
+      ctx.applyCrowdControl({
+        label: 'Slowed 30%',
+        durationSeconds: 2,
+        detail: 'movement only, decaying',
+      });
     };
     return {
       onHitLanded(ctx, hit) {

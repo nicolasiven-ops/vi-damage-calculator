@@ -92,7 +92,17 @@ export interface SimContext {
    * reason the next two hits land unanswered, and a timeline that shows the hits
    * but not the airborne window is showing half the story.
    */
-  applyCrowdControl(args: { label: string; durationSeconds: number }): void;
+  applyCrowdControl(args: {
+    label: string;
+    durationSeconds: number;
+    /**
+     * What it stops, when "cannot act" is the wrong claim.
+     *
+     * A knock-up takes everything; a slow takes movement. Reporting both the
+     * same way would overstate the second one.
+     */
+    detail?: string;
+  }): void;
   addEvent(event: Omit<TimelineEvent, 'id' | 'time' | 'seq'>): void;
   warn(message: string): void;
 }
