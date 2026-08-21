@@ -298,7 +298,8 @@ export function AnalysisPanel({
         title="Analysis"
         center={
           <div className="view-tabs">
-            {(['total', 'gantt', 'burst'] as ShapeView[]).map((entry) => (
+            {/* Burst first, because it is the default: the open tab is the left one. */}
+            {(['burst', 'total', 'gantt'] as ShapeView[]).map((entry) => (
               <button
                 key={entry}
                 className={`view-tab${shape === entry ? ' is-active' : ''}`}
