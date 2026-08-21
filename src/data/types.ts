@@ -122,6 +122,22 @@ export interface DDragonRuneSlot {
   runes: DDragonRune[];
 }
 
+/**
+ * A summoner spell, as Data Dragon ships it.
+ *
+ * `id` is the string a combo step carries (`SummonerDot` is Ignite), and `modes`
+ * is what says whether the spell exists on Summoner's Rift at all — the file
+ * lists thirty-four, of which nine can actually be taken into a game.
+ */
+export interface DDragonSummonerSpell {
+  id: string;
+  name: string;
+  description: string;
+  cooldownBurn: string;
+  modes: string[];
+  image: DDragonImage;
+}
+
 export interface DDragonRuneTree {
   id: number;
   key: string;
@@ -139,4 +155,5 @@ export interface PatchBundle {
   champions: Record<string, DDragonChampionSummary>;
   items: Record<string, DDragonItem>;
   runeTrees: DDragonRuneTree[];
+  summoners: Record<string, DDragonSummonerSpell>;
 }

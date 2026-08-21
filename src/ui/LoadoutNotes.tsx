@@ -11,21 +11,25 @@
  * worth reading too.
  */
 
+import type { DDragonSummonerSpell } from '../data/types';
 import type { ResolvedItem } from '../model/items';
 import { getItemEffect } from '../model/itemEffects';
 import { getRuneDefinition, isRuneModelled } from '../model/runes';
+import { summonerGap } from '../model/summoners';
 import type { LoadoutState } from '../state/build';
-import { activeItemIds, activeRuneIds, activeShardIds } from '../state/build';
+import { activeItemIds, activeRuneIds, activeShardIds, activeSummonerIds } from '../state/build';
 import { Panel } from './components/Panel';
 
 interface Props {
   loadout: LoadoutState;
   items: ResolvedItem[];
+  /** Data Dragon's spell table, for naming what the picks refer to. */
+  summoners: Record<string, DDragonSummonerSpell>;
   /** Names the side, so the two panels never look interchangeable. */
   title: string;
 }
 
-export function LoadoutNotes({ loadout, items, title }: Props) {
+export function LoadoutNotes({ loadout, items, summoners, title }: Props) {
   const byId = new Map(items.map((item) => [item.id, item]));
   const picked = activeItemIds(loadout)
     .map((id) => byId.get(id))
@@ -40,7 +44,18 @@ export function LoadoutNotes({ loadout, items, title }: Props) {
     .filter((id) => !isRuneModelled(id))
     .map((id) => getRuneDefinition(id)?.name ?? `Rune ${id}`);
 
+  /*
+   * Summoner spells are worth their own lines rather than one blanket sentence:
+   * Ignite lands in the numbers, Exhaust would change them and does not, and
+   * Flash never could. Collapsing those into "not modelled" would read as three
+   * equal omissions.
+   */
+  const summonerNotes = activeSummonerIds(loadout)
+    .map((id) => ({ name: summoners[id]?.name ?? id.replace(/^Summoner/, ''), gap: summonerGap(id) }))
+    .filter((entry): entry is { name: string; gap: string } => entry.gap !== null);
+
   const empty =
+    summonerNotes.length === 0 &&
     simulated.length === 0 &&
     statsOnly.length === 0 &&
     unparsed.length === 0 &&
@@ -88,6 +103,19 @@ export function LoadoutNotes({ loadout, items, title }: Props) {
             {runesNotModelled.map((name) => (
               <li key={name}>
                 <strong>{name}</strong> — no effect in the simulation, not part of the result.
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {summonerNotes.length > 0 && (
+        <div className="item-note">
+          <span className="tag warn">summoner</span>
+          <ul>
+            {summonerNotes.map((entry) => (
+              <li key={entry.name}>
+                <strong>{entry.name}</strong> — {entry.gap}
               </li>
             ))}
           </ul>

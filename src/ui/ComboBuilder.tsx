@@ -34,10 +34,25 @@ import type { AbilityMeta } from '../model/champions/types';
 import { step as makeStep } from '../state/build';
 import { reorderStep } from '../state/combo';
 
+/** One taken summoner spell, as the strip needs to show it. */
+export interface SummonerChip {
+  id: string;
+  name: string;
+  iconUrl?: string;
+}
+
 interface Props {
   combo: ComboStep[];
   abilities: AbilityMeta[];
   spellIcons: Partial<Record<AbilitySlot, string>>;
+  /**
+   * The summoner spells this side actually took.
+   *
+   * The strip used to offer Ignite and Smite unconditionally, which put two
+   * spells on the palette that the build may not own and left the other seven
+   * unreachable. What you picked in the sidebar is what you can press here.
+   */
+  summoners: SummonerChip[];
   /**
    * Takes an updater, not a finished list — deliberately.
    *
@@ -119,6 +134,7 @@ export function ComboBuilder({
   combo,
   abilities,
   spellIcons,
+  summoners,
   onChange,
   learnedRanks,
   durationSeconds,
@@ -247,22 +263,21 @@ export function ComboBuilder({
            * timing the engine already derives. Existing waits in a stored combo
            * still render and still work.
            */}
-          <button
-            className="action-chip neutral"
-            onClick={() => add(makeStep({ kind: 'summoner', summonerId: 'SummonerDot' }))}
-            title="Add Ignite"
-          >
-            <span className="chip-letter">🔥</span>
-            <span className="chip-key">Ignite</span>
-          </button>
-          <button
-            className="action-chip neutral"
-            onClick={() => add(makeStep({ kind: 'summoner', summonerId: 'SummonerSmite' }))}
-            title="Add Smite"
-          >
-            <span className="chip-letter">⚡</span>
-            <span className="chip-key">Smite</span>
-          </button>
+          {summoners.map((summoner) => (
+            <button
+              key={summoner.id}
+              className="action-chip neutral"
+              onClick={() => add(makeStep({ kind: 'summoner', summonerId: summoner.id }))}
+              title={`Add ${summoner.name}`}
+            >
+              {summoner.iconUrl ? (
+                <img src={summoner.iconUrl} alt="" className="chip-icon" />
+              ) : (
+                <span className="chip-letter">{summoner.name.slice(0, 2)}</span>
+              )}
+              <span className="chip-key">{summoner.name}</span>
+            </button>
+          ))}
           </div>
         </div>
 
@@ -289,6 +304,7 @@ export function ComboBuilder({
                     step={entry}
                     abilities={abilities}
                     spellIcons={spellIcons}
+                    summoners={summoners}
                     linked={linkedStepUid === entry.uid}
                     pinned={pinnedStepUid === entry.uid}
                     onHover={(hovering) => onHoverStep?.(hovering ? entry.uid : null)}
@@ -312,6 +328,7 @@ interface StepProps {
   step: ComboStep;
 
   abilities: AbilityMeta[];
+  summoners: SummonerChip[];
   spellIcons: Partial<Record<AbilitySlot, string>>;
   /** True while the analysis is pointing at this step. */
   linked: boolean;
@@ -328,6 +345,7 @@ function SortableStep({
   step,
   abilities,
   spellIcons,
+  summoners,
   linked,
   pinned,
   onHover,
@@ -345,8 +363,15 @@ function SortableStep({
     zIndex: isDragging ? 10 : undefined,
   };
 
-  const descriptor = describeStep(step, abilities);
-  const icon = step.action.kind === 'ability' ? spellIcons[step.action.slot] : undefined;
+  const descriptor = describeStep(step, abilities, summoners);
+  // Bound to a const so the narrowing survives into the lookup below.
+  const action = step.action;
+  const icon =
+    action.kind === 'ability'
+      ? spellIcons[action.slot]
+      : action.kind === 'summoner'
+        ? summoners.find((summoner) => summoner.id === action.summonerId)?.iconUrl
+        : undefined;
 
   /*
    * The whole card is the drag handle.
@@ -435,6 +460,7 @@ function SortableStep({
 function describeStep(
   step: ComboStep,
   abilities: AbilityMeta[],
+  summoners: SummonerChip[],
 ): { label: string; glyph: string; className: string } {
   switch (step.action.kind) {
     case 'ability': {
@@ -450,12 +476,14 @@ function describeStep(
       return { label: 'Basic attack', glyph: 'AA', className: 'slot-aa' };
     case 'wait':
       return { label: 'Wait', glyph: '⏱', className: 'neutral' };
-    case 'summoner':
-      return {
-        label: step.action.summonerId === 'SummonerDot' ? 'Ignite' : 'Smite',
-        glyph: step.action.summonerId === 'SummonerDot' ? '🔥' : '⚡',
-        className: 'neutral',
-      };
+    case 'summoner': {
+      // A stored combo can name a spell the current build no longer takes; it
+      // still ran, so it still renders — just without an icon to draw it with.
+      const id = step.action.summonerId;
+      const taken = summoners.find((summoner) => summoner.id === id);
+      const label = taken?.name ?? id.replace(/^Summoner/, '');
+      return { label, glyph: label.slice(0, 2), className: 'neutral' };
+    }
     case 'item':
       return { label: 'Item active', glyph: '◆', className: 'neutral' };
   }

@@ -20,6 +20,7 @@ import type {
   DDragonChampionSummary,
   DDragonItem,
   DDragonRuneTree,
+  DDragonSummonerSpell,
   PatchBundle,
 } from './types';
 
@@ -101,12 +102,13 @@ export async function loadPatchBundle(
   locale: string = DEFAULT_LOCALE,
 ): Promise<PatchBundle> {
   const resolved = version ?? (await fetchVersions())[0]!;
-  const [champions, items, runeTrees] = await Promise.all([
+  const [champions, items, runeTrees, summoners] = await Promise.all([
     fetchChampionIndex(resolved, locale),
     fetchItems(resolved, locale),
     fetchRuneTrees(resolved, locale),
+    fetchSummoners(resolved, locale),
   ]);
-  return { version: resolved, locale, offline: false, champions, items, runeTrees };
+  return { version: resolved, locale, offline: false, champions, items, runeTrees, summoners };
 }
 
 export function offlineBundle(): PatchBundle {
@@ -115,7 +117,32 @@ export function offlineBundle(): PatchBundle {
 
 /* ---------------------------------------------------------------- image URLs */
 
+/**
+ * Summoner spells, filtered to the ones Summoner's Rift allows.
+ *
+ * Data Dragon ships every spell of every mode in one file, tutorial and Nexus
+ * Blitz entries included. Offering those in a picker would be offering spells
+ * nobody can take.
+ */
+export async function fetchSummoners(
+  version: string,
+  locale: string = DEFAULT_LOCALE,
+): Promise<Record<string, DDragonSummonerSpell>> {
+  const payload = await getJson<{ data: Record<string, DDragonSummonerSpell> }>(
+    `${CDN}/cdn/${version}/data/${locale}/summoner.json`,
+    `summoners:${version}:${locale}`,
+    null,
+  );
+  const allowed: Record<string, DDragonSummonerSpell> = {};
+  for (const [id, spell] of Object.entries(payload.data ?? {})) {
+    if (spell?.modes?.includes('CLASSIC')) allowed[id] = spell;
+  }
+  return allowed;
+}
+
 export const imageUrls = {
+  /** Summoner icons sit under the same path as ability icons. */
+  summoner: (version: string, file: string) => `${CDN}/cdn/${version}/img/spell/${file}`,
   item: (version: string, file: string) => `${CDN}/cdn/${version}/img/item/${file}`,
   spell: (version: string, file: string) => `${CDN}/cdn/${version}/img/spell/${file}`,
   passive: (version: string, file: string) => `${CDN}/cdn/${version}/img/passive/${file}`,

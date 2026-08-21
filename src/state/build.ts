@@ -24,6 +24,14 @@ export interface LoadoutState {
   secondaryTreeId: number | null;
   secondaryRuneIds: (number | null)[];
   shardIds: (number | null)[];
+  /**
+   * The two summoner spells, by Data Dragon id.
+   *
+   * Only the ones the engine models do anything (Ignite and Smite today); the
+   * rest are carried so the combo bar can offer what you actually took, and the
+   * notes panel can say which of them the simulation ignores.
+   */
+  summonerIds: (string | null)[];
 }
 
 /**
@@ -43,6 +51,7 @@ export function emptyLoadout(): LoadoutState {
     secondaryTreeId: PRECISION,
     secondaryRuneIds: [null, null],
     shardIds: [null, null, null],
+    summonerIds: [null, null],
   };
 }
 
@@ -125,6 +134,7 @@ export function defaultBuild(): BuildState {
     secondaryTreeId: PRECISION,
     secondaryRuneIds: [null, null],
     shardIds: [null, null, null],
+    summonerIds: ['SummonerFlash', 'SummonerDot'],
     target: { ...DEFAULT_TARGET },
     targetMode: 'custom',
     targetChampionId: '',
@@ -187,6 +197,7 @@ function mergeBuild(base: BuildState, stored: Partial<BuildState>): BuildState {
     primaryRuneIds: normaliseSlots(stored.primaryRuneIds, 3, null),
     secondaryRuneIds: normaliseSlots(stored.secondaryRuneIds, 2, null),
     shardIds: normaliseSlots(stored.shardIds, 3, null),
+    summonerIds: inheritedSlots(stored.summonerIds, base.summonerIds),
     target: { ...base.target, ...(stored.target ?? {}) },
     targetMode: stored.targetMode ?? base.targetMode,
     targetChampionId: stored.targetChampionId ?? base.targetChampionId,
@@ -208,7 +219,24 @@ function mergeLoadout(base: LoadoutState, stored?: Partial<LoadoutState>): Loado
     primaryRuneIds: normaliseSlots(stored?.primaryRuneIds, 3, null),
     secondaryRuneIds: normaliseSlots(stored?.secondaryRuneIds, 2, null),
     shardIds: normaliseSlots(stored?.shardIds, 3, null),
+    summonerIds: inheritedSlots(stored?.summonerIds, base.summonerIds),
   };
+}
+
+/**
+ * Like `normaliseSlots`, but an absent field keeps the default rather than
+ * becoming empty.
+ *
+ * Summoner spells arrived after builds were already being stored, and every one
+ * of those builds has no `summonerIds` at all. Normalising that to two empty
+ * slots would take Ignite off the combo palette of a build that was saved when
+ * Ignite was simply always there — a feature landing should not silently remove
+ * something from an existing build. An explicitly emptied slot is a real choice
+ * and is kept as one, because then the array exists.
+ */
+function inheritedSlots<T>(value: unknown, fallback: T[]): T[] {
+  if (!Array.isArray(value)) return [...fallback];
+  return Array.from({ length: fallback.length }, (_, index) => (value as T[])[index] ?? null) as T[];
 }
 
 function normaliseSlots<T>(value: unknown, length: number, filler: T): T[] {
@@ -248,6 +276,11 @@ export function activeRuneIds(loadout: LoadoutState): number[] {
 
 export function activeShardIds(loadout: LoadoutState): number[] {
   return loadout.shardIds.filter((id): id is number => typeof id === 'number');
+}
+
+/** The summoner spells actually taken, in slot order. */
+export function activeSummonerIds(loadout: LoadoutState): string[] {
+  return loadout.summonerIds.filter((id): id is string => typeof id === 'string' && id !== '');
 }
 
 export function activeItemIds(loadout: LoadoutState): string[] {

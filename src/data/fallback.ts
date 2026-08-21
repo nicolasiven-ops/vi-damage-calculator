@@ -54,4 +54,5 @@ export const OFFLINE_BUNDLE: PatchBundle = {
   champions: { Vi: VI },
   items: {},
   runeTrees: [],
+  summoners: {},
 };

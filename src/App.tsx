@@ -12,6 +12,7 @@ import {
   activeItemIds,
   activeRuneIds,
   activeShardIds,
+  activeSummonerIds,
   defaultBuild,
   loadBuild,
   saveBuild,
@@ -25,6 +26,7 @@ import { ChampionPanel } from './ui/ChampionPanel';
 import { ComboBuilder } from './ui/ComboBuilder';
 import { ItemPanel } from './ui/ItemPanel';
 import { RunePanel } from './ui/RunePanel';
+import { SummonerPanel } from './ui/SummonerPanel';
 import { SettingsPanel } from './ui/SettingsPanel';
 import { LoadoutNotes } from './ui/LoadoutNotes';
 import { TargetPanel } from './ui/TargetPanel';
@@ -285,6 +287,29 @@ export default function App() {
     return icons;
   }, [champion.detail, bundle]);
 
+  /**
+   * The attacker's summoner spells, in slot order, for the combo strip.
+   *
+   * Names and icons come from Data Dragon rather than being hardcoded, so a
+   * spell the app has never heard of still shows up correctly the moment Riot
+   * ships it.
+   */
+  const summonerChips = useMemo(
+    () =>
+      activeSummonerIds(build)
+        .map((id) => {
+          const spell = bundle?.summoners?.[id];
+          if (!spell) return null;
+          return {
+            id,
+            name: spell.name,
+            iconUrl: bundle ? imageUrls.summoner(bundle.version, spell.image.full) : undefined,
+          };
+        })
+        .filter((chip): chip is { id: string; name: string; iconUrl: string | undefined } => chip !== null),
+    [build, bundle],
+  );
+
   /* ----------------------------------------------------------------- render */
 
   return (
@@ -369,6 +394,7 @@ export default function App() {
           combo={build.combo}
           abilities={abilities}
           spellIcons={spellIcons}
+          summoners={summonerChips}
           learnedRanks={build.ranks}
           onChange={updateCombo}
           durationSeconds={analysis?.duration}
@@ -433,6 +459,16 @@ export default function App() {
             />
           </div>
 
+          <div className="config-slot" data-tab="runes" id="config-summoners">
+            <SummonerPanel
+              summoners={bundle?.summoners ?? {}}
+              version={bundle?.version ?? ''}
+              offline={bundle?.offline ?? true}
+              loadout={build}
+              onChange={patchBuild}
+            />
+          </div>
+
           <div className="config-slot" data-tab="sim" id="config-sim">
             <SettingsPanel
               side="attacker"
@@ -444,7 +480,12 @@ export default function App() {
           </div>
 
           <div className="config-slot" data-tab="champion">
-            <LoadoutNotes loadout={build} items={items} title="Vi notes" />
+            <LoadoutNotes
+              loadout={build}
+              items={items}
+              summoners={bundle?.summoners ?? {}}
+              title="Vi notes"
+            />
           </div>
 
         </aside>
@@ -525,6 +566,16 @@ export default function App() {
             />
           </div>
 
+          <div className="config-slot" data-tab="target">
+            <SummonerPanel
+              summoners={bundle?.summoners ?? {}}
+              version={bundle?.version ?? ''}
+              offline={bundle?.offline ?? true}
+              loadout={build.targetLoadout}
+              onChange={patchTargetLoadout}
+            />
+          </div>
+
           <div className="config-slot" data-tab="sim">
             <SettingsPanel
               side="target"
@@ -536,7 +587,12 @@ export default function App() {
           </div>
 
           <div className="config-slot" data-tab="target">
-            <LoadoutNotes loadout={build.targetLoadout} items={items} title="Target notes" />
+            <LoadoutNotes
+              loadout={build.targetLoadout}
+              items={items}
+              summoners={bundle?.summoners ?? {}}
+              title="Target notes"
+            />
           </div>
 
         </aside>
