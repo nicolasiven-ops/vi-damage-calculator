@@ -156,42 +156,59 @@ export function AnalysisPanel({
 
   const startingHealth = target.maxHealth * target.currentHealthPercent;
 
+  /**
+   * The state of the fight at the step in focus, or at the end of the combo.
+   *
+   * The simulation records one of these per step, which is what makes the bars
+   * a picture of a moment rather than of the final total: hover or click a step
+   * and they show the health, the shield and the stats as they were then. They
+   * used to read the finished numbers, so they never moved.
+   */
+  const moment = useMemo(() => {
+    const list = analysis.snapshots;
+    const focused = linkedStepUid
+      ? list.find((entry) => entry.stepUid === linkedStepUid)
+      : undefined;
+    const source = focused ?? list[list.length - 1];
+    if (source) {
+      return {
+        attacker: source.attacker,
+        shieldGained: source.shieldGained,
+        target: source.target,
+      };
+    }
+    // No snapshots at all — an empty combo. Fall back to the finished figures.
+    return {
+      attacker: attackerStats,
+      shieldGained: analysis.shieldGained,
+      target: { currentHealth: analysis.targetHpRemaining, maxHealth: startingHealth },
+    };
+  }, [analysis, linkedStepUid, attackerStats, startingHealth]);
+
   return (
     <div className="analysis">
       <Panel className="analysis-main" title="Analysis">
         {/*
-         * The two combatants, facing each other across the row.
-         *
-         * The attacker's health does not move — nothing hits back in this
-         * simulation — so its bar carries the shield the combo generates, which
-         * is the only thing that does change on that side.
+         * The two combatants, facing each other across the row, as they stood
+         * at the moment in focus.
          */}
         <div className="combatant-row">
           <CombatantBars
             name={attackerName}
             side="ally"
-            health={{ current: attackerStats.maxHealth, max: attackerStats.maxHealth }}
-            shield={analysis.shieldGained}
+            health={{ current: moment.attacker.maxHealth, max: moment.attacker.maxHealth }}
+            shield={moment.shieldGained}
             resource={
-              attackerStats.maxMana > 0
-                ? {
-                    current: attackerStats.maxMana,
-                    max: attackerStats.maxMana,
-                    label: 'mana',
-                  }
+              moment.attacker.maxMana > 0
+                ? { current: moment.attacker.maxMana, max: moment.attacker.maxMana, label: 'mana' }
                 : null
-            }
-            note={
-              analysis.shieldGained > 0
-                ? `${Math.round(attackerStats.maxHealth).toLocaleString('en-US')} + ${Math.round(analysis.shieldGained).toLocaleString('en-US')} shield`
-                : undefined
             }
           />
 
           <CombatantBars
             name={target.name}
             side="enemy"
-            health={{ current: analysis.targetHpRemaining, max: startingHealth }}
+            health={{ current: moment.target.currentHealth, max: moment.target.maxHealth }}
             resource={null}
             healthFill={
               <TargetHealthBar

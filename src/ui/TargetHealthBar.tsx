@@ -21,18 +21,11 @@ interface Props {
   startingHealth: number;
   /** The step in focus, from hover anywhere or from the pinned selection. */
   linkedStepUid?: string | null;
-  /**
-   * Render only the bar.
-   *
-   * Inside a combatant rail the surrounding frame already carries the name and
-   * the numbers, and repeating them under the rail said everything twice.
-   */
-  bare?: boolean;
 }
 
 const int = (value: number): string => Math.round(value).toLocaleString('en-US');
 
-export function TargetHealthBar({ analysis, startingHealth, linkedStepUid, bare }: Props) {
+export function TargetHealthBar({ analysis, startingHealth, linkedStepUid }: Props) {
   const total = Math.max(1, startingHealth);
   const instances = analysis.curve.map((point) => point.instance);
 
@@ -67,21 +60,16 @@ export function TargetHealthBar({ analysis, startingHealth, linkedStepUid, bare 
 
   const healthLeft = Math.max(0, total - consumed);
 
-  /** Health the target still had when the focused step was done. */
-  const focusedHealthLeft =
-    lastFocusedIndex >= 0
-      ? Math.max(0, total - segments.slice(0, lastFocusedIndex + 1).reduce((sum, s) => sum + (s.width / 100) * total, 0))
-      : null;
-
+  /*
+   * No caption of its own any more.
+   *
+   * The bar sits inside a combatant rail, and that rail already prints the
+   * health at the focused step across the middle of it. Saying it twice, once
+   * with the step's number and once with the final one, was the reason the two
+   * disagreed.
+   */
   return (
-    <div className={`hpbar-wrap${bare ? ' bare' : ''}`}>
-      {!bare && (
-        <div className="hpbar-head">
-          <span className="hpbar-title">Target health</span>
-          <span className="hpbar-value mono">{healthNote(analysis, total, focusedHealthLeft)}</span>
-        </div>
-      )}
-
+    <div className="hpbar-wrap bare">
       <div className="hpbar" role="img" aria-label={`Target health: ${int(healthLeft)} of ${int(total)} remaining`}>
         {segments.map((segment) => (
           <div
@@ -101,13 +89,3 @@ export function TargetHealthBar({ analysis, startingHealth, linkedStepUid, bare 
   );
 }
 
-/** The bar's status line: at this step, dead with overkill, or what is left. */
-function healthNote(
-  analysis: ComboAnalysis,
-  total: number,
-  focusedHealthLeft: number | null,
-): string {
-  if (focusedHealthLeft !== null) return `${int(focusedHealthLeft)} / ${int(total)} at this step`;
-  if (analysis.killTime !== null) return `dead · ${int(analysis.overkill)} overkill`;
-  return `${int(Math.max(0, analysis.targetHpRemaining))} / ${int(total)} left`;
-}
