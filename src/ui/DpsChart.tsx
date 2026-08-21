@@ -412,6 +412,23 @@ export function DpsChart({ analysis, playhead, linkedStepUid, pinnedStepUid, onP
                 className={segment.stepUid ? 'dps-segment is-clickable' : 'dps-segment'}
               >
                 <title>{segment.label}</title>
+                {/*
+                  * The whole stretch is the target, not the line.
+                  *
+                  * A two-pixel stroke is a hard thing to hit and the wrong thing
+                  * to aim at anyway: what you mean when you click at 2.4 s is
+                  * "that moment", so the click area is the full height of the
+                  * stretch and the line is only what it looks like.
+                  */}
+                <rect
+                  className="dps-band-hit"
+                  x={x(first.time)}
+                  y={plotTop}
+                  width={Math.max(1, x(last.time) - x(first.time))}
+                  height={plotBottom - plotTop}
+                  fill={segment.color}
+                  fillOpacity={linked ? 0.1 : 0}
+                />
                 <path
                   d={`M ${line}`}
                   fill="none"

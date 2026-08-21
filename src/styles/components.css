@@ -3269,3 +3269,8 @@ code {
   color: var(--gold-200);
   background: linear-gradient(180deg, rgba(200, 170, 110, 0.16), transparent);
 }
+
+/* the burst graph's click targets: a whole stretch, not a two-pixel line */
+.dps-segment.is-clickable:hover .dps-band-hit {
+  fill-opacity: 0.07;
+}

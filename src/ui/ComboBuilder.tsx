@@ -146,13 +146,6 @@ export function ComboBuilder({
             : ''}
         </span>
         <div className="combo-bar-spacer" />
-        <button
-          className="btn subtle danger"
-          onClick={() => onChange(() => [])}
-          disabled={combo.length === 0}
-        >
-          Clear
-        </button>
       </div>
 
       <div className="combo-bar-track">
