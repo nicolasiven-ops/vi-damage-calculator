@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, it } from 'vitest';
 import { parseChampionBin } from '../src/data/bin';
 import { simulate } from '../src/engine/simulate';
