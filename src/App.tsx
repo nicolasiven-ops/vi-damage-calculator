@@ -17,7 +17,7 @@ import {
   saveBuild,
   type BuildState,
 } from './state/build';
-import { useChampionDetail, usePatchData } from './hooks/usePatchData';
+import { useChampionDetail, useChampionProfile, usePatchData } from './hooks/usePatchData';
 import { AnalysisPanel } from './ui/AnalysisPanel';
 import { AppHeader } from './ui/AppHeader';
 import { ChampionPanel } from './ui/ChampionPanel';
@@ -115,6 +115,13 @@ export default function App() {
     bundle?.locale ?? DEFAULT_LOCALE,
     build.championId,
     bundle?.offline ?? true,
+  );
+
+  /* Portrait and ability names for the target, when it follows a champion. */
+  const targetProfile = useChampionProfile(
+    bundle?.version ?? null,
+    bundle?.locale ?? DEFAULT_LOCALE,
+    build.targetMode === 'champion' ? build.targetChampionId : '',
   );
 
   useEffect(() => {
@@ -402,8 +409,14 @@ export default function App() {
           <div className="config-slot" data-tab="target" id="config-target">
             <TargetPanel
               target={build.target}
+              mode={build.targetMode}
+              championId={build.targetChampionId}
               champions={bundle?.champions ?? {}}
+              profile={targetProfile.profile}
+              version={bundle?.version ?? ''}
               onChange={(target) => patchBuild({ target })}
+              onModeChange={(targetMode) => patchBuild({ targetMode })}
+              onChampionChange={(targetChampionId) => patchBuild({ targetChampionId })}
             />
           </div>
 

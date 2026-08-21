@@ -9,6 +9,9 @@ import { DEFAULT_TIMINGS, type ComboStep, type CritMode, type TargetConfig, type
 import type { AbilitySlot } from '../engine/types';
 import type { StatBlock } from '../model/stats';
 
+/** Where the target values come from. */
+export type TargetMode = 'custom' | 'champion';
+
 export interface BuildState {
   championId: string;
   level: number;
@@ -22,6 +25,15 @@ export interface BuildState {
   secondaryRuneIds: (number | null)[];
   shardIds: (number | null)[];
   target: TargetConfig;
+  /**
+   * How the target is defined: typed in by hand, or derived from a champion.
+   *
+   * Part of the build rather than of the panel, so a reload does not silently
+   * turn a champion target back into loose numbers.
+   */
+  targetMode: TargetMode;
+  /** Which champion the target follows in champion mode. */
+  targetChampionId: string;
   combo: ComboStep[];
   critMode: CritMode;
   timings: TimingConfig;
@@ -41,7 +53,7 @@ export function step(action: ComboStep['action'], chargeSeconds?: number): Combo
 }
 
 export const DEFAULT_TARGET: TargetConfig = {
-  name: 'Ziel',
+  name: 'Target',
   level: 11,
   maxHealth: 2100,
   currentHealthPercent: 1,
@@ -66,6 +78,8 @@ export function defaultBuild(): BuildState {
     secondaryRuneIds: [null, null],
     shardIds: [null, null, null],
     target: { ...DEFAULT_TARGET },
+    targetMode: 'custom',
+    targetChampionId: '',
     // The classic Vi engage: charged Q in, ult, then E-weave for the W proc.
     combo: [
       step({ kind: 'ability', slot: 'Q' }, 1.25),
@@ -123,6 +137,8 @@ function mergeBuild(base: BuildState, stored: Partial<BuildState>): BuildState {
     secondaryRuneIds: normaliseSlots(stored.secondaryRuneIds, 2, null),
     shardIds: normaliseSlots(stored.shardIds, 3, null),
     target: { ...base.target, ...(stored.target ?? {}) },
+    targetMode: stored.targetMode ?? base.targetMode,
+    targetChampionId: stored.targetChampionId ?? base.targetChampionId,
     timings: { ...base.timings, ...(stored.timings ?? {}) },
     manualStats: stored.manualStats ?? {},
     // Regenerate uids so drag & drop keys stay unique after a reload.

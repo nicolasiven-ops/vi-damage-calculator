@@ -1,7 +1,11 @@
 import type { ReactNode } from 'react';
 
 interface Props {
-  title: string;
+  /**
+   * Usually a string, but a node when the heading itself is a control — the
+   * target panel picks what it is pointed at where its name would stand.
+   */
+  title: ReactNode;
   actions?: ReactNode;
   /**
    * Sits between the title and the actions, centred.

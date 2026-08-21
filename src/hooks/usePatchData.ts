@@ -106,6 +106,53 @@ export interface GameDataStatus {
   report: ValidationReport | null;
 }
 
+/**
+ * Just the presentational facts about a champion: portrait, title, abilities.
+ *
+ * Deliberately not `useChampionDetail`: that one also pulls the champion's spell
+ * formulas from CommunityDragon and cross-checks them, which is exactly what the
+ * *target* does not need. Nothing about the target is simulated from its own
+ * formulas — it only gets hit — so fetching them would be a download and a
+ * validation run in exchange for nothing.
+ */
+export function useChampionProfile(
+  version: string | null,
+  locale: string,
+  championId: string,
+): { profile: DDragonChampionDetail | null; loading: boolean } {
+  const [profile, setProfile] = useState<DDragonChampionDetail | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!version || !championId) {
+      setProfile(null);
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+
+    fetchChampionDetail(version, locale, championId)
+      .then((detail) => {
+        if (!cancelled) setProfile(detail);
+      })
+      .catch(() => {
+        // A missing portrait is not worth an error state; the panel falls back
+        // to the champion summary it already has.
+        if (!cancelled) setProfile(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [version, locale, championId]);
+
+  return { profile, loading };
+}
+
 export interface ChampionDetailState {
   detail: DDragonChampionDetail | null;
   spellById: Record<string, DDragonSpell | undefined>;
