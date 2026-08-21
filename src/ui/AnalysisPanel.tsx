@@ -177,7 +177,7 @@ export function AnalysisPanel({
       mitigated: analysis.totalMitigated,
       absorbed: analysis.absorbed,
       throughput: analysis.throughput,
-      dps: analysis.dps,
+      dps: analysis.dps as number | null,
       window: analysis.duration,
       remaining: analysis.targetHpRemaining,
       killed: analysis.killTime !== null,
@@ -205,7 +205,9 @@ export function AnalysisPanel({
       mitigated,
       absorbed: raw - mitigated,
       throughput: raw > 0 ? mitigated / raw : 0,
-      dps: window > 0.01 ? mitigated / window : 0,
+      // At the first hit the window is zero seconds long, and a rate over no
+      // time is not a number — better a dash than a confident 0.
+      dps: window > 0.01 ? mitigated / window : null,
       window: moment.time,
       remaining: Math.max(0, remaining),
       killed,
@@ -292,7 +294,7 @@ export function AnalysisPanel({
           />
           <Tile
             label="Damage per second"
-            value={Math.round(figures.dps).toLocaleString('en-US')}
+            value={figures.dps === null ? '—' : Math.round(figures.dps).toLocaleString('en-US')}
             detail={`over ${figures.window.toFixed(2)} s · ${analysis.timeToFirstDamage.toFixed(2)} s run-up`}
           />
           <Tile

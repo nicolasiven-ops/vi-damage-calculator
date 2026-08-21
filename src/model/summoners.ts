@@ -50,13 +50,78 @@ export interface SmiteModel {
   rider?: string;
 }
 
+/**
+ * The pets that upgrade Smite, and the colour each one paints it.
+ *
+ * Riot has no Chilling or Challenging Smite any more: those were jungle-item
+ * upgrades and the items are gone. What replaced them is the jungle companion —
+ * grow it, finish the quest, and Smite becomes Primal Smite. The three pets are
+ * three colours and three unrelated passives; the Smite they grant is the same
+ * Smite, which is why they share one damage profile here.
+ *
+ * The ids are Riot's own spell names for the upgraded forms. They are absent
+ * from Data Dragon entirely — the picker gets them from this table.
+ */
+export interface PrimalSmiteVariant {
+  id: string;
+  /** Pet name, which is how players tell the three apart. */
+  pet: string;
+  /** What players call it. */
+  colour: 'red' | 'blue' | 'green';
+  /** CommunityDragon icon file for this pet's Smite. */
+  iconFile: string;
+  /** The pet's own passive, which is not the Smite and is not simulated. */
+  petPassive: string;
+}
+
+export const PRIMAL_SMITES: PrimalSmiteVariant[] = [
+  {
+    id: 'SummonerSmiteAvatarOffensive',
+    pet: 'Scorchclaw',
+    colour: 'red',
+    iconFile: '1101_smite.png',
+    petPassive: 'burn and slow on your next attack or ability',
+  },
+  {
+    id: 'SummonerSmiteAvatarUtility',
+    pet: 'Gustwalker',
+    colour: 'blue',
+    iconFile: '1102_smite.png',
+    petPassive: 'move speed on entering brush',
+  },
+  {
+    id: 'SummonerSmiteAvatarDefensive',
+    pet: 'Mosstomper',
+    colour: 'green',
+    iconFile: '1103_smite.png',
+    petPassive: 'a shield out of combat',
+  },
+];
+
+/**
+ * Numbers, and where they come from.
+ *
+ * Riot ships these as unresolved placeholders — `{{ smitebasedamage }}`,
+ * `@spell.SummonerSmite:SecondPVPDamage@` — so no value in this table came out
+ * of a Riot file, unlike every ability value in the app. They are the community
+ * wiki's, which is the only published source, and the notes panel says so.
+ */
 export const SMITES: SmiteModel[] = [
   {
     id: 'SummonerSmite',
     label: 'Smite',
-    monsterDamage: 900,
+    monsterDamage: 600,
     championDamage: null,
   },
+  ...PRIMAL_SMITES.map((variant) => ({
+    id: variant.id,
+    label: `Primal Smite (${variant.pet})`,
+    monsterDamage: 1400,
+    // Flat, and small: the old Challenging Smite's 20–160 belonged to an item
+    // that no longer exists.
+    championDamage: { atLevel1: 40, atLevel18: 40 },
+    rider: `20% slow for 2 s, and the pet's own ${variant.petPassive} — neither is modelled`,
+  })),
 ];
 
 export function smiteById(id: string): SmiteModel | undefined {

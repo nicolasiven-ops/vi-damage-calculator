@@ -112,6 +112,9 @@ export function ComboBuilder({
     onChange((current) => reorderStep(current, String(active.id), String(over.id)));
   }
 
+  /** The step whose settings the header row is editing. */
+  const focused = combo.find((entry) => entry.uid === pinnedStepUid) ?? null;
+
   function add(step: ComboStep): void {
     onChange((current) => [...current, step]);
   }
@@ -137,6 +140,54 @@ export function ComboBuilder({
             ? ` · ${durationSeconds.toFixed(2)} s`
             : ''}
         </span>
+        {/*
+         * The charge slider belongs to the step you clicked, and sits here
+         * rather than on the card.
+         *
+         * Over the card it covered the icon that says which step it is; above
+         * the card it needed a lane of empty strip to fly out into. Here it is
+         * on the line that already describes the combo, next to the step count,
+         * and the cards keep one shape.
+         */}
+        {focused && focused.action.kind === 'ability' && focused.chargeSeconds !== undefined && (
+          <label className="combo-charge">
+            <span className="combo-charge-label">
+              <span>Charge</span>
+              <span className="mono">{focused.chargeSeconds.toFixed(2)} s</span>
+            </span>
+            <input
+              type="range"
+              min={0}
+              max={chargeMax(focused, abilities)}
+              step={0.05}
+              value={focused.chargeSeconds}
+              onChange={(event) =>
+                update(focused.uid, { chargeSeconds: Number(event.target.value) })
+              }
+            />
+          </label>
+        )}
+        {focused && focused.action.kind === 'wait' && (
+          <label className="combo-charge">
+            <span className="combo-charge-label">
+              <span>Duration</span>
+              <span className="mono">{focused.action.seconds.toFixed(2)} s</span>
+            </span>
+            <input
+              type="range"
+              min={0.1}
+              max={5}
+              step={0.1}
+              value={focused.action.seconds}
+              onChange={(event) =>
+                update(focused.uid, {
+                  action: { kind: 'wait', seconds: Number(event.target.value) },
+                })
+              }
+            />
+          </label>
+        )}
+
         <div className="combo-bar-spacer" />
         <button
           className="btn subtle danger"
@@ -239,7 +290,6 @@ export function ComboBuilder({
                     pinned={pinnedStepUid === entry.uid}
                     onPin={() => onPinStep?.(entry.uid)}
                     onRemove={() => remove(entry.uid)}
-                    onUpdate={(patch) => update(entry.uid, patch)}
                   />
                 ))}
               </ol>
@@ -265,7 +315,6 @@ interface StepProps {
   pinned: boolean;
   onPin: () => void;
   onRemove: () => void;
-  onUpdate: (patch: Partial<ComboStep>) => void;
 
 }
 
@@ -278,7 +327,6 @@ function SortableStep({
   pinned,
   onPin,
   onRemove,
-  onUpdate,
 }: StepProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: step.uid,
@@ -339,42 +387,6 @@ function SortableStep({
         <span className="combo-label">{descriptor.label}</span>
       </div>
 
-      {step.action.kind === 'ability' && step.chargeSeconds !== undefined && (
-        <label className="combo-charge" {...stopDrag}>
-          <span className="combo-charge-label">
-            <span>Charge</span>
-            <span className="mono">{step.chargeSeconds.toFixed(2)} s</span>
-          </span>
-          <input
-            type="range"
-            min={0}
-            max={1.25}
-            step={0.05}
-            value={step.chargeSeconds}
-            onChange={(event) => onUpdate({ chargeSeconds: Number(event.target.value) })}
-          />
-        </label>
-      )}
-
-      {step.action.kind === 'wait' && (
-        <label className="combo-charge" {...stopDrag}>
-          <span className="combo-charge-label">
-            <span>Duration</span>
-            <span className="mono">{step.action.seconds.toFixed(2)} s</span>
-          </span>
-          <input
-            type="range"
-            min={0.1}
-            max={5}
-            step={0.1}
-            value={step.action.seconds}
-            onChange={(event) =>
-              onUpdate({ action: { kind: 'wait', seconds: Number(event.target.value) } })
-            }
-          />
-        </label>
-      )}
-
       <div className="combo-card-tools" {...stopDrag}>
         <button className="combo-tool remove" onClick={onRemove} aria-label="Remove">
           ×
@@ -382,6 +394,13 @@ function SortableStep({
       </div>
     </li>
   );
+}
+
+/** How long this ability can be held, from the champion's own metadata. */
+function chargeMax(step: ComboStep, abilities: AbilityMeta[]): number {
+  if (step.action.kind !== 'ability') return 0;
+  const slot = step.action.slot;
+  return abilities.find((ability) => ability.slot === slot)?.chargeable?.maxSeconds ?? 1.25;
 }
 
 function describeStep(

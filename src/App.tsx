@@ -26,11 +26,12 @@ import { ChampionPanel } from './ui/ChampionPanel';
 import { ComboBuilder } from './ui/ComboBuilder';
 import { ItemPanel } from './ui/ItemPanel';
 import { RunePanel } from './ui/RunePanel';
-import { SummonerPanel } from './ui/SummonerPanel';
+import { SummonerPanel, type SummonerOption } from './ui/SummonerPanel';
 import { SettingsPanel } from './ui/SettingsPanel';
 import { LoadoutNotes } from './ui/LoadoutNotes';
 import { fightMoment } from './ui/moment';
 import { unknownStats } from './ui/StatSheet';
+import { PRIMAL_SMITES } from './model/summoners';
 import { TargetPanel } from './ui/TargetPanel';
 import { imageUrls } from './data/ddragon';
 
@@ -322,6 +323,36 @@ export default function App() {
   );
 
   /**
+   * Every summoner spell the pickers may offer.
+   *
+   * Data Dragon's own list, plus the upgraded Smites it does not ship: Primal
+   * Smite exists only as the form a grown jungle pet grants, so its three
+   * colours come from the app's own table and carry CommunityDragon icons.
+   */
+  const summonerOptions = useMemo<SummonerOption[]>(() => {
+    const version = bundle?.version ?? '';
+    const fromPatch = Object.values(bundle?.summoners ?? {}).map((spell) => ({
+      id: spell.id,
+      name: spell.name,
+      iconUrl: imageUrls.summoner(version, spell.image.full),
+      cooldownBurn: spell.cooldownBurn,
+    }));
+    const primal = PRIMAL_SMITES.map((variant) => ({
+      id: variant.id,
+      name: `Primal Smite · ${variant.pet}`,
+      iconUrl: imageUrls.gameDataSpell(variant.iconFile),
+      cooldownBurn: '15',
+    }));
+    return [...fromPatch, ...primal].sort((a, b) => a.name.localeCompare(b.name));
+  }, [bundle]);
+
+  /** Spell names by id, for the notes panels. */
+  const summonerNames = useMemo(
+    () => Object.fromEntries(summonerOptions.map((option) => [option.id, option.name])),
+    [summonerOptions],
+  );
+
+  /**
    * The attacker's summoner spells, in slot order, for the combo strip.
    *
    * Names and icons come from Data Dragon rather than being hardcoded, so a
@@ -331,17 +362,10 @@ export default function App() {
   const summonerChips = useMemo(
     () =>
       activeSummonerIds(build)
-        .map((id) => {
-          const spell = bundle?.summoners?.[id];
-          if (!spell) return null;
-          return {
-            id,
-            name: spell.name,
-            iconUrl: bundle ? imageUrls.summoner(bundle.version, spell.image.full) : undefined,
-          };
-        })
-        .filter((chip): chip is { id: string; name: string; iconUrl: string | undefined } => chip !== null),
-    [build, bundle],
+        .map((id) => summonerOptions.find((option) => option.id === id))
+        .filter((option): option is SummonerOption => option !== undefined)
+        .map((option) => ({ id: option.id, name: option.name, iconUrl: option.iconUrl })),
+    [build, summonerOptions],
   );
 
   /* ----------------------------------------------------------------- render */
@@ -496,8 +520,7 @@ export default function App() {
 
           <div className="config-slot" data-tab="runes" id="config-summoners">
             <SummonerPanel
-              summoners={bundle?.summoners ?? {}}
-              version={bundle?.version ?? ''}
+              summoners={summonerOptions}
               offline={bundle?.offline ?? true}
               loadout={build}
               onChange={patchBuild}
@@ -518,7 +541,7 @@ export default function App() {
             <LoadoutNotes
               loadout={build}
               items={items}
-              summoners={bundle?.summoners ?? {}}
+              summoners={summonerNames}
               runeTrees={bundle?.runeTrees ?? []}
               title="Vi notes"
             />
@@ -622,8 +645,7 @@ export default function App() {
 
           <div className="config-slot" data-tab="target">
             <SummonerPanel
-              summoners={bundle?.summoners ?? {}}
-              version={bundle?.version ?? ''}
+              summoners={summonerOptions}
               offline={bundle?.offline ?? true}
               loadout={build.targetLoadout}
               onChange={patchTargetLoadout}
@@ -644,7 +666,7 @@ export default function App() {
             <LoadoutNotes
               loadout={build.targetLoadout}
               items={items}
-              summoners={bundle?.summoners ?? {}}
+              summoners={summonerNames}
               runeTrees={bundle?.runeTrees ?? []}
               title="Target notes"
             />

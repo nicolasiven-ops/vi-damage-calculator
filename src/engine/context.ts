@@ -96,6 +96,18 @@ export interface CastTiming {
    * 6 s rank 5 Q to 6.25 s between hits and drifting further with every cast.
    */
   cooldownStartsAfter?: number;
+  /**
+   * Seconds after the effect in which the champion cannot act.
+   *
+   * Not the same thing as the cast: the effect has already happened, the damage
+   * is dealt, and the champion is still committed to the animation. Vi's
+   * ultimate is the case that forces the distinction — she grabs the target and
+   * is unable to attack for as long as it is airborne, so an attack written
+   * after R in a combo cannot land where the cast time alone would put it.
+   *
+   * The cooldown is unaffected: it started when the button did its work.
+   */
+  lockAfterSeconds?: number;
 }
 
 /**

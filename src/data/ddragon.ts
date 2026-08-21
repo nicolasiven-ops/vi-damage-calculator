@@ -140,7 +140,17 @@ export async function fetchSummoners(
   return allowed;
 }
 
+const CDRAGON = 'https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default';
+
 export const imageUrls = {
+  /**
+   * Spell icons that only CommunityDragon has.
+   *
+   * Primal Smite is not in Data Dragon at all — it exists only as the upgraded
+   * form the jungle pet grants — so its three icons come from the game-data
+   * assets, where the paths are lower-cased.
+   */
+  gameDataSpell: (file: string) => `${CDRAGON}/data/spells/icons2d/${file}`,
   /** Summoner icons sit under the same path as ability icons. */
   summoner: (version: string, file: string) => `${CDN}/cdn/${version}/img/spell/${file}`,
   item: (version: string, file: string) => `${CDN}/cdn/${version}/img/item/${file}`,

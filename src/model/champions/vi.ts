@@ -101,6 +101,12 @@ const FALLBACK = {
     bonusAdRatio: 0.9,
     cooldown: [140, 115, 90],
     knockupSeconds: 1.3,
+    /**
+     * Cast time, from Riot's own file: `ViR.mSpell.mCastTime` is 0.25 on 16.16,
+     * and the wiki's ability header says the same. Not a guess and not a
+     * timing constant — it belongs to the spell.
+     */
+    castSeconds: 0.25,
   },
   passive: {
     /** Shield as a fraction of Vi's maximum health. */
@@ -331,8 +337,29 @@ class ViRuntime implements ChampionRuntime {
           cooldownStartsAfter: charge,
         };
       }
-      case 'R':
-        return parts([{ label: 'dash to target', seconds: ctx.timings.dashTravel }]);
+      case 'R': {
+        /*
+         * The ultimate takes Vi with it.
+         *
+         * Riot's own file gives the cast time (mCastTime 0.25) and the airborne
+         * duration, and the wiki says what the two mean together: Vi grabs the
+         * target and "is unable to act" for as long as it is in the air. So the
+         * step costs the cast, the dash, and then the grab — during which an
+         * attack written after R simply cannot happen.
+         *
+         * The 1.3 s comes from the same value as the knock-up, because it is the
+         * knock-up: one duration, read once, used for both sides of it.
+         */
+        const rank = ctx.rank('R');
+        const knockup = gameValue(this.ctx, SPELL_IDS.R, 'RStunDuration', rank, FALLBACK.r.knockupSeconds);
+        return {
+          ...parts([
+            { label: 'cast', seconds: FALLBACK.r.castSeconds },
+            { label: 'dash to target', seconds: ctx.timings.dashTravel },
+          ]),
+          lockAfterSeconds: rank >= 1 ? knockup.value : 0,
+        };
+      }
       default:
         return parts([{ label: 'input', seconds: ctx.timings.inputDelay }]);
     }

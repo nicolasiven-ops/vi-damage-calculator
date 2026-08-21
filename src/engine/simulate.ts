@@ -873,14 +873,20 @@ export function simulate(
     addEvent({ kind: 'cast', label: `${slot} cast`, detail: describeCastTiming(timing) });
     advance(timing.seconds);
 
+    const lock = Math.max(0, timing.lockAfterSeconds ?? 0);
     addSpan({
       lane: slot,
       kind: 'cast',
       start: castStart,
-      end: castStart + timing.seconds,
+      // The lock is part of the same block: it is one stretch of time in which
+      // the champion is busy, and the parts say which half is which.
+      end: castStart + timing.seconds + lock,
       label: `${slot} cast`,
       detail: describeCastTiming(timing),
-      parts: timing.parts.filter((part) => part.seconds > 0.001),
+      parts: [
+        ...timing.parts.filter((part) => part.seconds > 0.001),
+        ...(lock > 0.001 ? [{ label: 'locked', seconds: lock }] : []),
+      ],
     });
 
     /*
@@ -978,6 +984,24 @@ export function simulate(
     asGear(() => {
       for (const { runtime } of items) runtime.onAbilityCast?.(ctx, slot);
     });
+
+    /*
+     * The lock is spent after the effect, not before it.
+     *
+     * The damage has landed by now — that is what makes this different from cast
+     * time — and what the lock costs is everything the champion would otherwise
+     * do next: the clock moves, and the attack timer cannot come due earlier
+     * than the moment she is free again.
+     */
+    if (lock > 0.001) {
+      addEvent({
+        kind: 'info',
+        label: `${slot} locks`,
+        detail: `cannot act for ${seconds(lock)} s`,
+      });
+      advance(lock);
+      nextAttackReadyAt = Math.max(nextAttackReadyAt, time);
+    }
 
     if (championRuntime.resetsAutoAttack?.(slot)) {
       nextAttackReadyAt = time;

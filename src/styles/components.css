@@ -475,7 +475,7 @@
    * so the room above the cards has to be inside it. It costs 22 px once,
    * instead of the slider sitting on top of the icon it belongs to.
    */
-  padding: 40px 0 var(--space-2);
+  padding: 2px 0 var(--space-2);
   display: flex;
   gap: var(--space-2);
   flex: 1;
@@ -544,52 +544,37 @@
 }
 
 /*
- * The charge slider rides out of the top of the card on hover.
+ * The charge control lives on the header line, next to the step count.
  *
- * It used to lie over the card, which put a slider across the icon that says
- * which step you are looking at — the one thing on the card that must never
- * change. Above the card it covers nothing: the cards keep one height, the row
- * below them never moves, and the icon stays the icon.
+ * It used to sit on the card — over the icon that says which step it is — and
+ * then above the card, which needed a lane of empty strip to fly out into. On
+ * the line that already describes the combo it covers nothing and moves nothing.
  */
-.combo-strip .combo-charge {
-  position: absolute;
-  left: -1px;
-  right: -1px;
-  bottom: calc(100% + 12px);
+.combo-charge {
+  display: flex;
   flex-direction: row;
   align-items: center;
-  gap: var(--space-2);
-  padding: 4px 7px;
-  border-radius: 3px;
-  background: var(--surface-raised);
-  box-shadow: 0 0 0 1px var(--line), var(--shadow-pop);
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(7px);
-  transition: opacity 90ms ease, transform 120ms ease;
+  gap: var(--space-3);
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-2);
+  min-width: 210px;
 }
 
-.combo-strip .combo-card:hover .combo-charge,
-.combo-strip .combo-card:focus-within .combo-charge {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateY(0);
-}
-
-.combo-strip .combo-charge input[type='range'] {
+.combo-charge input[type='range'] {
   flex: 1;
   min-width: 0;
 }
 
-.combo-strip .combo-charge-label {
+.combo-charge-label {
   display: flex;
-  gap: 5px;
-  font-size: 10.5px;
+  gap: 6px;
+  font-size: 11px;
   white-space: nowrap;
 }
 
-/* The word fits now that the card is wider, and it says what the slider does. */
-.combo-strip .combo-charge-label > :not(.mono) {
+.combo-charge-label > :not(.mono) {
   color: var(--text-muted);
 }
 

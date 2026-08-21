@@ -286,6 +286,31 @@ describe('cooldowns', () => {
     expect(result.instances.filter((entry) => entry.slot === 'Q')).toHaveLength(2);
   });
 
+  /**
+   * Vi's ultimate takes her with it: she grabs the target and cannot act for as
+   * long as it is airborne. An attack written after R therefore cannot land at
+   * the cast time — it lands after the grab, which is the knock-up's duration.
+   */
+  it('locks Vi out of attacking for the length of the ultimate grab', () => {
+    const knockup = VI_CONSTANTS.r.knockupSeconds;
+    const cast = VI_CONSTANTS.r.castSeconds;
+    const result = run([
+      step({ kind: 'ability', slot: 'R' }),
+      step({ kind: 'attack' }),
+    ]);
+    const ult = result.instances.find((entry) => entry.slot === 'R');
+    const attack = result.instances.find((entry) => entry.sourceKind === 'attack');
+    expect(ult).toBeDefined();
+    expect(attack).toBeDefined();
+    // The attack cannot precede the end of the grab that follows the ultimate.
+    expect(attack!.time - ult!.time).toBeGreaterThanOrEqual(knockup - 0.01);
+    // And the cast block on the timeline covers the cast, the dash and the lock.
+    const castSpan = result.spans.find((span) => span.lane === 'R' && span.kind === 'cast');
+    expect(castSpan).toBeDefined();
+    expect(castSpan!.fullSeconds).toBeGreaterThanOrEqual(cast + knockup - 0.01);
+    expect(castSpan!.parts?.some((part) => part.label === 'locked')).toBe(true);
+  });
+
   it('waits out a 90 s ultimate rather than double-counting it', () => {
     const result = run([
       step({ kind: 'ability', slot: 'R' }),

@@ -11,11 +11,11 @@
  * worth reading too.
  */
 
-import type { DDragonRuneTree, DDragonSummonerSpell } from '../data/types';
+import type { DDragonRuneTree } from '../data/types';
 import type { ResolvedItem } from '../model/items';
 import { getItemEffect } from '../model/itemEffects';
 import { SHARD_DEFINITIONS, getRuneDefinition, isRuneModelled } from '../model/runes';
-import { summonerGap } from '../model/summoners';
+import { summonerGap, summonerRider } from '../model/summoners';
 import type { LoadoutState } from '../state/build';
 import { activeItemIds, activeRuneIds, activeShardIds, activeSummonerIds } from '../state/build';
 import { Panel } from './components/Panel';
@@ -23,8 +23,13 @@ import { Panel } from './components/Panel';
 interface Props {
   loadout: LoadoutState;
   items: ResolvedItem[];
-  /** Data Dragon's spell table, for naming what the picks refer to. */
-  summoners: Record<string, DDragonSummonerSpell>;
+  /**
+   * Spell names by id, for naming what the picks refer to.
+   *
+   * A map rather than Data Dragon's own table: the upgraded Smites are not in
+   * that table, and a note that says "SmiteAvatarOffensive" names nothing.
+   */
+  summoners: Record<string, string>;
   /**
    * The rune trees, purely to name the runes.
    *
@@ -77,7 +82,10 @@ export function LoadoutNotes({ loadout, items, summoners, runeTrees, title }: Pr
    * equal omissions.
    */
   const summonerNotes = activeSummonerIds(loadout)
-    .map((id) => ({ name: summoners[id]?.name ?? id.replace(/^Summoner/, ''), gap: summonerGap(id) }))
+    .map((id) => ({
+      name: summoners[id] ?? id.replace(/^Summoner/, ''),
+      gap: summonerGap(id) ?? summonerRider(id),
+    }))
     .filter((entry): entry is { name: string; gap: string } => entry.gap !== null);
 
   const empty =
