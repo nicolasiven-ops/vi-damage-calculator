@@ -25,6 +25,16 @@ export interface ItemAttackRider {
 }
 
 export interface ItemRuntime {
+  /**
+   * A multiplier that depends on state this runtime is keeping.
+   *
+   * The stateless `ItemEffect.amplify` covers the amplifiers that only read the
+   * present — Lord Dominik's compares two health pools and needs no memory. A
+   * stacking amplifier does need memory, and memory lives in the runtime, so it
+   * amplifies from here. Both are applied; an item that implements both would be
+   * counted twice, which is why no item does.
+   */
+  amplify?(ctx: SimContext, hit: AmplifiableHit): number;
   /** Called after any damage instance the attacker deals. */
   onHitLanded?(ctx: SimContext, hit: HitInfo): void;
   /** Called whenever an ability is cast. */
@@ -35,6 +45,14 @@ export interface ItemRuntime {
    */
   onBasicAttack?(ctx: SimContext): ItemAttackRider | null;
 }
+
+/**
+ * What an amplifier is allowed to know about the hit it is scaling.
+ *
+ * The same shape the rune amplifiers get — one vocabulary for both, so a
+ * mechanic implemented once works wherever it is bought from.
+ */
+export type AmplifiableHit = Omit<HitInfo, 'mitigated' | 'targetHealthPercentAfter'>;
 
 export interface ItemEffect {
   id: string;
@@ -50,7 +68,15 @@ export interface ItemEffect {
    * stat block, where every consumer already looks.
    */
   stats?: Partial<StatBlock>;
-  amplify?(ctx: SimContext, hit: { type: DamageType }): number;
+  /**
+   * A multiplier on one instance of damage, as a fraction (0.08 === +8%).
+   *
+   * It is told what kind of damage this is, because that is what the game's own
+   * amplifiers key off: Spear of Shojin raises ability and passive damage and
+   * leaves basic attacks alone, and an amplifier that cannot tell them apart
+   * would raise the wrong half of a combo.
+   */
+  amplify?(ctx: SimContext, hit: AmplifiableHit): number;
   createRuntime?(): ItemRuntime;
 }
 
@@ -322,8 +348,37 @@ const SPEAR_OF_SHOJIN: ItemEffect = {
   id: '3161',
   name: 'Spear of Shojin',
   modelled: true,
-  note: 'Dragonforce: 25 basic ability haste, counted for Q/W/E and not for R. Focused Will (up to +12% ability damage) is not modelled.',
+  note: 'Dragonforce: 25 basic ability haste, counted for Q/W/E and not for R. Focused Will: +3% ability and passive damage per stack, up to four.',
   stats: { basicAbilityHaste: 25 },
+  /*
+   * "Focused Will: Dealing damage with Abilities increases your Champion's
+   * Ability and Passive damage by 3% for 6 seconds. (stacks 4 times)"
+   *
+   * The stack is earned by the hit and spent on the ones after it: the engine
+   * computes amplification before it reports the hit, so a stack never inflates
+   * the hit that granted it.
+   */
+  createRuntime() {
+    let stacks = 0;
+    let expiresAt = -Infinity;
+    const live = (ctx: SimContext): number => (ctx.time <= expiresAt ? stacks : 0);
+    return {
+      onHitLanded(ctx, hit) {
+        if (!hit.isAbilityDamage) return;
+        stacks = Math.min(4, live(ctx) + 1);
+        expiresAt = ctx.time + 6;
+        ctx.addEvent({
+          kind: 'buff',
+          label: 'Focused Will',
+          detail: `${stacks}/4 · +${(stacks * 3).toFixed(0)}% ability damage for 6 s`,
+        });
+      },
+      amplify(ctx, hit) {
+        if (!hit.isAbilityDamage) return 0;
+        return 0.03 * live(ctx);
+      },
+    };
+  },
 };
 
 const ALL: ItemEffect[] = [

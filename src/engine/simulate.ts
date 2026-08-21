@@ -655,19 +655,28 @@ export function simulate(
     const stats = currentStats();
     const shred = combinedShred();
 
-    // Amplifications stack multiplicatively with each other.
+    /*
+     * Amplifications stack multiplicatively with each other, and every amplifier
+     * is told the same thing about the hit — including where it came from, which
+     * is what an ability-only amplifier needs.
+     */
+    const amplifiable = {
+      sourceId: args.sourceId,
+      sourceKind: args.sourceKind,
+      type: args.type,
+      isAbilityDamage: args.isAbilityDamage ?? false,
+      triggersOnHit: args.triggersOnHit ?? false,
+    };
     let ampFactor = 1 + combinedTargetAmp();
     for (const rune of amplifierRunes) {
-      ampFactor *= 1 + rune.amplify!(ctx, {
-        sourceId: args.sourceId,
-        sourceKind: args.sourceKind,
-        type: args.type,
-        isAbilityDamage: args.isAbilityDamage ?? false,
-        triggersOnHit: args.triggersOnHit ?? false,
-      });
+      ampFactor *= 1 + rune.amplify!(ctx, amplifiable);
     }
     for (const item of amplifierItems) {
-      ampFactor *= 1 + item.amplify!(ctx, { type: args.type });
+      ampFactor *= 1 + item.amplify!(ctx, amplifiable);
+    }
+    // Amplifiers that had to remember something to know their own value.
+    for (const { runtime } of items) {
+      if (runtime.amplify) ampFactor *= 1 + runtime.amplify(ctx, amplifiable);
     }
 
     const result = mitigate({
