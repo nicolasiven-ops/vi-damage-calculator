@@ -13,6 +13,7 @@
 
 import type { DDragonItem } from '../data/types';
 import { addStats, emptyStats, type StatBlock } from './stats';
+import { getItemEffect } from './itemEffects';
 
 export type ItemClass =
   | 'starter'
@@ -63,6 +64,7 @@ const LABEL_TO_STAT: Record<string, keyof StatBlock> = {
   'magic resistance': 'magicResist',
   'attack speed': 'attackSpeed',
   'ability haste': 'abilityHaste',
+  'basic ability haste': 'basicAbilityHaste',
   'critical strike chance': 'critChance',
   'critical strike damage': 'critDamage',
   'crit damage': 'critDamage',
@@ -242,6 +244,9 @@ export function resolveItem(id: string, raw: DDragonItem): ResolvedItem {
   const stats = emptyStats();
   addStats(stats, parsed.stats);
   addStats(stats, legacyStats(raw, parsed.found));
+  // Stats Riot writes into the passive text rather than the stat block.
+  const fromPassive = getItemEffect(id)?.stats;
+  if (fromPassive) addStats(stats, { ...emptyStats(), ...fromPassive });
 
   const mainText = /<mainText>([\s\S]*?)<\/mainText>/i.exec(raw.description ?? '');
   const withoutStats = (mainText?.[1] ?? raw.description ?? '').replace(

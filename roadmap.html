@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Roadmap — Damage Calculator</title>
+    <meta
+      name="description"
+      content="What is planned for the damage calculator: the combo solver, gold worth per stat, the crit spread, the formula at the hit, mana and regeneration, more champions."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Marcellus&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/src/styles/tokens.css" />
+    <link rel="stylesheet" href="/src/styles/global.css" />
+    <link rel="stylesheet" href="/src/styles/design-lab.css" />
+  </head>
+  <body>
+    <div class="lab">
+      <!-- ------------------------------------------------- Jump navigation -->
+      <nav class="lab-nav">
+        <h1 class="lab-nav-title">Roadmap</h1>
+        <span class="lab-nav-sub">Decided, not yet built</span>
+        <ol>
+          <li class="lab-nav-break">Main features</li>
+          <li><a href="#solver">The combo solver</a></li>
+          <li><a href="#worth">What a stat is worth</a></li>
+          <li><a href="#sweep">Against more than one target</a></li>
+          <li class="lab-nav-break">Making the numbers readable</li>
+          <li><a href="#spread">The crit spread</a></li>
+          <li><a href="#formula">The formula at the hit</a></li>
+          <li class="lab-nav-break">Honest simulation</li>
+          <li><a href="#mana">Mana, spent and regained</a></li>
+          <li><a href="#regen">Regeneration over time</a></li>
+          <li><a href="#smite">Smite, all four of them</a></li>
+          <li><a href="#haste">The rest of the haste family</a></li>
+          <li class="lab-nav-break">The big one</li>
+          <li><a href="#champions">More than one champion</a></li>
+          <li class="lab-nav-break">Reference</li>
+          <li><a href="#gaps">Known gaps</a></li>
+        </ol>
+        <p class="lab-nav-note">
+          Ideas are argued out in the <a href="workshop.html">workshop</a>; this page is
+          what survived that and is actually planned.
+          <a href="index.html">Back to the app</a>
+        </p>
+      </nav>
+
+      <!-- --------------------------------------------------------- Content -->
+      <main class="lab-body">
+        <header class="lab-hero">
+          <h1>What is planned</h1>
+          <p>
+            The workshop holds thirty-seven proposals, which is thirty-seven more than
+            anyone can build at once. This page is the shortlist: the ones that are
+            <strong>decided</strong>, in the order they are worth doing, each with the
+            reason it earned a place and the work it actually needs.
+          </p>
+          <p>
+            Two kinds of entry live here. <strong>Features</strong> add something the
+            app cannot do. <strong>Honesty items</strong> close a gap between what the
+            simulation shows and what the game does — those come first when they would
+            change a number, because a calculator that is wrong quietly is worse than
+            one that is missing a view.
+          </p>
+        </header>
+
+        <!-- ================================================= Combo solver -->
+        <section class="lab-section" id="solver">
+          <div class="lab-section-head">
+            <span class="lab-num">01</span>
+            <h2>The combo solver: what actually kills this target</h2>
+            <div class="lab-cost">
+              <span class="lab-pill needs">main feature</span>
+              <span class="lab-pill ready">engine is ready</span>
+            </div>
+          </div>
+          <p class="lab-why">
+            Every other tool here answers a question about a combo you already typed.
+            This one answers the question you actually had first: <strong>what should I
+            press?</strong> Pick a target, and the app searches orders of the abilities
+            it has, plays each one out on the same clock the analysis uses, and reports
+            the sequence that kills it — and how much room to spare it had.
+          </p>
+          <p class="lab-why">
+            It is a search, not a formula, which is exactly why it is possible. The
+            simulation already refuses to cast an ability that is on cooldown, already
+            knows a charged Q takes 1.25 s to hold and that E carries its own attack,
+            already applies the armour shred after the hit that caused it. A solver
+            does not need any new rules — it needs to call <code>simulate</code> a few
+            thousand times and sort the results.
+          </p>
+          <div class="lab-stage plain">
+            <div class="lab-kv">
+              <div class="lab-kv-row">
+                <span>Search space</span>
+                <span class="mono">4 castables + attacks + 2 summoners, length ≤ 8</span>
+              </div>
+              <div class="lab-kv-row">
+                <span>Pruned by</span>
+                <span class="mono">cooldowns, mana, unlearned ranks, duplicate prefixes</span>
+              </div>
+              <div class="lab-kv-row">
+                <span>Scored by</span>
+                <span class="mono">time to kill, then damage to spare</span>
+              </div>
+              <div class="lab-kv-row is-total">
+                <span>Answer</span>
+                <span class="mono">Q(1.25) → AA → E → AA → R → AA · dead at 3.26 s</span>
+              </div>
+            </div>
+          </div>
+          <p class="lab-caption">
+            <strong>What it needs.</strong> A breadth-first walk over prefixes with the
+            state the engine already carries, so a branch that cannot reach the kill in
+            the remaining window is dropped whole rather than played out. Two scores,
+            not one: fastest kill and least overkill answer different questions, and the
+            second is what tells you which ability you did not need. Then the part that
+            makes it a main feature rather than a curiosity — it has to explain itself,
+            so every result links back into the timeline that produced it.
+          </p>
+          <p class="lab-caption">
+            <strong>The honest limits.</strong> It can only find what the engine can
+            simulate: no dodging, no walking out of range, no second champion answering
+            back. It searches presses, not fights. Said plainly on the panel, that is a
+            feature — it is the theoretical maximum, and the gap between it and what you
+            manage is the thing worth practising.
+          </p>
+        </section>
+
+        <!-- ================================================= Stat worth -->
+        <section class="lab-section" id="worth">
+          <div class="lab-section-head">
+            <span class="lab-num">02</span>
+            <h2>What a stat is worth against what it costs</h2>
+            <div class="lab-cost">
+              <span class="lab-pill needs">main feature</span>
+              <span class="lab-pill ready">data available</span>
+            </div>
+          </div>
+          <p class="lab-why">
+            Measure what +10 of each stat does to <em>this</em> combo, divide by what the
+            shop charges for it, and the ranking that comes out is not a build guide's
+            opinion — it is your build's own arithmetic. The shop prices stats at a fixed
+            rate; your combo does not value them at that rate; the gap is where building
+            decisions live.
+          </p>
+          <p class="lab-why">
+            The prices need no table: Riot sets them through the cheapest single-stat
+            component, and those are in the patch data already downloaded. Long Sword at
+            350 g for 10 AD makes AD 35 g a point, on this patch, and the number moves
+            when Riot moves it.
+          </p>
+          <p class="lab-caption">
+            Worked out in full in the workshop, including where it goes next — the ranked
+            next item, damage per slot rather than per gold, the curve instead of the
+            single derivative, and the two-axis comparison of shop-efficient against
+            combo-efficient. <a href="workshop.html#worth">Read it there</a>.
+          </p>
+        </section>
+
+        <!-- ================================================= Many targets -->
+        <section class="lab-section" id="sweep">
+          <div class="lab-section-head">
+            <span class="lab-num">03</span>
+            <h2>Against more than one target at a time</h2>
+            <div class="lab-cost">
+              <span class="lab-pill needs">shape still open</span>
+              <span class="lab-pill ready">engine is ready</span>
+            </div>
+          </div>
+          <p class="lab-why">
+            One target answers "does this kill him". A row of targets answers the
+            question a build is actually made against: <strong>who does this combo beat
+            and who does it not?</strong> The same combo against a 1,800 HP / 30 armour
+            mid-laner, a 2,400 / 90 fighter and a 3,600 / 200 tank is three different
+            builds' worth of information, and the engine can produce all three in the
+            time it takes to redraw the panel.
+          </p>
+          <p class="lab-caption">
+            The form is deliberately left open — a strip of verdict tiles, a small
+            matrix, or the target column turning into a list of pinned targets. The
+            useful version is the one that makes the <em>threshold</em> visible: not
+            three numbers, but where along the armour axis this combo stops killing.
+          </p>
+        </section>
+
+        <!-- ================================================= Crit spread -->
+        <section class="lab-section" id="spread">
+          <div class="lab-section-head">
+            <span class="lab-num">04</span>
+            <h2>The crit spread: a range, not an average</h2>
+            <div class="lab-cost">
+              <span class="lab-pill ready">data available</span>
+              <span class="lab-pill">small</span>
+            </div>
+          </div>
+          <p class="lab-why">
+            With any crit chance at all, one number is a lie of omission. "550 damage" is
+            the expected value; the combo actually deals somewhere between the
+            no-crit floor and the all-crit ceiling, and whether the <em>floor</em> kills
+            is the only version of the question that matters when you are committing to
+            a dive.
+          </p>
+          <p class="lab-why">
+            So: whenever crit chance is above zero, the total gets a bar instead of a
+            figure — floor, expected, ceiling, with the target's health marked on the
+            same scale. Where that line falls inside the bar is the answer: left of the
+            floor is a guaranteed kill, right of the ceiling is impossible, and anywhere
+            between is a probability that can be stated.
+          </p>
+          <p class="lab-caption">
+            <strong>What it needs.</strong> Two extra runs with <code>critMode</code>
+            forced to never and always, which the engine already supports and the UI
+            already exposes as a toggle. The probability of the kill is the harder half
+            and the more valuable one: with <em>n</em> critable hits it is a sum over
+            which of them crit, and it is worth doing properly rather than as a
+            normal-curve approximation.
+          </p>
+        </section>
+
+        <!-- ================================================= Formula -->
+        <section class="lab-section" id="formula">
+          <div class="lab-section-head">
+            <span class="lab-num">05</span>
+            <h2>The formula at the hit, not in a panel of its own</h2>
+            <div class="lab-cost">
+              <span class="lab-pill ready">data available</span>
+            </div>
+          </div>
+          <p class="lab-why">
+            The formula inspector is one of the best things in the app and it sits a long
+            way from the hit in question. As a card that expands <em>on the timeline
+            row</em> it answers the question at the moment of doubt — <strong>why
+            158?</strong> — with every number in it naming where it came from: which
+            field of which patch's game data, which ratio, which armour value after
+            which shred.
+          </p>
+          <p class="lab-caption">
+            The mock-up is in the workshop. <a href="workshop.html#formula">Section 12
+            there</a> shows the card; the work is threading the derivation the engine
+            already computes through to the row instead of rebuilding it.
+          </p>
+        </section>
+
+        <!-- ================================================= Mana -->
+        <section class="lab-section" id="mana">
+          <div class="lab-section-head">
+            <span class="lab-num">06</span>
+            <h2>Mana, spent and regained</h2>
+            <div class="lab-cost">
+              <span class="lab-pill needs">honesty item</span>
+              <span class="lab-pill ready">costs are in the data</span>
+            </div>
+          </div>
+          <p class="lab-why">
+            The resource bar under Vi currently reads 865 / 865 for the whole combo,
+            because nothing spends mana. Data Dragon ships every ability's cost per rank
+            and the engine already reads that file for cooldowns, so the bar is showing a
+            number it could get right.
+          </p>
+          <p class="lab-why">
+            It matters more than it sounds. A combo that needs four abilities and has
+            mana for three is not a combo, and the app currently reports it as one. The
+            same check turns the bar into an answer: <strong>can you pay for it?</strong>
+          </p>
+          <p class="lab-caption">
+            <strong>What it needs.</strong> Deduct the cost at cast, carry current mana in
+            the per-step snapshot the sidebars already read, and refuse the cast when the
+            pool cannot cover it — with a stated reason, the way an ability on cooldown
+            already states one. Muramana and Manamune care about maximum mana, so this is
+            also the point at which those two stop being stat sticks.
+          </p>
+        </section>
+
+        <!-- ================================================= Regen -->
+        <section class="lab-section" id="regen">
+          <div class="lab-section-head">
+            <span class="lab-num">07</span>
+            <h2>Regeneration over the length of the combo</h2>
+            <div class="lab-cost">
+              <span class="lab-pill needs">honesty item</span>
+              <span class="lab-pill">small</span>
+            </div>
+          </div>
+          <p class="lab-why">
+            Health and mana regeneration are in the stat model and on the sheet — base
+            values from the champion, per-level growth, and whatever items add. What is
+            missing is time: nothing regenerates <em>during</em> a combo, so a
+            twelve-second sequence ends with exactly the mana it started with minus
+            nothing, and the target's regeneration never claws back the damage dealt to
+            it either.
+          </p>
+          <p class="lab-caption">
+            <strong>What it needs.</strong> One tick per second against the clock the
+            engine already advances, at a fifth of the per-five-seconds value, capped at
+            maximum. Small, and it only matters over long combos — which is exactly when
+            people mistrust the numbers, so it is worth having.
+          </p>
+        </section>
+
+        <!-- ================================================= Smite -->
+        <section class="lab-section" id="smite">
+          <div class="lab-section-head">
+            <span class="lab-num">08</span>
+            <h2>Smite, all of it</h2>
+            <div class="lab-cost">
+              <span class="lab-pill needs">honesty item</span>
+              <span class="lab-pill">in progress</span>
+            </div>
+          </div>
+          <p class="lab-why">
+            Base Smite is modelled as 900 true damage to a monster and a refusal against
+            champions, which is right. The upgrades are missing entirely, and the red one
+            is the one that belongs in a damage calculator: it can be pointed at a
+            champion, it deals a levelled amount of true damage, and it is a real part of
+            a jungler's burst.
+          </p>
+          <p class="lab-caption">
+            The picker offers what Riot marks as legal on Summoner's Rift, so the variants
+            need to reach it as well as reaching the engine — with their own icons, since
+            that is how anyone recognises which smite they took. The numbers are being
+            read out of the live game data rather than remembered, and the table in
+            <code>src/model/summoners.ts</code> is already shaped to take them as rows.
+          </p>
+        </section>
+
+        <!-- ================================================= Haste family -->
+        <section class="lab-section" id="haste">
+          <div class="lab-section-head">
+            <span class="lab-num">09</span>
+            <h2>The rest of the haste family</h2>
+            <div class="lab-cost">
+              <span class="lab-pill needs">honesty item</span>
+              <span class="lab-pill">small</span>
+            </div>
+          </div>
+          <p class="lab-why">
+            Riot scopes haste in both directions and says so in the item text. Basic
+            ability haste — Spear of Shojin's 25, and Legend: Haste's 1.5 a stack — now
+            shortens Q, W and E and leaves the ultimate alone. The other direction is
+            still missing: <strong>Ultimate Hunter</strong> grants haste to the ultimate
+            only, and nothing in the app can express that yet.
+          </p>
+          <p class="lab-caption">
+            The same shape as the basic-haste change: one more field, one more branch in
+            the per-slot lookup, and a test that a 90-second ultimate moves for one
+            source and not for the other. Legend: Haste also needs stacks, which the
+            simulation has no concept of — takedowns do not happen in a duel — so it will
+            arrive as a stated assumption rather than a measurement.
+          </p>
+        </section>
+
+        <!-- ================================================= Champions -->
+        <section class="lab-section" id="champions">
+          <div class="lab-section-head">
+            <span class="lab-num">10</span>
+            <h2>More than one champion</h2>
+            <div class="lab-cost">
+              <span class="lab-pill needs">large</span>
+              <span class="lab-pill needs">architecture</span>
+            </div>
+          </div>
+          <p class="lab-why">
+            Everything here is built for Vi and almost nothing in it is about Vi. The
+            engine takes a champion module: an ability list, a runtime with hooks for
+            casting, attacking and hitting, and a table of values that prefers Riot's own
+            formulas over hand-maintained ones. A second champion is a second module, and
+            the first one to be written will find every place the interface quietly
+            assumed there was only ever one.
+          </p>
+          <p class="lab-why">
+            The target side is the other half. A champion target already resolves real
+            base stats, growth, items and runes — but nothing it <em>does</em> is
+            simulated, which is the difference between a calculator and a duel. That is
+            the point at which <a href="workshop.html#duel">1 versus 1</a> becomes
+            possible, and the reason the two sidebars were built from one mould.
+          </p>
+          <p class="lab-caption">
+            <strong>The honest order.</strong> Second champion first, because it is the
+            change that proves the module interface. Then the target acting, because it
+            needs incoming damage, which needs mitigation on your side, which needs the
+            defensive half of the stat model the sheet already shows.
+          </p>
+        </section>
+
+        <!-- ================================================= Known gaps -->
+        <section class="lab-section" id="gaps">
+          <div class="lab-section-head">
+            <span class="lab-num">✱</span>
+            <h2>Known gaps</h2>
+            <div class="lab-cost"><span class="lab-pill">reference</span></div>
+          </div>
+          <p class="lab-why">
+            Not planned work — the standing list of what the app does not model, so no
+            number here is mistaken for a complete one. The app says the same thing in
+            place: every unmodelled rune, item passive and summoner spell is listed in
+            the notes panel at the bottom of its own sidebar.
+          </p>
+          <div class="lab-stage plain">
+            <ul class="lab-scrap">
+              <li>
+                <b>Nothing hits back</b>
+                <span>No incoming damage, no mitigation on your side, no death.</span>
+                <em>Consequence: Barrier, Heal, lifesteal and shields are stats without
+                a situation. Vi's Blast Shield is simulated as a number that is granted
+                and never spent.</em>
+              </li>
+              <li>
+                <b>No crowd control</b>
+                <span>Tenacity is summed and displayed and consumed by nothing.</span>
+                <em>Vi's knock-up has a duration in the timeline because it costs the
+                combo time, not because anything is stunned.</em>
+              </li>
+              <li>
+                <b>No map</b>
+                <span>No range checks, no walking, no dodging.</span>
+                <em>Flash, Ghost and Teleport are therefore picks with no effect, and the
+                notes panel says so for each of them.</em>
+              </li>
+              <li>
+                <b>Item actives</b>
+                <span>Passives that fire on hit or on cast are modelled; actives are
+                not.</span>
+                <em>The combo can hold an item step, but nothing resolves it yet.</em>
+              </li>
+              <li>
+                <b>Most runes</b>
+                <span>Keystones that deal damage are modelled; the rest contribute
+                stats.</span>
+                <em>Each unmodelled pick is badged in the rune panel and listed in the
+                notes, so the gap is visible where the choice is made.</em>
+              </li>
+              <li>
+                <b>Stacking passives that need a fight</b>
+                <span>Spear of Shojin's Focused Will, Conqueror, anything counting
+                takedowns.</span>
+                <em>They need a duration of combat the simulation does not have. They
+                will arrive as stated assumptions, clearly marked, or not at all.</em>
+              </li>
+            </ul>
+          </div>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

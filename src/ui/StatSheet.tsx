@@ -108,6 +108,7 @@ export function unknownStats(overrides: Partial<ChampionStats>): ChampionStats {
     critChance: n,
     critMultiplier: n,
     abilityHaste: n,
+    basicAbilityHaste: n,
     lethality: n,
     flatArmorPen: n,
     armorPenPercent: n,
@@ -321,6 +322,9 @@ function buildRows(page: PageId, now: Reading, previous: StatComparison | null):
         row('Mana Regeneration', (r) => r.stats.manaRegen, one, {
           detail: known(stats.manaRegen) ? 'per 5 seconds' : undefined,
         }),
+        // Its own row rather than folded into Ability Haste: it does not touch
+        // the ultimate, and a single number would say it does.
+        row('Basic Ability Haste', (r) => r.stats.basicAbilityHaste),
         row('Heal & Shield Power', (r) => r.stats.healShieldPower, pct),
         row('Attack Range', (r) => r.stats.attackRange),
       ];

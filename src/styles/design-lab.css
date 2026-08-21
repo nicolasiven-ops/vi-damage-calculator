@@ -2207,3 +2207,147 @@
   margin-left: auto;
   color: var(--bar-health-ally);
 }
+
+/* ------------------------------------------------------------ scrapped list
+
+   Three lines per entry: what it was, what it did, why it went. The third line
+   is the one worth keeping, so it is the one that reads as prose. */
+
+.lab-scrap {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--space-4);
+}
+
+.lab-scrap li {
+  display: grid;
+  gap: 3px;
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--line);
+}
+
+.lab-scrap b {
+  font-size: 13.5px;
+  color: var(--gold-100);
+  font-weight: 600;
+}
+
+.lab-scrap span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.lab-scrap em {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  font-style: normal;
+}
+
+.lab-scrap em::before {
+  content: '— ';
+  color: var(--gold-500);
+}
+
+/* --------------------------------------------------- a stat against its price
+
+   One table, one figure per column: what the stat does, what it costs, what
+   that works out to. The judgement is the last two columns, so those are the
+   ones that carry colour. */
+
+.worth-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.worth-table th,
+.worth-table td {
+  padding: 7px var(--space-3);
+  text-align: left;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.worth-table thead th {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.worth-table tbody th {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.worth-table .num {
+  text-align: right;
+  font-family: var(--font-mono);
+}
+
+.worth-table .pos {
+  color: var(--status-good);
+}
+
+.worth-table .neg {
+  color: var(--status-bad);
+}
+
+.worth-table tr.is-best th {
+  color: var(--gold-100);
+}
+
+.worth-table tr.is-best {
+  background: rgba(200, 170, 110, 0.06);
+}
+
+.worth-table tr.is-dead th,
+.worth-table tr.is-dead td {
+  color: var(--text-muted);
+}
+
+.lab-sub {
+  margin: var(--space-5) 0 var(--space-3);
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gold-300);
+}
+
+.lab-mini-title {
+  display: block;
+  font-size: 13px;
+  color: var(--gold-100);
+  margin-bottom: 6px;
+}
+
+.lab-mini {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.lab-mini-list {
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.lab-mini-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  color: var(--text-secondary);
+}
+
+.lab-mini-list b {
+  color: var(--text-primary);
+  font-weight: 500;
+}

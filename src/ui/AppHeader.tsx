@@ -40,6 +40,23 @@ export function AppHeader({
           </div>
         </div>
 
+        {/*
+         * The two rooms next to the calculator.
+         *
+         * The workshop is where a feature is argued out before anyone builds it;
+         * the roadmap is what is actually next. Both are static pages, so they
+         * are plain links rather than routes — nothing about them needs the app
+         * to be running.
+         */}
+        <nav className="site-links" aria-label="Pages">
+          <a className="site-link" href="workshop.html">
+            Workshop
+          </a>
+          <a className="site-link" href="roadmap.html">
+            Roadmap
+          </a>
+        </nav>
+
         {tabs}
 
         <div className="app-header-controls">

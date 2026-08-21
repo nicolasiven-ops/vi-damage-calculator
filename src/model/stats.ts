@@ -35,6 +35,16 @@ export interface StatBlock {
   /** Additional crit damage beyond the 175% base, as a fraction. */
   critDamage: number;
   abilityHaste: number;
+  /**
+   * Haste that only shortens basic abilities — Q, W and E, never the ultimate.
+   *
+   * Riot scopes haste in both directions and says so in the text: Spear of
+   * Shojin grants "25 Basic Ability Haste", Legend: Haste grants basic haste per
+   * stack, and Ultimate Hunter grants haste to the ultimate alone. Folding those
+   * into one number would shorten Vi's 90-second ultimate with an item that
+   * cannot touch it.
+   */
+  basicAbilityHaste: number;
   lethality: number;
   /** 0..1 */
   armorPenPercent: number;
@@ -64,6 +74,7 @@ export const STAT_KEYS = [
   'critChance',
   'critDamage',
   'abilityHaste',
+  'basicAbilityHaste',
   'lethality',
   'armorPenPercent',
   'magicPenFlat',
@@ -92,6 +103,7 @@ export const STAT_LABELS: Record<keyof StatBlock, string> = {
   critChance: 'Critical Strike Chance',
   critDamage: 'Critical Strike Damage',
   abilityHaste: 'Ability Haste',
+  basicAbilityHaste: 'Basic Ability Haste',
   lethality: 'Lethality',
   armorPenPercent: 'Armor Penetration',
   magicPenFlat: 'Magic Penetration',
@@ -136,6 +148,7 @@ export function emptyStats(): StatBlock {
     critChance: 0,
     critDamage: 0,
     abilityHaste: 0,
+    basicAbilityHaste: 0,
     lethality: 0,
     armorPenPercent: 0,
     magicPenFlat: 0,
@@ -248,6 +261,8 @@ export interface ChampionStats {
   critChance: number;
   critMultiplier: number;
   abilityHaste: number;
+  /** Extra haste for Q, W and E only — see `StatBlock.basicAbilityHaste`. */
+  basicAbilityHaste: number;
   lethality: number;
   /** Flat armor penetration derived from lethality (lethality is flat since 2018). */
   flatArmorPen: number;
@@ -315,6 +330,7 @@ export function resolveChampionStats(
     critChance: clamp(statAtLevel(base.crit, base.critperlevel, lvl) / 100 + bonus.critChance, 0, 1),
     critMultiplier: BASE_CRIT_MULTIPLIER + bonus.critDamage,
     abilityHaste: bonus.abilityHaste,
+    basicAbilityHaste: bonus.basicAbilityHaste,
     lethality: bonus.lethality,
     flatArmorPen: bonus.lethality,
     armorPenPercent: clamp(bonus.armorPenPercent, 0, 1),
@@ -335,6 +351,18 @@ export function resolveChampionStats(
 /** Ability haste → cooldown multiplier. 100 AH halves cooldowns. */
 export function cooldownMultiplier(abilityHaste: number): number {
   return 100 / (100 + Math.max(0, abilityHaste));
+}
+
+/**
+ * The haste that applies to one slot.
+ *
+ * Basic-ability haste is added for everything that is not the ultimate, which is
+ * the whole reason it is a separate number. The passive takes the basic side too:
+ * nothing grants haste to a passive, so the branch never matters, and treating
+ * it as "not the ultimate" is the honest default.
+ */
+export function hasteFor(stats: ChampionStats, slot: string): number {
+  return slot === 'R' ? stats.abilityHaste : stats.abilityHaste + stats.basicAbilityHaste;
 }
 
 export function clamp(value: number, min: number, max: number): number {

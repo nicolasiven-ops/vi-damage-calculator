@@ -14,6 +14,7 @@
 
 import type { SimContext } from '../engine/context';
 import type { AbilitySlot, DamageType } from '../engine/types';
+import type { StatBlock } from './stats';
 import type { HitInfo } from './runes';
 
 export interface ItemAttackRider {
@@ -40,6 +41,15 @@ export interface ItemEffect {
   name: string;
   modelled: boolean;
   note: string;
+  /**
+   * Stats the passive grants that Data Dragon's `<stats>` block does not list.
+   *
+   * Riot writes some stats into the passive text instead: Spear of Shojin's
+   * "Gain 25 Basic Ability Haste" is a passive line, not a stat line, so the
+   * description parser never sees it. Declaring it here puts it in the item's
+   * stat block, where every consumer already looks.
+   */
+  stats?: Partial<StatBlock>;
   amplify?(ctx: SimContext, hit: { type: DamageType }): number;
   createRuntime?(): ItemRuntime;
 }
@@ -300,7 +310,26 @@ const MURAMANA: ItemEffect = {
   },
 };
 
+/**
+ * Spear of Shojin.
+ *
+ * Two passives, and only one of them is a number this simulation can hold. The
+ * haste is exact and belongs in the stat block; the stacking amplifier needs to
+ * know whether a hit came from an ability, which the amplify hook is not told,
+ * so it is named as missing rather than approximated.
+ */
+const SPEAR_OF_SHOJIN: ItemEffect = {
+  id: '3161',
+  name: 'Spear of Shojin',
+  modelled: true,
+  note: 'Dragonforce: 25 basic ability haste, counted for Q/W/E and not for R. Focused Will (up to +12% ability damage) is not modelled.',
+  stats: { basicAbilityHaste: 25 },
+};
+
 const ALL: ItemEffect[] = [
+  SPEAR_OF_SHOJIN,
+  // The Arena variant is the same passive with a smaller stat line.
+  { ...SPEAR_OF_SHOJIN, id: '223161' },
   spellblade('3057', 'Sheen', 1.0, 'Spellblade: 100% base AD on the next basic attack.'),
   spellblade('3078', 'Trinity Force', 2.0, 'Spellblade: 200% base AD on the next basic attack.'),
   spellblade('3508', 'Essence Reaver', 1.0, 'Spellblade: 100% base AD on the next basic attack.'),

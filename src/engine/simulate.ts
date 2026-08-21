@@ -13,7 +13,13 @@
 
 import { getItemEffect, itemAmplifiers, itemRuntimes, type ItemRuntime } from '../model/itemEffects';
 import { runeAmplifiers, runeRuntimes, type HitInfo, type RuneRuntime } from '../model/runes';
-import { cooldownMultiplier, resolveChampionStats, sumStats, type StatBlock } from '../model/stats';
+import {
+  cooldownMultiplier,
+  hasteFor,
+  resolveChampionStats,
+  sumStats,
+  type StatBlock,
+} from '../model/stats';
 import type { ChampionModule, ChampionModuleContext } from '../model/champions/types';
 import { cooldownValue } from '../model/champions/types';
 import type {
@@ -24,6 +30,7 @@ import type {
   DealDamageArgs,
   SimContext,
 } from './context';
+import { IGNITE, byLevel, smiteById } from '../model/summoners';
 import { effectiveResistance, mitigate } from './damage';
 import type {
   AbilitySlot,
@@ -889,7 +896,8 @@ export function simulate(
       const state = chargeState(slot, spec);
       state.available = Math.max(0, state.available - 1);
       if (state.nextChargeAt === Number.POSITIVE_INFINITY) {
-        state.interval = spec.rechargeSeconds * cooldownMultiplier(currentStats().abilityHaste);
+        state.interval =
+          spec.rechargeSeconds * cooldownMultiplier(hasteFor(currentStats(), slot));
         state.nextChargeAt = cooldownFrom + state.interval;
       }
       // Ability haste shortens the recharge timer, never this static gap.
@@ -942,7 +950,14 @@ export function simulate(
         detail: `${seconds(baseCooldown)} s between uses · not reduced by ability haste`,
       });
     } else if (baseCooldown > 0) {
-      const effective = baseCooldown * cooldownMultiplier(currentStats().abilityHaste);
+      /*
+        * The ultimate is discounted by plain haste only.
+        *
+        * Basic-ability haste — Shojin, Legend: Haste — says so in its own text,
+        * and one shared number would have a 3,100 g item shortening a
+        * ninety-second ultimate it cannot touch.
+        */
+      const effective = baseCooldown * cooldownMultiplier(hasteFor(currentStats(), slot));
       cooldowns.set(slot, cooldownFrom + effective);
       addSpan({
         lane: slot,
@@ -992,23 +1007,26 @@ export function simulate(
 
   function castSummoner(summonerId: string): void {
     const stats = currentStats();
-    if (summonerId === 'SummonerDot') {
-      // Ignite: true damage ticking over 5 seconds.
-      const total = 70 + (410 - 70) * ((Math.min(18, stats.level) - 1) / 17);
-      const perTick = total / 5;
-      addEvent({ kind: 'cast', label: 'Ignite', detail: `${total.toFixed(0)} over 5 s` });
+    if (summonerId === IGNITE.id) {
+      const total = byLevel(IGNITE.total, stats.level);
+      const perTick = total / IGNITE.ticks;
+      addEvent({
+        kind: 'cast',
+        label: IGNITE.label,
+        detail: `${total.toFixed(0)} over ${IGNITE.ticks} s`,
+      });
       addSpan({
         lane: 'summoner',
         kind: 'dot',
         start: time,
-        end: time + 5,
-        label: 'Ignite',
-        detail: `${total.toFixed(0)} true damage over 5 s`,
+        end: time + IGNITE.ticks,
+        label: IGNITE.label,
+        detail: `${total.toFixed(0)} true damage over ${IGNITE.ticks} s`,
       });
       // Ticks land long after this step is done, so they carry its identity
       // with them rather than being credited to whatever is running then.
       const owner = currentStepUid;
-      for (let tick = 1; tick <= 5; tick += 1) {
+      for (let tick = 1; tick <= IGNITE.ticks; tick += 1) {
         const at = time + tick;
         scheduled.push({
           at,
@@ -1016,7 +1034,7 @@ export function simulate(
             attributedTo(owner, () =>
               applyDamage({
                 sourceId: 'summoner:ignite',
-                sourceLabel: `Ignite (tick ${tick}/5)`,
+                sourceLabel: `${IGNITE.label} (tick ${tick}/${IGNITE.ticks})`,
                 sourceKind: 'summoner',
                 type: 'true',
                 amount: perTick,
@@ -1028,20 +1046,31 @@ export function simulate(
       return;
     }
 
-    if (summonerId === 'SummonerSmite') {
-      if (input.target.unitType === 'champion') {
-        ctx.warn('Smite does not affect champions — step skipped.');
+    const smite = smiteById(summonerId);
+    if (smite) {
+      const champion = input.target.unitType === 'champion';
+      /*
+       * Base Smite cannot be pointed at a champion at all; the upgrades can, for
+       * a levelled amount rather than the monster execute. Pointing a spell at
+       * something it cannot hit is a mistake worth naming, not a zero to add.
+       */
+      if (champion && !smite.championDamage) {
+        ctx.warn(`${smite.label} does not affect champions — step skipped.`);
         return;
       }
+      const amount = champion
+        ? byLevel(smite.championDamage!, stats.level)
+        : smite.monsterDamage;
       const smiteStart = time;
       applyDamage({
-        sourceId: 'summoner:smite',
-        sourceLabel: 'Smite',
+        sourceId: `summoner:${smite.id}`,
+        sourceLabel: smite.label,
         sourceKind: 'summoner',
         type: 'true',
-        amount: 900,
-        notes: ['fixed value against monsters'],
+        amount,
+        notes: [champion ? 'levelled value against champions' : 'fixed value against monsters'],
       });
+      if (smite.rider) ctx.warn(`${smite.label}: ${smite.rider}`);
       advance(input.timings.inputDelay);
       // Short, but it is time the combo spent, and every other cast shows its.
       addSpan({
@@ -1049,7 +1078,7 @@ export function simulate(
         kind: 'cast',
         start: smiteStart,
         end: time,
-        label: 'Smite',
+        label: smite.label,
         detail: `${seconds(input.timings.inputDelay)} s input`,
       });
       return;

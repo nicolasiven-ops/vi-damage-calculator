@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Design Lab — Damage Calculator</title>
+    <title>Workshop — Damage Calculator</title>
     <meta
       name="description"
       content="Proposals for analysis tools in the damage calculator: timeline, mitigation chain, time-to-kill, item contributions, thresholds."
@@ -22,8 +22,8 @@
     <div class="lab">
       <!-- ------------------------------------------------- Jump navigation -->
       <nav class="lab-nav">
-        <h1 class="lab-nav-title">Design Lab</h1>
-        <span class="lab-nav-sub">Proposals, not built</span>
+        <h1 class="lab-nav-title">Workshop</h1>
+        <span class="lab-nav-sub">Where a feature is argued out</span>
         <ol>
           <li><a href="#roll">The combo as a timeline</a></li>
           <li><a href="#avail">Availability bar</a></li>
@@ -63,10 +63,15 @@
           <li><a href="#ehp">The target shape</a></li>
           <li><a href="#react">What the target does</a></li>
           <li><a href="#log">The decision log</a></li>
+          <li class="lab-nav-break">Taken further</li>
+          <li><a href="#worth">A stat against what it costs</a></li>
+          <li class="lab-nav-break">Off the bench</li>
+          <li><a href="#scrapped">What was scrapped</a></li>
         </ol>
         <p class="lab-nav-note">
-          This page is only reachable in the development server and is not part
-          of the build. <a href="/">Back to the app</a>
+          Ideas at every stage: proposed, built, scrapped. What is actually next
+          lives on the <a href="roadmap.html">roadmap</a>.
+          <a href="index.html">Back to the app</a>
         </p>
       </nav>
 
@@ -2018,6 +2023,280 @@
               second champion — the actual work sits there, not in the view.
             </li>
           </ol>
+        </section>
+
+        <!-- ============================= 37 Gold worth vs gold price -->
+        <section class="lab-section" id="worth">
+          <div class="lab-section-head">
+            <span class="lab-num">37</span>
+            <h2>What a stat is worth against what it costs</h2>
+            <div class="lab-cost">
+              <span class="lab-pill ready">data available</span>
+              <span class="lab-pill needs">invented numbers</span>
+            </div>
+          </div>
+          <p class="lab-why">
+            Sections <a href="#deriv">16</a> and <a href="#gold">17</a> are halves of
+            one tool. Sixteen measures what a stat <em>does</em> for this combo;
+            seventeen divides damage by gold. Put them together and the question
+            stops being &ldquo;which stat is strongest&rdquo; &mdash; that one has an
+            easy, useless answer &mdash; and becomes <strong>which stat is underpriced
+            for the combo I actually press</strong>. The shop sells stats at a fixed
+            rate. Your combo does not value them at that rate. The gap between the two
+            is the whole game of building.
+          </p>
+          <p class="lab-why">
+            The rate does not have to be looked up, either. Riot prices every stat
+            through its cheapest single-stat component, and those prices are in the
+            patch data the app already downloads: a Long Sword is 350&nbsp;g for
+            10&nbsp;AD, so AD costs 35&nbsp;g a point <em>on this patch</em>, and the
+            number moves when Riot moves it. Nothing here needs a hardcoded table.
+          </p>
+          <div class="lab-stage plain">
+            <table class="worth-table">
+              <thead>
+                <tr>
+                  <th>Stat</th>
+                  <th class="num">+10 does</th>
+                  <th class="num">costs</th>
+                  <th class="num">per 1,000&nbsp;g</th>
+                  <th class="num">vs shop rate</th>
+                  <th>priced by</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="is-best">
+                  <th>Bonus AD</th>
+                  <td class="num">+41</td>
+                  <td class="num">350&nbsp;g</td>
+                  <td class="num">117</td>
+                  <td class="num pos">+38%</td>
+                  <td>Long Sword</td>
+                </tr>
+                <tr>
+                  <th>Armor penetration</th>
+                  <td class="num">+29</td>
+                  <td class="num">&mdash;</td>
+                  <td class="num">&mdash;</td>
+                  <td class="num">&mdash;</td>
+                  <td>no single-stat component</td>
+                </tr>
+                <tr>
+                  <th>Lethality</th>
+                  <td class="num">+22</td>
+                  <td class="num">600&nbsp;g</td>
+                  <td class="num">37</td>
+                  <td class="num neg">&minus;56%</td>
+                  <td>Serrated Dirk, per 10 lethality</td>
+                </tr>
+                <tr>
+                  <th>Attack speed</th>
+                  <td class="num">+9</td>
+                  <td class="num">300&nbsp;g</td>
+                  <td class="num">30</td>
+                  <td class="num neg">&minus;64%</td>
+                  <td>Dagger, 10%</td>
+                </tr>
+                <tr>
+                  <th>Ability power</th>
+                  <td class="num">+4</td>
+                  <td class="num">435&nbsp;g</td>
+                  <td class="num">9</td>
+                  <td class="num neg">&minus;89%</td>
+                  <td>Amplifying Tome, per 20 AP</td>
+                </tr>
+                <tr class="is-dead">
+                  <th>Ability haste</th>
+                  <td class="num">0</td>
+                  <td class="num">&mdash;</td>
+                  <td class="num">0</td>
+                  <td class="num">&mdash;</td>
+                  <td>nothing in this combo repeats</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="lab-caption">
+            &ldquo;Per 1,000&nbsp;g&rdquo; is damage this combo gains for a thousand
+            gold spent on that stat alone. &ldquo;vs shop rate&rdquo; compares it to
+            the build&rsquo;s average &mdash; above the line the stat is underpriced
+            <em>for you</em>, below it you are paying retail for something your combo
+            barely uses. Lethality reading &minus;56% against 90 armour is the kind of
+            answer nobody guesses right.
+          </p>
+
+          <h3 class="lab-sub">Where it goes from there</h3>
+          <div class="lab-grid-2">
+            <div class="lab-stage plain">
+              <b class="lab-mini-title">The next item, ranked</b>
+              <p class="lab-mini">
+                Every stat has a measured worth; an item is a bundle of stats with a
+                price on it. Multiply and sum and you have the honest answer to the
+                only question a shop screen ever asks: <em>what should I buy
+                next?</em> &mdash; ranked by damage per gold, over the build that is
+                actually on screen.
+              </p>
+              <ul class="lab-mini-list">
+                <li><b>Serrated Dirk</b> <span class="mono">+63 per 1,000 g</span></li>
+                <li><b>Noonquiver</b> <span class="mono">+51</span></li>
+                <li><b>Caulfield&rsquo;s Warhammer</b> <span class="mono">+44</span></li>
+              </ul>
+            </div>
+            <div class="lab-stage plain">
+              <b class="lab-mini-title">Six slots, not infinite gold</b>
+              <p class="lab-mini">
+                Gold is one constraint and slots are the other. The same table sorted
+                by damage per <em>slot</em> is a different order, and late in a game it
+                is the order that matters: a 3,000&nbsp;g item that beats a
+                1,300&nbsp;g one per slot is the right buy even though it loses per
+                gold.
+              </p>
+            </div>
+            <div class="lab-stage plain">
+              <b class="lab-mini-title">The curve, not the point</b>
+              <p class="lab-mini">
+                A derivative is one point on a curve. Sweeping a stat from +0 to +100
+                shows where it bends &mdash; where crit overtakes AD, where penetration
+                stops paying because the target has no armour left to remove.
+                Break-even points are more useful than rankings: they survive the next
+                item.
+              </p>
+            </div>
+            <div class="lab-stage plain">
+              <b class="lab-mini-title">Shop-efficient versus combo-efficient</b>
+              <p class="lab-mini">
+                Two numbers per item, on two axes. The classic gold-efficiency figure
+                says whether an item is worth its price <em>in the abstract</em>; the
+                measured one says whether it is worth it <em>to this combo</em>. The
+                interesting items are the ones the two disagree about &mdash; and those
+                are exactly the ones a build guide cannot tell you about.
+              </p>
+            </div>
+          </div>
+          <p class="lab-caption">
+            <strong>Implementation.</strong> The derivatives are one
+            <code>simulate</code> per stat, which the app already does in
+            milliseconds. The prices come out of <code>item.json</code>: filter to
+            items whose stat block has exactly one entry, divide price by amount, keep
+            the cheapest per stat. Stats with no single-stat component &mdash; armour
+            penetration, omnivamp &mdash; have no shop rate, and the table should say
+            so rather than invent one. The item ranking is the same loop over the
+            purchasable set, and the sweep is the same loop with a range instead of a
+            nudge.
+          </p>
+        </section>
+
+        <!-- ================================================ Scrapped -->
+        <section class="lab-section" id="scrapped">
+          <div class="lab-section-head">
+            <span class="lab-num">✕</span>
+            <h2>What was scrapped</h2>
+            <div class="lab-cost"><span class="lab-pill">decided, not undone</span></div>
+          </div>
+          <p class="lab-why">
+            Every one of these was built, looked at, and taken out again. They are
+            here because the reason is worth more than the code was: without it the
+            same idea comes back in six weeks wearing a different name, and gets
+            built a second time. Each line says what it was, why it went, and what
+            stands there now.
+          </p>
+          <div class="lab-stage plain">
+            <ul class="lab-scrap">
+              <li>
+                <b>The segmented target health bar</b>
+                <span>One bar divided into the hits that emptied it.</span>
+                <em>Out: a health bar is a health bar. The segments made a picture
+                that needed a legend, and the timeline already says which hit did
+                what. A plain bar that drains, plus the translucent stub for the
+                focused step, says it without teaching anyone a new shape.</em>
+              </li>
+              <li>
+                <b>The Stats window in the middle column</b>
+                <span>A third panel under the analysis showing the focused moment's
+                numbers with the change from the step before.</span>
+                <em>Out: the two stat sheets in the sidebars were showing the build
+                while it showed the moment — the same question with two answers on
+                one screen, and the better answer was the one in the corner. The
+                sheets now read the moment and carry the deltas.</em>
+              </li>
+              <li>
+                <b>“In force right now”</b>
+                <span>A list under each stat sheet of the buffs, shreds and marks
+                still ticking, with their remaining seconds.</span>
+                <em>Out: everything in it is already in the numbers above it and on
+                the timeline below it. Three places for one fact, and the panel grew
+                to hold the third.</em>
+              </li>
+              <li>
+                <b>The “wait” chip</b>
+                <span>A combo step that spent a chosen number of seconds doing
+                nothing.</span>
+                <em>Out: a combo is what you press. The clock between presses is the
+                simulation's job, and an idle step is a way to fake a timing the
+                engine already derives. Stored combos that still contain one keep
+                working.</em>
+              </li>
+              <li>
+                <b>Footnotes inside the Items panel</b>
+                <span>“Stats only — the passive is not modelled”, listed under the
+                item grid.</span>
+                <em>Out: the same sentences were in the notes panel at the bottom of
+                the sidebar. Two copies meant reading it twice, and a panel that
+                grew with the build was exactly what knocked the two sidebars out of
+                alignment.</em>
+              </li>
+              <li>
+                <b>Explanatory prose in the sidebars</b>
+                <span>Paragraphs under the target's stats, the crit modes and the
+                timing constants.</span>
+                <em>Out: they explained controls that say what they do, and each one
+                cost thirty to seventy pixels on one side only — which is how a pair
+                of mirrored sidebars stops being a pair.</em>
+              </li>
+              <li>
+                <b>The armour footnote and the focus caption</b>
+                <span>“58 before shred · 6.3 as it is met”, and a line naming which
+                moment the sheet showed.</span>
+                <em>Out: the arrow beside the value already says it moved, the combo
+                strip already shows which step is focused, and the timeline says what
+                moved it.</em>
+              </li>
+              <li>
+                <b>Rune row labels and the “9 selected” badge</b>
+                <span>A caption per rune row and a count in the panel header.</span>
+                <em>Out: sixty-four pixels of caption was the difference between four
+                keystones on one line and two. The rows are self-evident in place,
+                and nobody was counting.</em>
+              </li>
+              <li>
+                <b>The ability list with names</b>
+                <span>Five rows, each an icon, a name and a strip of rank pips.</span>
+                <em>Out: 222 px of sidebar for what the client says in 58. Five icons
+                in a row with the points under them, and a click that cycles the
+                rank, is the same information and the same gesture as the game.</em>
+              </li>
+              <li>
+                <b>Four tiles: Burst (1 s), Throughput, Effective health, Damage
+                instances</b>
+                <span>Summary numbers across the top of the analysis.</span>
+                <em>Out: “burst” answered a question about a window nobody chose, and
+                the timeline shows <i>when</i> damage lands far better. “Throughput”
+                was an invented word for a thing League already names. The last two
+                lost their place to the verdict tile, which answers the question the
+                page exists for.</em>
+              </li>
+              <li>
+                <b>A warning for a trailing E</b>
+                <span>“E on its own deals no damage — add an attack after it.”</span>
+                <em>Out: the warning was correct and useless. If a combo says E, it
+                means the empowered attack, so E now carries that attack itself.</em>
+              </li>
+            </ul>
+          </div>
+          <p class="lab-caption">
+            Kept as a list rather than as mock-ups: what matters is the sentence
+            after the dash, not the thing that was removed.
+          </p>
         </section>
 
       </main>
