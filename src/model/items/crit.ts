@@ -29,27 +29,59 @@
  *    is a `<stats>` block — 75 attack damage, 25% critical strike chance, 30%
  *    critical strike damage — and `parseItemDescription` in `items.ts` maps
  *    "Critical Strike Damage" onto `critDamage` already. An entry here would
- *    grant that 30% a second time.
- *  - **Navori Flickerblade (6675)**: "Basic attacks on-attack reduce the
- *    remaining cooldowns of your basic abilities by 15%" (wiki, verbatim;
- *    Riot's `CDRAmount` is 0.15). `SimContext` has no way to touch a remaining
- *    cooldown — it offers damage, shred, shields, stats, amplification and crowd
- *    control — and ability haste is not the same mechanic, so nothing here can
- *    stand in for it.
- *  - **Profane Hydra (6698)**: Cleave hits "other enemies in a 350 radius
- *    centered around the target" (wiki, verbatim), so it adds nothing against a
- *    single target — the same reason Titanic Hydra is modelled by its on-hit
- *    alone. Its active would matter — "Deal 80% AD physical damage to enemies in
- *    a 450 radius in front of you (10 second cooldown)" (wiki, verbatim; the
- *    bin's `SlashDamageBase` is 0.8 of an attack-damage stat, which agrees) —
- *    but the engine answers an `item` combo step with "Item actives are not
- *    modelled yet — step skipped", and `ItemRuntime` has no activation hook.
+ *    grant that 30% a second time. The bin has no data values for 3031 at all.
+ *  - **Opportunity (6701)** is off the shelf. Data Dragon 16.16.1 ships it with
+ *    `"inStore": false` and `"gold": {"purchasable": false}`, and its bin entry
+ *    has no `mItemDataAvailability` block at all — the same signature as the
+ *    removed Prowler's Claw (6693), while every live item in this family carries
+ *    `"mItemDataAvailability":{"mInStore":true}`. `scripts/gen-items.mjs` filters
+ *    on exactly those Data Dragon flags, which is why 6701 is absent from
+ *    `test/fixtures/srItems.ts` too. Its Preparation lethality (bin
+ *    `BonusLethalityCalc` = a flat 11, `RangedLethalityMultiplier` 0.455) was
+ *    modelled here until this review; a passive on an item nobody can buy is the
+ *    same mistake this file already refuses to make for 3095, so it is gone. The
+ *    live counterpart is the Arena-only **226701**, which is *not* a clone —
+ *    `LethalityProcAmount` 20, `RangedLethalityMultiplier` 1, `CombatTimer` 3 —
+ *    and it is modelled below under its own id.
+ *  - **Navori Flickerblade (6675)**: "Attacks reduce Basic Ability cooldowns by
+ *    15% of their remaining cooldown" (Data Dragon, verbatim — Riot resolves this
+ *    line in full, and the bin's `CDRAmount` is 0.15 to match). `SimContext` has
+ *    no way to touch a remaining cooldown — it offers damage, shred, shields,
+ *    stats, amplification and crowd control — and ability haste is not the same
+ *    mechanic (it scales a cooldown's length, not its remainder), so nothing here
+ *    can stand in for it.
+ *  - **Profane Hydra (6698)**: Cleave is "Attacks deal physical damage to nearby
+ *    enemies" (Data Dragon, verbatim) with a `CleaveRadius` of 350 in the bin —
+ *    the target's neighbours, not the target, so it adds nothing against a single
+ *    target. That is the same reason Titanic Hydra is modelled by its on-hit
+ *    alone. The active would matter: "Deal physical damage around you" (Data
+ *    Dragon, verbatim), which the bin prices at 80% of an attack-damage stat
+ *    (`SlashDamageBase`, and `SlashDamageMax` is the same 0.8, so there is no
+ *    low-health scaling this patch) on a 10 s `Cooldown` in a 450 `ActiveRadius`
+ *    centred on the caster. But the engine answers an `item` combo step with
+ *    "Item actives are not modelled yet — step skipped", and `ItemRuntime` has no
+ *    activation hook.
  *  - **Runaan's Hurricane (3085)**: the bolts (the bin's `BoltDamage`, 0.65 of
  *    an attack-damage stat) fly at two *additional* enemies near the target and
  *    never at the target itself.
- *  - **Phantom Dancer (3046)** and **Youmuu's Ghostblade (3142)** buy movement
- *    speed and ghosting. Neither changes a damage number, and neither has a
- *    single data value in the bin that is not a speed or a duration.
+ *  - **Phantom Dancer (3046)** buys attack speed, crit chance and ghosting.
+ *    Spectral Waltz is "Become Ghosted" and nothing else, and the bin has no
+ *    `mDataValues` and no `mItemCalculations` for 3046 at all.
+ *  - **Youmuu's Ghostblade (3142)** buys movement speed and ghosting. The only
+ *    stat value in its bin is `LethalityAmount` 18, which Data Dragon already
+ *    ships as the "18 Lethality" stat line that `parseItemDescription` reads —
+ *    declaring it here would double it. Everything else on 3142 is a speed, a
+ *    radius or a duration (`OOCMSndv` 20, `BaseOOCMS` 20, `DurationNDV` 6,
+ *    `Cooldown` 45, `CombatTimer` 3, and the `MeleeItemCalcValueB` 20 /
+ *    `RangedItemCalcValueB` 15 pair the `OOCMS` calculation reads).
+ *  - **Hexoptics C44 (2523)**: both passives need positions the simulation does
+ *    not have. Magnification is "Deal up to 10% increased damage with Attacks,
+ *    based on how far away the enemy is (max damage at 500 range)" (Data Dragon,
+ *    verbatim; bin `MaxDamageAmp` 0.1 at `MaxRange` 500) — an amplifier keyed on
+ *    the distance to the target, and `SimContext` exposes no position and no
+ *    distance, so there is no defensible single value between 0% and 10% to pick.
+ *    Arcane Aim's 100 `ExtraRange` pays out after a takedown (bin
+ *    `TakedownWindow` 3, `Duration` 8), which is where the simulation stops.
  *
  * Last reviewed against patch 16.16 (Data Dragon 16.16.1, item bin of
  * 2026-08-16).
@@ -72,8 +104,14 @@ const YUN_TAL_CRIT_PER_ATTACK_MELEE = 0.004;
 const YUN_TAL_CRIT_CAP = 0.25;
 
 /**
- * Every number this module acts on, in one place, so the tests can assert
- * against the same constant the code uses instead of restating it.
+ * Every number this module acts on, in one place.
+ *
+ * The tests do *not* read these constants in place of Riot's numbers: a test
+ * that compares the runtime's output against the same constant the runtime read
+ * proves the plumbing and nothing about the value. `items.crit.test.ts` restates
+ * every literal below with its source and then asserts the behaviour against the
+ * literal, so a constant edited here fails a test instead of quietly changing an
+ * answer.
  */
 export const CRIT_CONSTANTS = {
   /**
@@ -109,15 +147,21 @@ export const CRIT_CONSTANTS = {
   /** Riot's `ExecuteThreshold` data value on item 6676. */
   theCollector: { executeThreshold: 0.05 },
   /**
-   * Riot's `mItemCalculations.BonusLethalityCalc` on item 6701: a flat 11, with
-   * a `RangedLethalityMultiplier` of 0.455 that would take a ranged champion to
-   * 5. Vi is melee, so 11 it is — which the wiki states as the melee value too.
-   * `CombatTimer` is 8 and `DamageWindowDuration` is 3.
+   * Riot's data values on item 2512 Fiendhunter Bolts: `NumberOfAttacks` 3,
+   * `Duration` 8, `Cooldown` 45, `BonusAS` 0.5, `CritModifier` 0.8,
+   * `BonusTrueDamage` 0.15, `UltimateHaste` 30.
+   *
+   * The last two are recorded and not applied; `note` on the entry says so and
+   * the reasons are with the entry.
    */
-  opportunity: {
-    preparationLethalityMelee: 11,
-    outOfCombatSeconds: 8,
-    heldAfterDamageSeconds: 3,
+  fiendhunterBolts: {
+    attacks: 3,
+    durationSeconds: 8,
+    cooldownSeconds: 45,
+    bonusAttackSpeed: 0.5,
+    critModifier: 0.8,
+    bonusTrueDamage: 0.15,
+    ultimateAbilityHaste: 30,
   },
   /**
    * Riot's data values on item 3032: `CritPerStackMelee` 0.4 (percent per stack,
@@ -138,6 +182,26 @@ export const CRIT_CONSTANTS = {
     flurryDurationSeconds: 6,
     flurryCooldownSeconds: 30,
     flurryCooldownPerAttackSeconds: 1,
+  },
+  /**
+   * The Arena Opportunity, item 226701, which is a different item from the
+   * retired Rift 6701 rather than a clone of it.
+   *
+   * `preparationLethality` is 20. Riot leaves the amount out of the tooltip and
+   * routes `mItemCalculations.BonusLethalityCalc` through a data value whose name
+   * CommunityDragon cannot un-hash (`{620cd6b5}`). It can only be this item's own
+   * `LethalityProcAmount` 20: a `NamedDataValueCalculationPart` reads a data
+   * value of the same item, that hash appears nowhere else in the whole bin, and
+   * every other name on 226701 is already accounted for — `LethalityAmount` 15 is
+   * the Data Dragon stat line, `SpeedBaseline`/`SpeedKill`/`MSDuration` are
+   * Extraction, `CombatTimer` 3 and `DamageWindowDuration` 3 are Preparation's
+   * two timers, and `RangedLethalityMultiplier` is 1. That is an inference, and
+   * it is the only number in this file that is one.
+   */
+  opportunityArena: {
+    preparationLethality: 20,
+    outOfCombatSeconds: 3,
+    heldAfterDamageSeconds: 3,
   },
 } as const;
 
@@ -188,6 +252,20 @@ interface EnergizedSpec {
  *    re-proc this produces is therefore the slowest one possible: a player who
  *    moves at all between attacks gets the second Energized attack sooner, so
  *    the modelled damage is a floor rather than an estimate.
+ *
+ * This is *not* a general convention that every pre-fight accumulation starts
+ * full, and Yun Tal's Practice Makes Lethal below is the deliberate exception,
+ * so the two entries are read together rather than as a contradiction. What
+ * separates them is whether the fight itself can produce the state: an Energize
+ * charge is spent and re-earned inside the combo — the counter refills in 17
+ * attacks, so the model has to take a position on where it starts and any answer
+ * is visible in the same run — while Yun Tal's stacks are earned over a whole
+ * game before the fight and never inside it, and the simulation has no input for
+ * how much of that game has happened. Where a state can be recovered in-combo it
+ * is assumed to be there; where it can only be inherited from a game the model
+ * cannot see, it is counted from zero and the entry's `note` says which way that
+ * errs. Both directions are floors, which is the property that matters: neither
+ * entry can report damage a player will not get.
  *
  * Whether Riot credits the consuming attack with its own stacks before or after
  * it spends them is not stated in either source, so the attack that spends the
@@ -300,6 +378,15 @@ const STATIKK_SHIV = energized({
  * taken as true damage, which is the only damage type that describes a kill
  * that ignores what the target is wearing.
  *
+ * A factory rather than one object, because the execute deals damage and damage
+ * carries the id it was bought under. Arena's 226676 is the same passive
+ * (`ExecuteThreshold` 0.05 in its own bin entry) but it is a different purchase,
+ * and a spread copy of a runtime that hardcoded `item:6676` would have reported
+ * the Arena item's execute under the Rift item's id in the timeline and the
+ * damage inspector — the one place in the engine where item damage is not keyed
+ * by the id it was bought under. `simulate.ts` builds every basic-attack rider
+ * as `item:${id}` from the equipped id; this does the same.
+ *
  * Two things this cannot see, both because of how the engine routes procs.
  * `onHitLanded` is not called for damage whose source is an item or a rune, so
  * an execute cannot be triggered by another item's proc — only by an attack, an
@@ -309,50 +396,52 @@ const STATIKK_SHIV = energized({
  * papered over by inflating the number, because inventing damage to force the
  * arithmetic to agree is the one thing a calculator must not do.
  *
- * The 10 lethality is a stat line Data Dragon already lists, so it is not
- * repeated here — `stats` on an `ItemEffect` is added on top of the parsed stat
- * block, and declaring it would double it.
+ * The lethality is a stat line Data Dragon already lists (10 on 6676, 12 on
+ * 226676), so it is not repeated here — `stats` on an `ItemEffect` is added on
+ * top of the parsed stat block, and declaring it would double it.
  */
-const THE_COLLECTOR: ItemEffect = {
-  id: '6676',
-  name: 'The Collector',
-  modelled: true,
-  note: 'Death: your damage executes a champion left below 5% health, taking the remainder as true damage.',
-  createRuntime(): ItemRuntime {
-    let warned = false;
-    return {
-      onHitLanded(ctx, hit) {
-        if (ctx.target.unitType !== 'champion') return;
-        if (hit.mitigated <= 0) return;
-        const remaining = ctx.targetCurrentHealth;
-        // Nothing to execute: either still healthy, or already dead.
-        if (remaining <= 0) return;
-        if (hit.targetHealthPercentAfter >= CRIT_CONSTANTS.theCollector.executeThreshold) return;
+function theCollector(id: string): ItemEffect {
+  return {
+    id,
+    name: 'The Collector',
+    modelled: true,
+    note: 'Death: your damage executes a champion left below 5% health, taking the remainder as true damage.',
+    createRuntime(): ItemRuntime {
+      let warned = false;
+      return {
+        onHitLanded(ctx, hit) {
+          if (ctx.target.unitType !== 'champion') return;
+          if (hit.mitigated <= 0) return;
+          const remaining = ctx.targetCurrentHealth;
+          // Nothing to execute: either still healthy, or already dead.
+          if (remaining <= 0) return;
+          if (hit.targetHealthPercentAfter >= CRIT_CONSTANTS.theCollector.executeThreshold) return;
 
-        const shielded =
-          ctx.target.percentDamageReduction > 0 || ctx.target.flatDamageReduction > 0;
-        if (shielded && !warned) {
-          warned = true;
-          ctx.warn(
-            "The Collector's execute is dealt as true damage, which this target's damage reduction still applies to — in game the execute is a kill regardless.",
-          );
-        }
+          const shielded =
+            ctx.target.percentDamageReduction > 0 || ctx.target.flatDamageReduction > 0;
+          if (shielded && !warned) {
+            warned = true;
+            ctx.warn(
+              "The Collector's execute is dealt as true damage, which this target's damage reduction still applies to — in game the execute is a kill regardless.",
+            );
+          }
 
-        ctx.dealDamage({
-          sourceId: 'item:6676',
-          sourceLabel: 'The Collector · Death',
-          sourceKind: 'item',
-          type: 'true',
-          amount: remaining,
-          notes: [
-            `executed below ${(CRIT_CONSTANTS.theCollector.executeThreshold * 100).toFixed(0)}% health`,
-            `${remaining.toFixed(0)} health remained`,
-          ],
-        });
-      },
-    };
-  },
-};
+          ctx.dealDamage({
+            sourceId: `item:${id}`,
+            sourceLabel: 'The Collector · Death',
+            sourceKind: 'item',
+            type: 'true',
+            amount: remaining,
+            notes: [
+              `executed below ${(CRIT_CONSTANTS.theCollector.executeThreshold * 100).toFixed(0)}% health`,
+              `${remaining.toFixed(0)} health remained`,
+            ],
+          });
+        },
+      };
+    },
+  };
+}
 
 /* --------------------------------------------------------------- crit stacks */
 
@@ -364,11 +453,22 @@ const THE_COLLECTOR: ItemEffect = {
  * Practice Makes Lethal is a permanent stack: 0.4% critical strike chance per
  * attack for a melee champion (Riot's `CritPerStackMelee`;
  * `StackRangedMultiplier` halves it for ranged, which does not apply to Vi), up
- * to the 25% `CritMax`. "Permanent" means across the game, not across the combo,
- * and the simulation starts at zero because it has no game before it — so what
- * the combo shows is the stacking that happens *inside* the combo. That is the
- * same thing Data Dragon claims: it lists the item's critical strike chance as
- * "0%", because the item genuinely ships with none.
+ * to the 25% `CritMax`. Riot's own text is "On-Attack, gain Critical Strike
+ * Chance permanently up to 25%" (Data Dragon, verbatim), and "permanently" means
+ * across the game, not across the combo.
+ *
+ * The simulation has no game before the combo and no input for one, so the
+ * counter starts at zero and what a run shows is the stacking that happens
+ * *inside* the combo. That is a floor and it is a wide one: a player who has held
+ * this 3,000 g item for the 63 attacks the cap needs walks into the fight with
+ * the full 25% critical strike chance, and this entry gives that build a few
+ * tenths of a percent inside a burst. The `note` says so, because the number the
+ * app shows is a lower bound rather than an estimate. The alternative — seeding
+ * the counter full, the way the Energized items above start charged — would
+ * invent a build state for the freshly bought item and report crit chance a
+ * player does not have; the Energized comment above says why the two cases are
+ * decided differently. Data Dragon agrees the item ships with none of it: it
+ * lists 3032's critical strike chance as "0%".
  *
  * The stack is granted on-attack and spent on the attacks after it: this hook
  * runs once the attack's own damage has already resolved, so an attack never
@@ -395,7 +495,7 @@ const YUN_TAL_WILDARROWS: ItemEffect = {
   id: '3032',
   name: 'Yun Tal Wildarrows',
   modelled: true,
-  note: 'Practice Makes Lethal: +0.4% critical strike chance per attack (melee), to 25%, counted from zero at the start of the combo. Flurry: +30% attack speed for 6 s on attacking a champion, 30 s cooldown, 1 s off per attack.',
+  note: 'Practice Makes Lethal: +0.4% critical strike chance per attack (melee), to 25%. Counted from zero at the start of the combo, so this is a floor: an item already stacked from earlier in the game is understated by up to 25% critical strike chance. Flurry: +30% attack speed for 6 s on attacking a champion, 30 s cooldown, 1 s off per attack.',
   createRuntime(): ItemRuntime {
     const yunTal = CRIT_CONSTANTS.yunTal;
     let stacks = 0;
@@ -436,22 +536,155 @@ const YUN_TAL_WILDARROWS: ItemEffect = {
   },
 };
 
+/* ------------------------------------------------------- ultimate-triggered */
+
+/**
+ * The buff identity Fiendhunter Bolts applies its window under.
+ *
+ * The engine keys a temporary buff — and looks it up in `clearTemporaryStats` —
+ * on the text before the first " · ", so the constant is the prefix alone and
+ * the attack count and the multiplier are appended for the timeline to read.
+ */
+const OPENING_BARRAGE = 'Opening Barrage';
+
+/**
+ * Fiendhunter Bolts.
+ *
+ * "After casting your Ultimate, your next 3 basic attacks gain 50% Attack Speed
+ * and Critically Strike for 80% of your normal Critical Strike damage for 8
+ * seconds. If an attack would already Critically Strike, instead it deals 15%
+ * bonus true damage" (Data Dragon, verbatim). The bin's `NumberOfAttacks` 3,
+ * `BonusAS` 0.5, `CritModifier` 0.8, `Duration` 8, `BonusTrueDamage` 0.15 and
+ * `Cooldown` 45 say the same; Data Dragon does not print the cooldown, so 45 s is
+ * the bin's.
+ *
+ * The window is driven from `onAbilityCast`, which is the one hook that runs
+ * *before* the attacks it is supposed to empower — `simulate.ts` calls it on
+ * every item runtime with the `AbilitySlot`, so `slot === 'R'` is exactly Riot's
+ * "after casting your Ultimate".
+ *
+ * How a guaranteed critical strike is spelled in a model that never rolls one.
+ * This codebase folds crit into an expected-value multiplier: `critMultiplierFor`
+ * returns `1 + chance × (multiplier − 1)`. So the buff does two things at once —
+ * it adds 1 to `critChance`, which saturates `resolveChampionStats`' 0..1 clamp
+ * whatever the build already had, and it bends `critDamage` so that the resulting
+ * multiplier is `CritModifier` × the one the build would otherwise have.
+ *
+ * That the 80% scales the *whole* critical strike multiplier rather than only its
+ * bonus half is the wiki's reading, and its own arithmetic is what settles it:
+ * "empowered to critically strike for (60% + 24%) bonus damage / 80% total
+ * critical damage" (wiki, verbatim, Fiendhunter Bolts) — 0.8 × (200% base + 30%
+ * from Infinity Edge) is 184% total, which is the 60% + 24% bonus damage it
+ * quotes. Hence `−(1 − CritModifier) × critMultiplier` as the `critDamage` delta:
+ * a multiplier of M becomes 0.8 × M. The base multiplier is read from
+ * `ctx.stats` rather than restated, so this stays right whatever the engine holds
+ * base critical strike damage to be, and it is read *before* the buff is applied
+ * so the item never re-scales its own reduction. Two assumptions that follow: the
+ * multiplier is snapshotted at the cast rather than tracked for the 8 s (nothing
+ * in a combo changes critical strike damage mid-window), and the 45 s cooldown is
+ * longer than the 8 s window, so a second cast can never overlap the first.
+ *
+ * Two parts of the item are named rather than approximated:
+ *
+ *  - "If an attack would already Critically Strike, instead it deals 15% bonus
+ *    true damage" cannot be expressed. "Would already critically strike" is a
+ *    yes/no about one roll, and this codebase has no roll — a build with 60% crit
+ *    chance is 60% of the way into both branches at once, and there is no hook
+ *    that would tell an `ItemAttackRider` what its own attack's pre-mitigation
+ *    damage was to take 15% of. So a build that already crits is understated
+ *    here, and `warn` says so at the cast rather than in a comment nobody reads.
+ *  - `UltimateHaste` 30 ("Gain 30 Ultimate Ability Haste") has no `StatBlock`
+ *    field. `StatBlock` carries `abilityHaste` and `basicAbilityHaste`, and
+ *    `basicAbilityHaste` is explicitly the haste that must *not* touch the
+ *    ultimate; folding ultimate haste into `abilityHaste` would shorten Vi's Q,
+ *    W and E as well, which is a bigger error than leaving it out.
+ *
+ * The Arena variant 222512 is deliberately not cloned: its bin re-tunes the item
+ * (`Cooldown` 20, `BonusTrueDamage` 0.10, `CritModifier` 0.75), so it is a
+ * different item wearing the same name.
+ */
+const FIENDHUNTER_BOLTS: ItemEffect = {
+  id: '2512',
+  name: 'Fiendhunter Bolts',
+  modelled: true,
+  note: 'Opening Barrage: after the ultimate, the next 3 attacks within 8 s gain +50% attack speed and critically strike for 80% of normal critical strike damage (45 s cooldown). The "already critting, so 15% bonus true damage instead" branch needs a crit roll this model does not make, and the 30 ultimate ability haste has no stat to hold it.',
+  createRuntime(): ItemRuntime {
+    const bolts = CRIT_CONSTANTS.fiendhunterBolts;
+    let readyAt = 0;
+    let attacksLeft = 0;
+    let windowEndsAt = -Infinity;
+    let warned = false;
+
+    return {
+      onAbilityCast(ctx, slot) {
+        if (slot !== 'R') return;
+        if (ctx.time < readyAt) return;
+
+        // Read before the buff lands: after it, both are the buffed values.
+        const normalMultiplier = ctx.stats.critMultiplier;
+        const alreadyCrits = ctx.stats.critChance;
+
+        readyAt = ctx.time + bolts.cooldownSeconds;
+        attacksLeft = bolts.attacks;
+        windowEndsAt = ctx.time + bolts.durationSeconds;
+
+        const empowered = bolts.critModifier * normalMultiplier;
+        ctx.applyTemporaryStats({
+          stats: {
+            attackSpeed: bolts.bonusAttackSpeed,
+            critChance: 1,
+            critDamage: -(1 - bolts.critModifier) * normalMultiplier,
+          },
+          durationSeconds: bolts.durationSeconds,
+          label: `${OPENING_BARRAGE} · ${bolts.attacks} attacks · ×${empowered.toFixed(2)} guaranteed crit`,
+        });
+
+        if (alreadyCrits > 0 && !warned) {
+          warned = true;
+          ctx.warn(
+            `Opening Barrage is modelled as ${(bolts.critModifier * 100).toFixed(0)}% of normal critical strike damage on all ${bolts.attacks} attacks. This build already has ${(alreadyCrits * 100).toFixed(0)}% critical strike chance, and in game that share of the attacks instead crits in full plus ${(bolts.bonusTrueDamage * 100).toFixed(0)}% bonus true damage — which needs a crit roll this calculator does not make, so those attacks are understated.`,
+          );
+        }
+      },
+
+      onBasicAttack(ctx): ItemAttackRider | null {
+        if (attacksLeft <= 0) return null;
+        // The window can lapse with attacks unspent; the buff has expired on its
+        // own duration by then, so there is nothing left to clear.
+        if (ctx.time > windowEndsAt) {
+          attacksLeft = 0;
+          return null;
+        }
+        attacksLeft -= 1;
+        // Ends on the third attack rather than on the timer — the same shape
+        // Hail of Blades uses in `runes.ts`. This hook runs after the attack's
+        // own damage has resolved, so the attack that spends the last charge
+        // still had the buff.
+        if (attacksLeft === 0) ctx.clearTemporaryStats(OPENING_BARRAGE);
+        return null;
+      },
+    };
+  },
+};
+
 /* -------------------------------------------------------------- penetration */
 
 /**
- * Opportunity.
+ * Opportunity, Arena's 226701.
  *
- * Preparation is a stat, not a proc: "After being out of combat with Champions
- * for 8 seconds gain <scaleLethality>Lethality</scaleLethality>. This Lethality
- * lasts for 3 seconds after dealing damage to champions." Riot leaves the amount
- * out of the tooltip; `mItemCalculations.BonusLethalityCalc` on item 6701 is a
- * flat 11 with a ranged multiplier of 0.455, so 11 for Vi.
+ * The Rift 6701 is gone (see the header); this is the live item, and it is not
+ * the same one. "After being out of combat with Champions for 8 seconds gain
+ * Lethality. This Lethality lasts for 3 seconds after dealing damage to
+ * champions" is Data Dragon's shared text, but 226701's own bin says the Arena
+ * timer is `CombatTimer` 3, not 8, and its Preparation is worth 20 lethality (see
+ * `CRIT_CONSTANTS.opportunityArena`, which is also the one inferred number in
+ * this file).
  *
  * It is declared as a stat rather than driven from a hook, and that is a
  * modelling decision with a bound worth stating rather than burying:
  *
  *  - A combo is a fight that has been walked into. Preparation is charged when it
- *    starts — 8 seconds out of combat is the normal state of a champion about to
+ *    starts — 3 seconds out of combat is the normal state of a champion about to
  *    engage — so the lethality is present for the first hit, which is exactly the
  *    hit a hook could not reach: `onBasicAttack` and `onHitLanded` both run after
  *    their instance's damage has been computed, so a buff applied from either
@@ -461,23 +694,26 @@ const YUN_TAL_WILDARROWS: ItemEffect = {
  *    one refreshes it, so for any burst — and for any sustained fight without a
  *    pause — this is exact. A combo that deliberately waits more than 3 seconds
  *    between two damage instances would drop Preparation in game and keeps it
- *    here, which overstates that combo by 11 lethality until Vi has been out of
- *    combat for 8 seconds and earned it back. That is the one place this entry is
+ *    here, which overstates that combo by 20 lethality until Vi has been out of
+ *    combat for 3 seconds and earned it back. That is the one place this entry is
  *    optimistic, and `note` says so where the app can read it.
  *
- * Extraction (200 decaying movement speed on a takedown) is not modelled: it
- * happens after the target is dead, which is where the simulation stops.
+ * The 15 lethality of its stat line is not repeated here: Data Dragon lists it,
+ * `parseItemDescription` reads it, and `stats` is added on top of what was
+ * parsed. Extraction (200 decaying movement speed on a takedown) is not
+ * modelled: it happens after the target is dead, which is where the simulation
+ * stops.
  */
-const OPPORTUNITY: ItemEffect = {
-  id: '6701',
+const OPPORTUNITY_ARENA: ItemEffect = {
+  id: '226701',
   name: 'Opportunity',
   modelled: true,
-  note: 'Preparation: +11 lethality (melee), held for the whole combo. Exact while hits are less than 3 s apart, optimistic across a longer pause. Extraction only pays out after the kill.',
-  stats: { lethality: CRIT_CONSTANTS.opportunity.preparationLethalityMelee },
+  note: 'Preparation: +20 lethality, held for the whole combo. Exact while hits are less than 3 s apart, optimistic across a longer pause. Extraction only pays out after the kill.',
+  stats: { lethality: CRIT_CONSTANTS.opportunityArena.preparationLethality },
 };
 
 /**
- * The Arena variants, and only the two whose passives are genuinely identical.
+ * The Arena variants, and only the ones whose passives are genuinely identical.
  *
  * Riot re-tunes items for Arena, and the bin says which ones: 223032's and
  * 226676's data values match their Summoner's Rift originals value for value
@@ -485,16 +721,19 @@ const OPPORTUNITY: ItemEffect = {
  * `ExecuteThreshold` 0.05), differing only in stat lines that Data Dragon ships
  * and the description parser reads. The other Arena ids in this family are *not*
  * cloned, because they are different items wearing the same name: 223094's
- * `BonusDamage` is 200 rather than 40, and 223087's chain damage interpolates
- * from 80 to 160 with champion level instead of sitting at a flat 60.
+ * `BonusDamage` is 200 rather than 40, 223087's chain damage moves into a
+ * level-scaling calculation instead of sitting at a flat 60, and 222512's
+ * `CritModifier` is 0.75 on a 20 s cooldown. 226701 is in the list on its own
+ * terms rather than as a copy, because the Rift item it used to mirror is gone.
  */
 export const CRIT_ITEMS: ItemEffect[] = [
   RAPID_FIRECANNON,
   STORMRAZOR,
   STATIKK_SHIV,
-  THE_COLLECTOR,
+  theCollector('6676'),
+  theCollector('226676'),
   YUN_TAL_WILDARROWS,
   { ...YUN_TAL_WILDARROWS, id: '223032' },
-  { ...THE_COLLECTOR, id: '226676' },
-  OPPORTUNITY,
+  FIENDHUNTER_BOLTS,
+  OPPORTUNITY_ARENA,
 ];

@@ -2,36 +2,43 @@ import { describe, expect, it } from 'vitest';
 import { CRIT_CONSTANTS, CRIT_ITEMS } from '../src/model/items/crit';
 import { type ItemEffect, type ItemRuntime } from '../src/model/itemEffects';
 import { mitigate } from '../src/engine/damage';
-import type { DamageInstance, DamageType, TargetConfig } from '../src/engine/types';
+import { simulate } from '../src/engine/simulate';
+import { VI_MODULE } from '../src/model/champions/vi';
+import type { AbilitySlot, DamageInstance, DamageType, TargetConfig } from '../src/engine/types';
 import { DEFAULT_TIMINGS } from '../src/engine/types';
 import type { SimContext } from '../src/engine/context';
 import type { HitInfo } from '../src/model/runes';
 import type { StatBlock } from '../src/model/stats';
-import { emptyStats, resolveChampionStats, sumStats } from '../src/model/stats';
-import { FIXTURE_CHAMPION_STATS } from './fixtures';
+import { BASE_CRIT_MULTIPLIER, emptyStats, resolveChampionStats, sumStats } from '../src/model/stats';
+import { FIXTURE_CHAMPION, FIXTURE_CHAMPION_STATS, FIXTURE_SPELLS_BY_ID } from './fixtures';
 
 /**
  * The crit family, driven directly rather than through `simulate`.
  *
- * `simulate` finds an item's passive through the registry in `itemEffects.ts`,
- * and this module is not registered there — registering it would mean editing
- * that file, which this piece of work is not allowed to do. So the harness below
- * stands in for the engine and reproduces the three things these effects
- * actually depend on:
+ * The family is registered in `itemEffects.ts` and does reach `simulate`, but a
+ * whole simulation is the wrong instrument for one item's passive: it would take
+ * a build, a combo and a champion to exercise a charge counter, and a failure
+ * would point at the engine rather than at the item. So the harness below stands
+ * in for the engine and reproduces the four things these effects actually depend
+ * on:
  *
  *  - the *order* the engine uses. `onBasicAttack` is asked for its rider after
  *    the attack's own damage has resolved, and `onHitLanded` is called after the
  *    target's health has already been reduced, so a hook sees the health the hit
- *    left behind. Both matter: The Collector reads that health, and Yun Tal's
- *    stacks must not inflate the attack that granted them.
+ *    left behind. Both matter: The Collector reads that health, Yun Tal's stacks
+ *    must not inflate the attack that granted them, and Fiendhunter Bolts' third
+ *    attack must still be inside its own window when it spends the last charge.
  *  - the way temporary buffs are keyed. The engine identifies a buff by the text
- *    before the first " · " and *replaces* it, which is what makes a stacking
- *    buff one buff rather than sixty. Yun Tal applies two buffs at once and
- *    would silently overwrite one of them if that key were shared, so the
- *    harness has to key them the same way the engine does or the test would pass
- *    on a bug.
+ *    before the first " · " and *replaces* it, and `clearTemporaryStats` looks a
+ *    buff up by that same prefix. Yun Tal applies two buffs at once and would
+ *    silently overwrite one of them if that key were shared; Fiendhunter Bolts
+ *    ends its window by clearing it, which only works if the prefix matches.
  *  - stats resolved through `resolveChampionStats`, so a crit-chance buff is
  *    read back through the same function the engine's damage step uses.
+ *  - the identity a damage instance carries. `simulate.ts` books an item's damage
+ *    under `item:${id}` from the id it was equipped as, so the harness keeps
+ *    `sourceId` — that is the only way to see an Arena clone reporting under the
+ *    Rift item's id.
  *
  * What it does not reproduce is mitigation: the stand-in target has no
  * resistances, so a raw number and a landed number are the same thing here and
@@ -39,6 +46,62 @@ import { FIXTURE_CHAMPION_STATS } from './fixtures';
  * the one entry that only matters *through* mitigation, so its block calls the
  * engine's own `mitigate` instead of the harness.
  */
+
+/**
+ * Riot's numbers, restated.
+ *
+ * This block exists because a test that reads `CRIT_CONSTANTS` and asserts the
+ * runtime produced `CRIT_CONSTANTS` proves the plumbing and nothing about the
+ * value: `rapidFirecannon.bonusDamage` could be edited to 400 and every
+ * behavioural test would still pass. Everything below is quoted from its source
+ * in the comment beside it, and the assertions in this file are written against
+ * these literals rather than against the module's own constants, so a constant
+ * that drifts fails a test instead of quietly changing an answer.
+ *
+ * Sources, all patch 16.16.1 / item bin of 2026-08-16:
+ *  - "DD" — Data Dragon `item.json`, resolved tooltip text.
+ *  - "bin" — CommunityDragon `items.cdtb.bin.json`, `mDataValues` or
+ *    `mItemCalculations` on that item.
+ *  - "wiki" — quoted verbatim, and only where the number is in neither of those.
+ */
+const RIOT = {
+  /** wiki, Energized: "Moving and basic attacking generates Energize stacks, up to 100". */
+  energizeMax: 100,
+  /** wiki, Energized notes: each basic attack generates 6 stacks. */
+  energizePerBasicAttack: 6,
+  /** DD 3094: "deals 40 bonus magic damage"; bin BonusDamage 40. */
+  rapidFirecannonDamage: 40,
+  /** bin 3097 mItemCalculations.TotalProcDamage = 100 (DD ships the number stripped out). */
+  stormrazorDamage: 100,
+  /** bin 3087 ChainDamage 60, NonChampChainDamage 90, BonusEnergizedStacks 9. */
+  statikkChampionDamage: 60,
+  statikkNonChampionDamage: 90,
+  statikkBonusStacks: 9,
+  /** DD 6676: "executes champions that are below 5% Health"; bin ExecuteThreshold 0.05. */
+  collectorExecuteThreshold: 0.05,
+  /** bin 3032 CritPerStackMelee 0.4 and CritMax 25, both as whole percent. */
+  yunTalCritPerAttackMelee: 0.004,
+  yunTalCritCap: 0.25,
+  /** bin 3032 ASMod 0.3, ASDuration 6, Cooldown 30, AACDR 1, CritCDR 2. */
+  yunTalFlurryAttackSpeed: 0.3,
+  yunTalFlurryDuration: 6,
+  yunTalFlurryCooldown: 30,
+  yunTalFlurryCooldownPerAttack: 1,
+  /** bin 2512 NumberOfAttacks 3, Duration 8, Cooldown 45, BonusAS 0.5, CritModifier 0.8. */
+  fiendhunterAttacks: 3,
+  fiendhunterDuration: 8,
+  fiendhunterCooldown: 45,
+  fiendhunterBonusAttackSpeed: 0.5,
+  fiendhunterCritModifier: 0.8,
+  /** bin 2512 BonusTrueDamage 0.15 and UltimateHaste 30 — recorded, not applied. */
+  fiendhunterBonusTrueDamage: 0.15,
+  fiendhunterUltimateHaste: 30,
+  /**
+   * bin 226701 LethalityProcAmount 20 (BonusLethalityCalc reads a hash
+   * CommunityDragon cannot resolve; it can only be this value — see the module).
+   */
+  arenaOpportunityLethality: 20,
+} as const;
 
 const BASE_TARGET: TargetConfig = {
   name: 'Testziel',
@@ -57,6 +120,7 @@ const LEVEL = 11;
 
 /** One piece of damage the item produced, however it produced it. */
 interface Instance {
+  sourceId: string;
   label: string;
   type: DamageType;
   amount: number;
@@ -97,7 +161,13 @@ function harness(target: Partial<TargetConfig> = {}) {
     rank: () => 5,
     dealDamage(args): DamageInstance {
       health = Math.max(0, health - args.amount);
-      instances.push({ label: args.sourceLabel, type: args.type, amount: args.amount, at: time });
+      instances.push({
+        sourceId: args.sourceId,
+        label: args.sourceLabel,
+        type: args.type,
+        amount: args.amount,
+        at: time,
+      });
       return {
         id: `stub${instances.length}`,
         seq: instances.length,
@@ -130,7 +200,18 @@ function harness(target: Partial<TargetConfig> = {}) {
         expiresAt: time + args.durationSeconds,
       });
     },
-    clearTemporaryStats() {},
+    /*
+     * The engine looks a buff up by the prefix before the first " · " and takes
+     * the *argument* as that prefix already — `clearTemporaryStats('Opening
+     * Barrage')`, not the decorated label. Reproduced exactly, because an item
+     * that passes the decorated label would silently fail to clear anything and
+     * a laxer stand-in here would hide that.
+     */
+    clearTemporaryStats(label) {
+      const index = temporary.findIndex((entry) => identity(entry.label) === label);
+      if (index === -1) return;
+      temporary.splice(index, 1);
+    },
     applyTargetAmplification() {},
     applyCrowdControl() {},
     addEvent() {},
@@ -144,14 +225,30 @@ function harness(target: Partial<TargetConfig> = {}) {
     instances,
     warnings,
     buffLabels: () => temporary.filter((entry) => entry.expiresAt > time).map((entry) => entry.label),
+    hasBuff: (prefix: string) =>
+      temporary.some((entry) => entry.expiresAt > time && identity(entry.label) === prefix),
     advance(seconds: number) {
       time += seconds;
+    },
+    /** Stats the rest of the build brings, as a buff that outlasts the test. */
+    equip(stats: Partial<StatBlock>) {
+      temporary.push({ label: 'Build', stats, expiresAt: Infinity });
+    },
+    /** One ability cast, the way `simulate.ts` reports it to every item runtime. */
+    cast(runtime: ItemRuntime, slot: AbilitySlot) {
+      runtime.onAbilityCast?.(ctx, slot);
     },
     /** One basic attack, asking the item for the rider it folds into it. */
     swing(runtime: ItemRuntime): Instance | null {
       const rider = runtime.onBasicAttack?.(ctx) ?? null;
       if (!rider || rider.amount <= 0) return null;
-      const instance: Instance = { label: rider.label, type: rider.type, amount: rider.amount, at: time };
+      const instance: Instance = {
+        sourceId: 'rider',
+        label: rider.label,
+        type: rider.type,
+        amount: rider.amount,
+        at: time,
+      };
       instances.push(instance);
       health = Math.max(0, health - rider.amount);
       return instance;
@@ -188,8 +285,74 @@ function runtimeOf(id: string): ItemRuntime {
 
 /** Attacks needed to refill an empty Energize counter at this rate. */
 function attacksToRecharge(stacksPerAttack: number): number {
-  return Math.ceil(CRIT_CONSTANTS.energize.max / stacksPerAttack);
+  return Math.ceil(RIOT.energizeMax / stacksPerAttack);
 }
+
+/**
+ * The numbers themselves, against the sources rather than against the module.
+ *
+ * Every other test in this file asserts a behaviour; this one asserts the values
+ * that behaviour is made of, so that editing a constant in `crit.ts` fails here
+ * with the item's name on it instead of silently changing what the app reports.
+ */
+describe('the Riot values this family is built on', () => {
+  const c = CRIT_CONSTANTS;
+
+  it('holds Energize at the wiki-sourced 100 stacks and 6 per attack', () => {
+    expect(c.energize.max).toBe(RIOT.energizeMax);
+    expect(c.energize.perBasicAttack).toBe(RIOT.energizePerBasicAttack);
+    // 1 stack per 24 units travelled — recorded, never read, because the
+    // simulation has no positions.
+    expect(c.energize.perDistanceUnit).toBeCloseTo(1 / 24, 12);
+    // The consequence the tests below rely on: 100 / 6 rounds up to 17 attacks.
+    expect(attacksToRecharge(RIOT.energizePerBasicAttack)).toBe(17);
+  });
+
+  it('holds the three Energized payloads', () => {
+    expect(c.rapidFirecannon.bonusDamage).toBe(RIOT.rapidFirecannonDamage);
+    expect(c.stormrazor.bonusDamage).toBe(RIOT.stormrazorDamage);
+    expect(c.statikkShiv.championDamage).toBe(RIOT.statikkChampionDamage);
+    expect(c.statikkShiv.nonChampionDamage).toBe(RIOT.statikkNonChampionDamage);
+    expect(c.statikkShiv.bonusStacksPerAttack).toBe(RIOT.statikkBonusStacks);
+  });
+
+  it("holds The Collector's execute line", () => {
+    expect(c.theCollector.executeThreshold).toBe(RIOT.collectorExecuteThreshold);
+  });
+
+  it('holds Yun Tal, and derives the stack ceiling rather than copying it', () => {
+    expect(c.yunTal.critPerAttackMelee).toBe(RIOT.yunTalCritPerAttackMelee);
+    expect(c.yunTal.critCap).toBe(RIOT.yunTalCritCap);
+    expect(c.yunTal.flurryAttackSpeed).toBe(RIOT.yunTalFlurryAttackSpeed);
+    expect(c.yunTal.flurryDurationSeconds).toBe(RIOT.yunTalFlurryDuration);
+    expect(c.yunTal.flurryCooldownSeconds).toBe(RIOT.yunTalFlurryCooldown);
+    expect(c.yunTal.flurryCooldownPerAttackSeconds).toBe(RIOT.yunTalFlurryCooldownPerAttack);
+    // 25 / 0.4 is 62.5, so the 63rd stack is the last one that changes anything —
+    // which is also the wiki's "stacking up to (Melee 63) times".
+    expect(c.yunTal.maxStacksMelee).toBe(63);
+    expect(Math.ceil(RIOT.yunTalCritCap / RIOT.yunTalCritPerAttackMelee)).toBe(63);
+  });
+
+  it('holds Fiendhunter Bolts, including the two values it does not apply', () => {
+    expect(c.fiendhunterBolts.attacks).toBe(RIOT.fiendhunterAttacks);
+    expect(c.fiendhunterBolts.durationSeconds).toBe(RIOT.fiendhunterDuration);
+    expect(c.fiendhunterBolts.cooldownSeconds).toBe(RIOT.fiendhunterCooldown);
+    expect(c.fiendhunterBolts.bonusAttackSpeed).toBe(RIOT.fiendhunterBonusAttackSpeed);
+    expect(c.fiendhunterBolts.critModifier).toBe(RIOT.fiendhunterCritModifier);
+    expect(c.fiendhunterBolts.bonusTrueDamage).toBe(RIOT.fiendhunterBonusTrueDamage);
+    expect(c.fiendhunterBolts.ultimateAbilityHaste).toBe(RIOT.fiendhunterUltimateHaste);
+    // The window has to be shorter than the cooldown, or the runtime's
+    // assumption that two casts never overlap is wrong.
+    expect(RIOT.fiendhunterDuration).toBeLessThan(RIOT.fiendhunterCooldown);
+  });
+
+  it("holds the Arena Opportunity's Preparation", () => {
+    expect(c.opportunityArena.preparationLethality).toBe(RIOT.arenaOpportunityLethality);
+    // Arena's CombatTimer is 3, not the Rift item's 8.
+    expect(c.opportunityArena.outOfCombatSeconds).toBe(3);
+    expect(c.opportunityArena.heldAfterDamageSeconds).toBe(3);
+  });
+});
 
 describe('Energized attacks', () => {
   /**
@@ -203,14 +366,14 @@ describe('Energized attacks', () => {
 
     expect(proc).not.toBeNull();
     expect(proc!.type).toBe('magic');
-    expect(proc!.amount).toBe(CRIT_CONSTANTS.rapidFirecannon.bonusDamage);
+    expect(proc!.amount).toBe(RIOT.rapidFirecannonDamage);
     expect(proc!.label).toContain('Sharpshooter');
   });
 
   it('recharges from attacks alone, at six stacks each', () => {
     const h = harness();
     const runtime = runtimeOf('3094');
-    const needed = attacksToRecharge(CRIT_CONSTANTS.energize.perBasicAttack);
+    const needed = attacksToRecharge(RIOT.energizePerBasicAttack);
 
     h.swing(runtime);
     // Every attack up to the refill is an ordinary one.
@@ -218,7 +381,7 @@ describe('Energized attacks', () => {
       expect(h.swing(runtime), `attack ${i + 2}`).toBeNull();
     }
     // 17 attacks × 6 stacks passes 100, so the next one is Energized again.
-    expect(h.swing(runtime)?.amount).toBe(CRIT_CONSTANTS.rapidFirecannon.bonusDamage);
+    expect(h.swing(runtime)?.amount).toBe(RIOT.rapidFirecannonDamage);
     expect(h.instances).toHaveLength(2);
   });
 
@@ -226,20 +389,21 @@ describe('Energized attacks', () => {
     const h = harness();
     const proc = h.swing(runtimeOf('3097'));
 
-    expect(proc!.amount).toBe(CRIT_CONSTANTS.stormrazor.bonusDamage);
+    expect(proc!.amount).toBe(RIOT.stormrazorDamage);
     expect(proc!.type).toBe('magic');
     // Larger than Rapid Firecannon's — the two would be easy to transpose.
-    expect(proc!.amount).toBeGreaterThan(CRIT_CONSTANTS.rapidFirecannon.bonusDamage);
+    expect(proc!.amount).toBeGreaterThan(RIOT.rapidFirecannonDamage);
   });
 
   it('charges Statikk Shiv faster, because Electroshock adds nine stacks', () => {
     const h = harness();
     const runtime = runtimeOf('3087');
-    const perAttack =
-      CRIT_CONSTANTS.energize.perBasicAttack + CRIT_CONSTANTS.statikkShiv.bonusStacksPerAttack;
+    const perAttack = RIOT.energizePerBasicAttack + RIOT.statikkBonusStacks;
     const needed = attacksToRecharge(perAttack);
 
-    expect(needed).toBeLessThan(attacksToRecharge(CRIT_CONSTANTS.energize.perBasicAttack));
+    // 100 / 15 rounds up to 7, against the plain rate's 17.
+    expect(needed).toBe(7);
+    expect(needed).toBeLessThan(attacksToRecharge(RIOT.energizePerBasicAttack));
 
     h.swing(runtime);
     for (let i = 0; i < needed; i += 1) {
@@ -248,8 +412,8 @@ describe('Energized attacks', () => {
     expect(h.swing(runtime)).not.toBeNull();
 
     expect(h.instances.map((entry) => entry.amount)).toEqual([
-      CRIT_CONSTANTS.statikkShiv.championDamage,
-      CRIT_CONSTANTS.statikkShiv.championDamage,
+      RIOT.statikkChampionDamage,
+      RIOT.statikkChampionDamage,
     ]);
   });
 
@@ -257,22 +421,20 @@ describe('Energized attacks', () => {
     const champion = harness({ unitType: 'champion' });
     const monster = harness({ unitType: 'monster', maxHealth: 12000 });
 
-    expect(champion.swing(runtimeOf('3087'))!.amount).toBe(
-      CRIT_CONSTANTS.statikkShiv.championDamage,
-    );
-    expect(monster.swing(runtimeOf('3087'))!.amount).toBe(
-      CRIT_CONSTANTS.statikkShiv.nonChampionDamage,
-    );
+    expect(champion.swing(runtimeOf('3087'))!.amount).toBe(RIOT.statikkChampionDamage);
+    expect(monster.swing(runtimeOf('3087'))!.amount).toBe(RIOT.statikkNonChampionDamage);
   });
 });
 
 describe('The Collector', () => {
-  const threshold = CRIT_CONSTANTS.theCollector.executeThreshold;
+  const threshold = RIOT.collectorExecuteThreshold;
 
   it('takes the remaining health once a hit leaves a champion under the line', () => {
     const h = harness();
     const runtime = runtimeOf('6676');
+    // 5% of 2000 is 100 health.
     const line = BASE_TARGET.maxHealth * threshold;
+    expect(line).toBe(100);
 
     // One point above the line: nothing happens, and that is the interesting
     // half of the test — an execute that fires early kills targets that live.
@@ -324,8 +486,6 @@ describe('The Collector', () => {
 });
 
 describe('Yun Tal Wildarrows', () => {
-  const yunTal = CRIT_CONSTANTS.yunTal;
-
   it('grants the melee 0.4% of critical strike chance per attack', () => {
     const h = harness();
     const runtime = runtimeOf('3032');
@@ -334,23 +494,23 @@ describe('Yun Tal Wildarrows', () => {
     expect(h.ctx.stats.critChance).toBe(0);
 
     h.swing(runtime);
-    expect(h.ctx.stats.critChance).toBeCloseTo(yunTal.critPerAttackMelee, 10);
+    expect(h.ctx.stats.critChance).toBeCloseTo(RIOT.yunTalCritPerAttackMelee, 10);
 
     h.swing(runtime);
     h.swing(runtime);
-    expect(h.ctx.stats.critChance).toBeCloseTo(3 * yunTal.critPerAttackMelee, 10);
+    // 3 × 0.4% = 1.2%.
+    expect(h.ctx.stats.critChance).toBeCloseTo(0.012, 10);
   });
 
   it('stops at the 25% cap rather than at 63 × 0.4%', () => {
     const h = harness();
     const runtime = runtimeOf('3032');
 
-    for (let i = 0; i < yunTal.maxStacksMelee + 10; i += 1) h.swing(runtime);
+    for (let i = 0; i < 63 + 10; i += 1) h.swing(runtime);
 
     // 63 stacks would be 25.2%; Riot caps the item at 25%.
-    expect(yunTal.maxStacksMelee).toBe(63);
-    expect(yunTal.maxStacksMelee * yunTal.critPerAttackMelee).toBeGreaterThan(yunTal.critCap);
-    expect(h.ctx.stats.critChance).toBeCloseTo(yunTal.critCap, 10);
+    expect(63 * RIOT.yunTalCritPerAttackMelee).toBeGreaterThan(RIOT.yunTalCritCap);
+    expect(h.ctx.stats.critChance).toBeCloseTo(RIOT.yunTalCritCap, 10);
   });
 
   it('holds both passives at once instead of one overwriting the other', () => {
@@ -364,8 +524,8 @@ describe('Yun Tal Wildarrows', () => {
     // first " · ", so two buffs from one item named after the item would be one
     // buff, and whichever landed second would win.
     expect(h.buffLabels()).toHaveLength(2);
-    expect(h.ctx.stats.critChance).toBeCloseTo(yunTal.critPerAttackMelee, 10);
-    expect(h.ctx.stats.bonusAttackSpeed).toBeCloseTo(baseline + yunTal.flurryAttackSpeed, 10);
+    expect(h.ctx.stats.critChance).toBeCloseTo(RIOT.yunTalCritPerAttackMelee, 10);
+    expect(h.ctx.stats.bonusAttackSpeed).toBeCloseTo(baseline + RIOT.yunTalFlurryAttackSpeed, 10);
   });
 
   it('runs Flurry for six seconds and not a moment longer', () => {
@@ -374,8 +534,8 @@ describe('Yun Tal Wildarrows', () => {
     const baseline = h.ctx.stats.bonusAttackSpeed;
 
     h.swing(runtime);
-    h.advance(yunTal.flurryDurationSeconds - 0.01);
-    expect(h.ctx.stats.bonusAttackSpeed).toBeCloseTo(baseline + yunTal.flurryAttackSpeed, 10);
+    h.advance(RIOT.yunTalFlurryDuration - 0.01);
+    expect(h.ctx.stats.bonusAttackSpeed).toBeCloseTo(baseline + RIOT.yunTalFlurryAttackSpeed, 10);
 
     h.advance(0.02);
     expect(h.ctx.stats.bonusAttackSpeed).toBeCloseTo(baseline, 10);
@@ -392,11 +552,11 @@ describe('Yun Tal Wildarrows', () => {
 
     h.swing(runtime);
     // Stand at the moment the window closes; Flurry is nominally 24 s away.
-    h.advance(yunTal.flurryDurationSeconds);
+    h.advance(RIOT.yunTalFlurryDuration);
     const baseline = h.ctx.stats.bonusAttackSpeed;
     const attacksNeeded =
-      (yunTal.flurryCooldownSeconds - yunTal.flurryDurationSeconds) /
-      yunTal.flurryCooldownPerAttackSeconds;
+      (RIOT.yunTalFlurryCooldown - RIOT.yunTalFlurryDuration) / RIOT.yunTalFlurryCooldownPerAttack;
+    expect(attacksNeeded).toBe(24);
 
     for (let i = 0; i < attacksNeeded; i += 1) {
       h.swing(runtime);
@@ -406,7 +566,7 @@ describe('Yun Tal Wildarrows', () => {
     // The 24 attacks have pulled the cooldown down to where the clock already
     // is, so the next attack procs it again.
     h.swing(runtime);
-    expect(h.ctx.stats.bonusAttackSpeed).toBeCloseTo(baseline + yunTal.flurryAttackSpeed, 10);
+    expect(h.ctx.stats.bonusAttackSpeed).toBeCloseTo(baseline + RIOT.yunTalFlurryAttackSpeed, 10);
   });
 
   it('does not proc Flurry off a target that is not a champion', () => {
@@ -417,24 +577,249 @@ describe('Yun Tal Wildarrows', () => {
     h.swing(runtime);
     expect(h.ctx.stats.bonusAttackSpeed).toBeCloseTo(baseline, 10);
     // The crit stack is not gated on the target, and still lands.
-    expect(h.ctx.stats.critChance).toBeCloseTo(yunTal.critPerAttackMelee, 10);
+    expect(h.ctx.stats.critChance).toBeCloseTo(RIOT.yunTalCritPerAttackMelee, 10);
+  });
+
+  /**
+   * The stacking assumption, asserted rather than only documented: the entry is
+   * a floor, and a floor has to be visibly a floor.
+   */
+  it('starts from zero stacks and says so in its note', () => {
+    const h = harness();
+    expect(h.ctx.stats.critChance).toBe(0);
+    const note = effectOf('3032').note;
+    expect(note).toContain('floor');
+    expect(note).toContain('25%');
   });
 });
 
 /**
- * Opportunity earns its place through the mitigation step rather than through an
- * instance of its own, so it is tested there: the stat it declares is fed into
- * the engine's `mitigate` exactly the way `simulate` feeds it (as
- * `flatArmorPen`), and the landed damage is compared against the armour formula
- * with the constant subtracted.
+ * Fiendhunter Bolts.
+ *
+ * The window is opened by an ultimate cast and closed by whichever comes first,
+ * the third attack or the eighth second, so both endings get a test. The crit
+ * assertions are the interesting ones: a guaranteed critical strike at 80% of
+ * normal crit damage has to come out of a model that folds crit into an
+ * expected-value multiplier, and the arithmetic that does it is where a wrong
+ * sign or a re-scaled multiplier would hide.
  */
-describe('Opportunity', () => {
-  const preparation = CRIT_CONSTANTS.opportunity.preparationLethalityMelee;
+describe('Fiendhunter Bolts', () => {
+  it('opens the window on the ultimate and on nothing else', () => {
+    for (const slot of ['P', 'Q', 'W', 'E'] as const) {
+      const h = harness();
+      h.cast(runtimeOf('2512'), slot);
+      expect(h.hasBuff('Opening Barrage'), slot).toBe(false);
+    }
+
+    const h = harness();
+    h.cast(runtimeOf('2512'), 'R');
+    expect(h.hasBuff('Opening Barrage')).toBe(true);
+  });
+
+  it('grants the fifty percent attack speed for the window', () => {
+    const h = harness();
+    const baseline = h.ctx.stats.bonusAttackSpeed;
+
+    h.cast(runtimeOf('2512'), 'R');
+    expect(h.ctx.stats.bonusAttackSpeed).toBeCloseTo(
+      baseline + RIOT.fiendhunterBonusAttackSpeed,
+      10,
+    );
+  });
+
+  it('makes the attacks crit for eighty percent of normal critical strike damage', () => {
+    const h = harness();
+    // The fixture has no crit chance and no crit damage, so the multiplier the
+    // item finds is the engine's base one.
+    expect(h.ctx.stats.critChance).toBe(0);
+    expect(h.ctx.stats.critMultiplier).toBeCloseTo(BASE_CRIT_MULTIPLIER, 10);
+
+    h.cast(runtimeOf('2512'), 'R');
+
+    // Guaranteed: the crit chance is saturated, so the expected-value multiplier
+    // the damage step computes *is* the crit multiplier.
+    expect(h.ctx.stats.critChance).toBe(1);
+    expect(h.ctx.stats.critMultiplier).toBeCloseTo(
+      RIOT.fiendhunterCritModifier * BASE_CRIT_MULTIPLIER,
+      10,
+    );
+  });
+
+  it('scales the whole multiplier, so extra crit damage is scaled with it', () => {
+    // An Infinity Edge in the same build: DD 3031 lists "30% Critical Strike
+    // Damage", which the description parser puts into critDamage. The wiki's own
+    // arithmetic for this passive scales that too — "(60% + 24%) bonus damage" is
+    // 0.8 × (base + 30%), not 0.8 × base + 30%.
+    const h = harness();
+    h.equip({ critDamage: 0.3 });
+    const normal = h.ctx.stats.critMultiplier;
+    expect(normal).toBeCloseTo(BASE_CRIT_MULTIPLIER + 0.3, 10);
+
+    h.cast(runtimeOf('2512'), 'R');
+    expect(h.ctx.stats.critMultiplier).toBeCloseTo(RIOT.fiendhunterCritModifier * normal, 10);
+  });
+
+  it('empowers exactly three attacks and then stops', () => {
+    const h = harness();
+    const runtime = runtimeOf('2512');
+    const baseline = h.ctx.stats.bonusAttackSpeed;
+
+    h.cast(runtime, 'R');
+    for (let i = 0; i < RIOT.fiendhunterAttacks; i += 1) {
+      // Still empowered while the attack is being swung — this hook runs after
+      // the attack's own damage, so the third attack was a crit too.
+      expect(h.hasBuff('Opening Barrage'), `attack ${i + 1}`).toBe(true);
+      h.swing(runtime);
+    }
+
+    expect(h.hasBuff('Opening Barrage')).toBe(false);
+    expect(h.ctx.stats.critChance).toBe(0);
+    expect(h.ctx.stats.bonusAttackSpeed).toBeCloseTo(baseline, 10);
+    // And the passive adds no damage instance of its own: it works through stats.
+    expect(h.instances).toHaveLength(0);
+  });
+
+  it('lets the window lapse after eight seconds with attacks unspent', () => {
+    const h = harness();
+    const runtime = runtimeOf('2512');
+
+    h.cast(runtime, 'R');
+    h.swing(runtime);
+    h.advance(RIOT.fiendhunterDuration - 0.01);
+    expect(h.hasBuff('Opening Barrage')).toBe(true);
+
+    h.advance(0.02);
+    expect(h.hasBuff('Opening Barrage')).toBe(false);
+    // The two unspent attacks are gone with it, rather than waiting to empower
+    // an attack minutes later.
+    h.swing(runtime);
+    h.swing(runtime);
+    expect(h.hasBuff('Opening Barrage')).toBe(false);
+    expect(h.ctx.stats.critChance).toBe(0);
+  });
+
+  it('holds the forty-five second cooldown between two ultimates', () => {
+    const h = harness();
+    const runtime = runtimeOf('2512');
+
+    h.cast(runtime, 'R');
+    for (let i = 0; i < RIOT.fiendhunterAttacks; i += 1) h.swing(runtime);
+    expect(h.hasBuff('Opening Barrage')).toBe(false);
+
+    // Vi's ultimate is off cooldown long before the item is.
+    h.advance(RIOT.fiendhunterCooldown - 0.01);
+    h.cast(runtime, 'R');
+    expect(h.hasBuff('Opening Barrage')).toBe(false);
+
+    h.advance(0.02);
+    h.cast(runtime, 'R');
+    expect(h.hasBuff('Opening Barrage')).toBe(true);
+    expect(h.ctx.stats.critChance).toBe(1);
+  });
+
+  it('warns that a build which already crits is understated', () => {
+    const plain = harness();
+    plain.cast(runtimeOf('2512'), 'R');
+    // Nothing to warn about: every attack takes the 80% branch in game too.
+    expect(plain.warnings).toEqual([]);
+
+    const critting = harness();
+    critting.equip({ critChance: 0.6 });
+    critting.cast(runtimeOf('2512'), 'R');
+
+    expect(critting.warnings).toHaveLength(1);
+    expect(critting.warnings[0]).toContain('60%');
+    // The branch that is missing, named by its number: bin BonusTrueDamage 0.15.
+    expect(critting.warnings[0]).toContain('15%');
+    expect(critting.warnings[0]).toContain('true damage');
+  });
+
+  it('names the ultimate ability haste it cannot hold rather than inventing a stat', () => {
+    const effect = effectOf('2512');
+    // StatBlock has abilityHaste and basicAbilityHaste and nothing for the
+    // ultimate alone, so declaring the 30 anywhere would haste Q, W and E too.
+    expect(effect.stats).toBeUndefined();
+    expect(effect.note).toContain('ultimate ability haste');
+  });
+
+  /**
+   * The one test in this file that runs the whole engine, because it is the only
+   * claim the harness cannot make: that `simulate` reaches `onAbilityCast` with
+   * `slot === 'R'` for an equipped item at all. Everything above assumes that
+   * hook fires; this proves it, and proves the buff lands on the attack after R
+   * rather than one attack late.
+   */
+  it('reaches the attack after R when the engine drives it', () => {
+    const withItem = simulateRAndAttack(['2512']);
+    const without = simulateRAndAttack([]);
+
+    // The fixture champion has no crit chance, so without the item the attack
+    // has no crit factor at all and the item's whole contribution is the
+    // guaranteed 80% critical strike.
+    expect(without.crit).toBeCloseTo(1, 10);
+    expect(withItem.crit).toBeCloseTo(RIOT.fiendhunterCritModifier * BASE_CRIT_MULTIPLIER, 10);
+    expect(withItem.raw).toBeCloseTo(without.raw * RIOT.fiendhunterCritModifier * BASE_CRIT_MULTIPLIER, 6);
+  });
+});
+
+/**
+ * One R and one attack through the real engine, reporting the attack's own
+ * damage instance and the crit factor it carried.
+ */
+function simulateRAndAttack(itemIds: string[]) {
+  const bonusStats = emptyStats();
+  const result = simulate(
+    {
+      attacker: {
+        championId: 'Vi',
+        level: LEVEL,
+        ranks: { P: 1, Q: 5, W: 5, E: 5, R: 3 },
+        itemIds,
+        runeIds: [],
+        shardIds: [],
+        manualStats: {},
+      },
+      championBaseStats: FIXTURE_CHAMPION_STATS,
+      attackerStats: resolveChampionStats(FIXTURE_CHAMPION_STATS, LEVEL, bonusStats),
+      bonusStats,
+      target: { ...BASE_TARGET, maxHealth: 100000 },
+      combo: [
+        { uid: 'r', action: { kind: 'ability', slot: 'R' } },
+        { uid: 'a', action: { kind: 'attack' } },
+      ],
+      timings: { ...DEFAULT_TIMINGS },
+      critMode: 'expected',
+    },
+    VI_MODULE,
+    { detail: FIXTURE_CHAMPION, spellById: FIXTURE_SPELLS_BY_ID, gameData: null },
+  );
+
+  const attack = result.instances.find((entry) => entry.sourceKind === 'attack');
+  expect(attack, 'the combo produced no basic attack').toBeDefined();
+  // The crit factor is not reported directly, so it is read back out of the
+  // instance's own build breakdown the way the inspector does.
+  const base = attack!.build?.find((term) => term.label === 'attack damage')?.amount ?? 0;
+  return { raw: attack!.raw, crit: base === 0 ? 0 : attack!.raw / base };
+}
+
+/**
+ * The Arena Opportunity (226701) earns its place through the mitigation step
+ * rather than through an instance of its own, so it is tested there: the stat it
+ * declares is fed into the engine's `mitigate` exactly the way `simulate` feeds
+ * it (as `flatArmorPen`), and the landed damage is compared against the armour
+ * formula with the constant subtracted.
+ *
+ * The Rift Opportunity (6701) is deliberately not here: Data Dragon ships it
+ * `inStore: false` and unpurchasable this patch. The family test below asserts
+ * its absence.
+ */
+describe('Opportunity (Arena 226701)', () => {
+  const preparation = RIOT.arenaOpportunityLethality;
   const TARGET_ARMOR = 100;
 
   /** The stats an attacker has with nothing but this item's Preparation. */
   function statsWithPreparation() {
-    const stats = effectOf('6701').stats;
+    const stats = effectOf('226701').stats;
     expect(stats).toBeDefined();
     return resolveChampionStats(FIXTURE_CHAMPION_STATS, LEVEL, sumStats([emptyStats(), stats!]));
   }
@@ -463,62 +848,32 @@ describe('Opportunity', () => {
     }).mitigated;
   }
 
-  it('declares the melee 11 lethality as a stat, because no hook runs early enough', () => {
-    const effect = effectOf('6701');
+  it('declares the 20 lethality as a stat, because no hook runs early enough', () => {
+    const effect = effectOf('226701');
     // A hook would arrive after the first hit's damage had been computed, and
     // for Vi that hit is usually the charged Q — so this is a stat on purpose.
     expect(effect.createRuntime).toBeUndefined();
     expect(effect.amplify).toBeUndefined();
-    expect(effect.stats).toEqual({ lethality: preparation });
+    expect(effect.stats).toEqual({ lethality: 20 });
   });
 
   it('reaches the damage step as flat armor penetration', () => {
     expect(statsWithPreparation().flatArmorPen).toBe(preparation);
   });
 
-  it('turns 11 lethality into the damage the armor formula says it is worth', () => {
+  it('turns 20 lethality into the damage the armor formula says it is worth', () => {
     const raw = 200;
     const stats = statsWithPreparation();
 
     const without = landed(raw, 0);
     const withItem = landed(raw, stats.flatArmorPen);
 
-    // 100 armor halves a hit; 100 − 11 leaves 100/189 of it standing.
-    expect(without).toBeCloseTo((raw * 100) / (100 + TARGET_ARMOR), 9);
-    expect(withItem).toBeCloseTo((raw * 100) / (100 + TARGET_ARMOR - preparation), 9);
-    // Worth roughly 5.8% more damage at this armour, and never less.
-    expect(withItem / without).toBeCloseTo(
-      (100 + TARGET_ARMOR) / (100 + TARGET_ARMOR - preparation),
-      9,
-    );
-  });
-
-  it('never pushes armor below zero into bonus damage', () => {
-    // A frail target with less armour than the lethality: penetration stops at
-    // zero, so the hit lands whole rather than amplified.
-    const raw = 200;
-    const bare = mitigate({
-      raw,
-      type: 'physical',
-      armor: {
-        base: preparation / 2,
-        flatReduction: 0,
-        percentReduction: 0,
-        percentPenetration: 0,
-        flatPenetration: preparation,
-      },
-      magicResist: {
-        base: 0,
-        flatReduction: 0,
-        percentReduction: 0,
-        percentPenetration: 0,
-        flatPenetration: 0,
-      },
-      percentDamageReduction: 0,
-      flatDamageReduction: 0,
-      amplification: 0,
-    }).mitigated;
-    expect(bare).toBeCloseTo(raw, 9);
+    // 100 armor halves a hit: 200 × 100/200 = 100 damage.
+    expect(without).toBeCloseTo((200 * 100) / (100 + 100), 9);
+    expect(without).toBeCloseTo(100, 9);
+    // 100 − 20 leaves 100/180 of the hit standing: 200 × 100/180 ≈ 111.1.
+    expect(withItem).toBeCloseTo((200 * 100) / (100 + 100 - 20), 9);
+    expect(withItem).toBeCloseTo(111.111111111, 6);
   });
 });
 
@@ -547,17 +902,33 @@ describe('Arena variants', () => {
     const arena = runtimeOf('226676');
 
     // One hit under the line: both items would execute, and each is asked once.
-    h.land(rift, BASE_TARGET.maxHealth * (1 - CRIT_CONSTANTS.theCollector.executeThreshold / 2));
+    h.land(rift, BASE_TARGET.maxHealth * (1 - RIOT.collectorExecuteThreshold / 2));
     expect(h.instances).toHaveLength(1);
     // The target is already empty, so the second one correctly does nothing —
     // which is the guard that a clone shares no state with its original.
     h.land(arena, 0.5);
     expect(h.instances).toHaveLength(1);
   });
+
+  /**
+   * The regression that made The Collector a factory: a spread copy of a runtime
+   * whose `dealDamage` hardcoded `item:6676` reported the Arena purchase's
+   * execute under the Rift item's id, and the timeline and the damage inspector
+   * both key on that id.
+   */
+  it('books each Collector execute under the id it was bought as', () => {
+    for (const id of ['6676', '226676']) {
+      const h = harness();
+      h.land(runtimeOf(id), BASE_TARGET.maxHealth * (1 - RIOT.collectorExecuteThreshold / 2));
+      expect(h.instances).toHaveLength(1);
+      expect(h.instances[0]!.sourceId, id).toBe(`item:${id}`);
+      // The label stays the item's name either way: the id is what disambiguates.
+      expect(h.instances[0]!.label).toBe('The Collector · Death');
+    }
+  });
 });
 
 describe('the family as a whole', () => {
-
   it('claims nothing it does not implement', () => {
     expect(new Set(CRIT_ITEMS.map((item) => item.id)).size).toBe(CRIT_ITEMS.length);
     for (const item of CRIT_ITEMS) {
@@ -577,30 +948,38 @@ describe('the family as a whole', () => {
    * of what it parsed. An entry here would grant the crit damage twice.
    *
    * The same reasoning bounds what any entry may declare in `stats`: only what
-   * Riot writes into passive prose. Opportunity's Preparation lethality is the
-   * one such number in this family — its 18 base lethality is a stat line and is
-   * not repeated.
+   * Riot writes into passive prose. The Arena Opportunity's Preparation
+   * lethality is the one such number left in this family — its 15 base lethality
+   * is a stat line and is not repeated, and neither is The Collector's 10.
    */
   it('leaves stat lines to the description parser', () => {
     expect(CRIT_ITEMS.some((item) => item.id === '3031')).toBe(false);
 
     const withStats = CRIT_ITEMS.filter((item) => item.stats);
-    expect(withStats.map((item) => item.id)).toEqual(['6701']);
+    expect(withStats.map((item) => item.id)).toEqual(['226701']);
     expect(Object.keys(withStats[0]!.stats!)).toEqual(['lethality']);
   });
 
   /**
-   * The ids are the part most easily got wrong, because three of this family's
+   * The ids are the part most easily got wrong, because four of this family's
    * items moved: Stormrazor is 3097 and 3095 is Riot's disabled shell, Yun Tal
-   * is 3032 and 6673 is Immortal Shieldbow, and 6675 is Navori Flickerblade,
-   * whose cooldown passive nothing here can express.
+   * is 3032 and 6673 is Immortal Shieldbow, 6675 is Navori Flickerblade whose
+   * cooldown passive nothing here can express, and 6701 Opportunity is off the
+   * shelf entirely — Data Dragon ships it `inStore: false` with
+   * `gold.purchasable` false, so a passive on it could never apply to a build
+   * anyone can buy. Its live counterpart is the Arena 226701.
    */
-  it('keys the energized items on the ids that are still live', () => {
+  it('keys the items on the ids that are still live', () => {
     const ids = CRIT_ITEMS.map((item) => item.id);
     expect(ids).toContain('3097');
     expect(ids).not.toContain('3095');
     expect(ids).toContain('3032');
     expect(ids).not.toContain('6673');
     expect(ids).not.toContain('6675');
+    expect(ids).not.toContain('6701');
+    expect(ids).toContain('226701');
+    // The two Rift items this review added and dismissed, respectively.
+    expect(ids).toContain('2512');
+    expect(ids).not.toContain('2523');
   });
 });

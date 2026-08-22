@@ -63,3 +63,25 @@ describe('resolveItem', () => {
     expect(item.descriptionText).not.toContain('<');
   });
 });
+
+describe('adaptive force', () => {
+  it('becomes attack damage at Riot\'s own 0.6 conversion', () => {
+    // Flesheater (667112) sells "55 Adaptive Force / 500 Health" in patch
+    // 16.16.1. Adaptive is 0.6 attack damage or 1 ability power per point, so a
+    // physical champion sees 33 attack damage. Before this, the line fell into
+    // `unparsedStatLines` and the item arrived with nothing but its health.
+    const item = resolveItem('667112', {
+      name: 'Flesheater',
+      description:
+        '<mainText><stats><attention>55</attention> Adaptive Force<br><attention>500</attention> Health</stats></mainText>',
+      gold: { total: 2500, base: 0, sell: 1750, purchasable: true },
+      image: { full: 'x.png' },
+      tags: [],
+      maps: { '11': true },
+    } as never);
+
+    expect(item.stats.attackDamage).toBeCloseTo(33, 6);
+    expect(item.stats.hp).toBe(500);
+    expect(item.unparsedStatLines).toEqual([]);
+  });
+});

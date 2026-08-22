@@ -5,7 +5,7 @@ import { simulate } from './engine/simulate';
 import type { AbilitySlot, ComboStep } from './engine/types';
 import { VI_MODULE } from './model/champions/vi';
 import { resolveAbilityNames, type ChampionModuleContext } from './model/champions/types';
-import { resolvePurchasableItems } from './model/items';
+import { resolveAllItems, resolvePurchasableItems } from './model/items';
 import { runeStats } from './model/runes';
 import { emptyStats, resolveChampionStats, sumStats } from './model/stats';
 import { resolveBonusStats, runBuild } from './state/runBuild';
@@ -204,7 +204,22 @@ export default function App() {
     () => (bundle ? resolvePurchasableItems(bundle.items) : []),
     [bundle],
   );
-  const itemById = useMemo(() => new Map(items.map((item) => [item.id, item])), [items]);
+  /**
+   * The lookup every stat calculation uses — built from *all* items, not just
+   * the ones the shop offers.
+   *
+   * The picker above is filtered; this is not, and the difference is deliberate:
+   * item passives are keyed off a build's ids and fire for any id, so resolving
+   * stats only for purchasable items handed those ids their passive without
+   * their stat line. See `resolveAllItems`.
+   */
+  const itemById = useMemo(
+    () =>
+      new Map(
+        (bundle ? resolveAllItems(bundle.items) : items).map((item) => [item.id, item]),
+      ),
+    [bundle, items],
+  );
 
   const baseStats =
     champion.detail?.stats ?? bundle?.champions[build.championId]?.stats ?? null;

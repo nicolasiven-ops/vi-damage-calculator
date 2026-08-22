@@ -53,6 +53,13 @@ export interface ResolvedItem {
 
 /* ------------------------------------------------------- description parsing */
 
+/**
+ * One point of Adaptive Force, in attack damage.
+ *
+ * Riot's own conversion: adaptive grants 0.6 attack damage or 1 ability power.
+ */
+const ADAPTIVE_TO_ATTACK_DAMAGE = 0.6;
+
 /** English stat labels as they appear in Data Dragon's `<stats>` block. */
 const LABEL_TO_STAT: Record<string, keyof StatBlock> = {
   'attack damage': 'attackDamage',
@@ -154,6 +161,25 @@ export function parseItemDescription(description: string): ParsedDescription {
     const isPercent = valueMatch[2] === '%';
 
     const label = stripTags(line.replace(valueMatch[0], '')).replace(/^\+/, '').trim().toLowerCase();
+
+    /*
+     * Adaptive Force is a stat line, not a keyword, and it used to fall into
+     * `unparsed` — so an item selling 55 of it arrived with none of it. Riot's
+     * rule is that adaptive follows whichever bonus is larger, at 0.6 attack
+     * damage or 1 ability power per point, and which one that is depends on the
+     * rest of the build, which an item parser cannot see.
+     *
+     * So it resolves to attack damage here, and that is an assumption stated
+     * rather than hidden: this calculator models Vi, whose whole kit is physical.
+     * The day a caster is added, this has to move to where the build is known —
+     * `resolveBonusStats` — and choose there.
+     */
+    if (label === 'adaptive force') {
+      stats.attackDamage += numeric * ADAPTIVE_TO_ATTACK_DAMAGE;
+      found.add('attackDamage');
+      continue;
+    }
+
     const baseKey = LABEL_TO_STAT[label];
 
     if (!baseKey) {
@@ -284,6 +310,29 @@ export function resolvePurchasableItems(items: Record<string, DDragonItem>): Res
     resolved.push(resolveItem(id, raw));
   }
   resolved.sort((a, b) => a.name.localeCompare(b.name, 'en'));
+  return resolved;
+}
+
+/**
+ * Every item in the file, resolved — including the ones no Rift shop sells.
+ *
+ * The picker offers `resolvePurchasableItems`; this exists because *stats and
+ * passives must travel the same path*. Hooks are keyed straight off a build's
+ * item ids, so an id the shop no longer offers — a mode copy, a removed item, a
+ * transformation like Muramana that you own without buying — still fires its
+ * passive. Resolving stats only for purchasable items meant those ids arrived
+ * with their passive and none of their stat line: Muramana's passive without its
+ * mana, an Arena Terminus without its 40 % attack speed. Under-reporting quietly
+ * is exactly the failure this project cannot have, so the lookup table is built
+ * from everything and the *offer* is what stays filtered.
+ */
+export function resolveAllItems(items: Record<string, DDragonItem>): ResolvedItem[] {
+  const resolved: ResolvedItem[] = [];
+  for (const [id, raw] of Object.entries(items)) {
+    if (!raw || typeof raw !== 'object') continue;
+    if (/^\s*$/.test(raw.name ?? '')) continue;
+    resolved.push(resolveItem(id, raw));
+  }
   return resolved;
 }
 
