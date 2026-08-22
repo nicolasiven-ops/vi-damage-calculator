@@ -25,6 +25,7 @@ import type {
   ComboStep,
   CritMode,
   IncomingHit,
+  SimulationResult,
   TargetConfig,
   TimingConfig,
 } from '../engine/types';
@@ -136,6 +137,26 @@ function sideFor(
         who.moduleCtx,
       ),
   };
+}
+
+/**
+ * Vi's side as a runner the combo solver can drive.
+ *
+ * The solver asks "what does this sequence of presses do"; the duel knows "what is
+ * arriving while she presses it". This hands the second to the first, so a searched
+ * plan is optimised for the fight rather than for a target that stands still.
+ *
+ * The incoming list is whatever the last duel pass produced. It is one pass behind
+ * by construction — the enemy's damage depends on how long they live, which depends
+ * on the plan being searched for — and that is fine: it is the same fixed-point
+ * argument the driver itself rests on, one iteration deep instead of three.
+ */
+export function viSolverRunner(
+  inputs: DuelInputs,
+  incoming: IncomingHit[],
+): (steps: ComboStep[]) => SimulationResult | null {
+  return (steps) =>
+    sideFor({ ...inputs.vi, combo: steps }, inputs.enemy, inputs, true).run(incoming);
 }
 
 export function runDuel(inputs: DuelInputs): DuelOutcome | null {

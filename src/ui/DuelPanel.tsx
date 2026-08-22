@@ -14,6 +14,7 @@
  * misled by a number that is otherwise correct.
  */
 
+import { useState } from 'react';
 import type { DuelOutcome } from '../engine/duel';
 
 interface Props {
@@ -29,6 +30,12 @@ interface Props {
   };
   /** Why there is no fight, when there is none. */
   blocked?: string | null;
+  /** True when the plan on the chart was searched for rather than repeated. */
+  planned?: boolean;
+  /** Ask for a continuation, searched against this fight. */
+  onSolve?: () => { killTime: number | null; presses: number };
+  /** Back to repeating the typed combo. */
+  onReset?: () => void;
 }
 
 const WIDTH = 720;
@@ -66,7 +73,42 @@ function line(
   return parts.join(' ');
 }
 
-export function DuelPanel({ outcome, viName, enemyName, enemyGap, sides, blocked }: Props) {
+export function DuelPanel({
+  outcome,
+  viName,
+  enemyName,
+  enemyGap,
+  sides,
+  blocked,
+  planned,
+  onSolve,
+  onReset,
+}: Props) {
+  const [searching, setSearching] = useState(false);
+  const [found, setFound] = useState<string | null>(null);
+
+  /**
+   * Ask for a plan, on the next turn of the event loop.
+   *
+   * The search is a few thousand simulations and holds the thread while it runs, so
+   * the button has to render its own state first. A timeout rather than an
+   * animation frame: a frame callback never fires in a tab nobody is looking at.
+   */
+  function search(): void {
+    if (!onSolve || searching) return;
+    setSearching(true);
+    setFound(null);
+    setTimeout(() => {
+      const result = onSolve();
+      setSearching(false);
+      setFound(
+        result.killTime === null
+          ? 'No kill found inside the fight — the repeat stays.'
+          : `${result.presses} presses, kill at ${formatSeconds(result.killTime)} s.`,
+      );
+    }, 0);
+  }
+
   if (!outcome) {
     /*
      * Name the switch. "Nothing to fight with yet" was true and useless: the
@@ -124,6 +166,31 @@ export function DuelPanel({ outcome, viName, enemyName, enemyGap, sides, blocked
               {sides.enemy.items} items · {sides.enemy.kit}
             </span>
           </span>
+        </div>
+      )}
+
+      {/*
+        * Replan rather than repeat.
+        *
+        * The repeat is honest and dumb: half of it is refused as on cooldown. This
+        * asks the solver for the continuation instead, using the duel's own runner
+        * — so the search sees her health falling, which is the only reason the
+        * answer can differ from the one the strip's own button gives.
+        */}
+      {onSolve && (
+        <div className="duel-plan">
+          <button className="btn solve" onClick={search} disabled={searching}>
+            {searching ? 'Searching …' : 'Replan for the fastest kill'}
+          </button>
+          {planned && (
+            <button className="btn" onClick={onReset}>
+              Back to the typed combo
+            </button>
+          )}
+          {found && <span className="duel-plan-note mono">{found}</span>}
+          {planned && !found && (
+            <span className="duel-plan-note mono">Running a searched continuation.</span>
+          )}
         </div>
       )}
 

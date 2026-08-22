@@ -19,7 +19,9 @@ import {
   repeatPlan,
   rotationPlan,
   runDuel,
+  viSolverRunner,
   type DuelCombatant,
+  type DuelInputs,
 } from './state/runDuel';
 import { JUNGLER_MODULES } from './model/champions/junglers';
 
@@ -435,10 +437,20 @@ export default function App() {
       : attackPlan(15, (index) => `enemy-${index}`);
   }, [enemyModule, enemyRanks]);
 
-  /** Vi's plan for a duel: what was typed, repeated for as long as the fight lasts. */
+  /**
+   * Vi's plan for a duel.
+   *
+   * By default the typed combo, repeated for as long as the fight lasts. A search
+   * can replace the repeat with a continuation it chose — see `onSolveDuel` — and
+   * that plan is dropped the moment the typed combo changes, because a plan for a
+   * different opening is not a plan for this one.
+   */
+  const [duelPlan, setDuelPlan] = useState<{ steps: ComboStep[]; killTime: number } | null>(null);
+  useEffect(() => setDuelPlan(null), [build.combo]);
+
   const viDuelCombo = useMemo(
-    () => repeatPlan(build.combo, 15, (index) => `vi-duel-${index}`),
-    [build.combo],
+    () => duelPlan?.steps ?? repeatPlan(build.combo, 15, (index) => `vi-duel-${index}`),
+    [duelPlan, build.combo],
   );
 
   const duelOutcome = useMemo(() => {
@@ -544,7 +556,7 @@ export default function App() {
           : 'attacks only',
       },
     };
-  }, [stats, targetStats, build, enemyModule, enemyPlan]);
+  }, [stats, targetStats, build, enemyModule, enemyPlan, viDuelCombo]);
 
   /** Why there is no duel at all, when there is none. */
   const duelBlocked = useMemo(() => {
@@ -1105,6 +1117,111 @@ export default function App() {
     });
   }, [baseStats, build, effectiveTarget, itemById, moduleCtx, solverActions]);
 
+  /**
+   * Search for a continuation, against the fight she is actually in.
+   *
+   * The typed opening is kept — it is the user's plan — and what follows is chosen
+   * by the solver using the duel's own runner, so the search sees her health
+   * falling. Without that, a plan optimised for a target that stands still is
+   * exactly the plan that gets her killed by the second half of it.
+   */
+  const onSolveDuel = useCallback((): { killTime: number | null; presses: number } => {
+    const enemyChampion = bundle?.champions[build.targetChampionId];
+    if (!baseStats || !stats || !targetStats || !enemyChampion || !duelOutcome) {
+      return { killTime: null, presses: 0 };
+    }
+
+    const inputs: DuelInputs = {
+      vi: {
+        championId: build.championId,
+        name: VI_MODULE.displayName,
+        level: build.level,
+        baseStats,
+        stats,
+        bonusStats,
+        ranks,
+        itemIds: activeItemIds(build),
+        runeIds: activeRuneIds(build),
+        shardIds: activeShardIds(build),
+        summonerIds: activeSummonerIds(build),
+        manualStats: build.manualStats,
+        healthPercent: build.attackerHealthPercent,
+        combo: build.combo,
+        module: VI_MODULE,
+        moduleCtx,
+      },
+      enemy: {
+        championId: build.targetChampionId,
+        name: enemyChampion.name,
+        level: build.target.level,
+        baseStats: enemyChampion.stats,
+        stats: targetStats,
+        bonusStats: targetBonusStats,
+        ranks: enemyRanks,
+        itemIds: activeItemIds(build.targetLoadout),
+        runeIds: activeRuneIds(build.targetLoadout),
+        shardIds: activeShardIds(build.targetLoadout),
+        summonerIds: activeSummonerIds(build.targetLoadout),
+        manualStats: {},
+        healthPercent: build.target.currentHealthPercent,
+        combo: enemyPlan,
+        module: enemyModule ?? genericModule(build.targetChampionId, enemyChampion.name),
+        moduleCtx: {
+          detail: enemyData.detail,
+          spellById: enemyData.spellById,
+          gameData: enemyData.gameData,
+        },
+      },
+      timings: build.timings,
+      critMode: build.critMode,
+      situation: {
+        flatDamageReduction: build.target.flatDamageReduction,
+        percentDamageReduction: build.target.percentDamageReduction,
+      },
+    };
+
+    /*
+     * What is arriving at her, from the duel as it stands. One iteration behind by
+     * construction — the enemy's damage depends on how long they live, which is
+     * what the search is deciding — and that is the same fixed point the driver
+     * itself relies on.
+     */
+    const incoming = duelOutcome.b.instances
+      .filter((instance) => instance.mitigated > 0)
+      .map((instance) => ({
+        time: instance.time,
+        amount: instance.mitigated,
+        label: `${enemyChampion.name}: ${instance.sourceLabel}`,
+      }));
+
+    const found = solveFastestKill({
+      actions: solverActions,
+      startingHealth: targetStats.maxHealth * build.target.currentHealthPercent,
+      run: viSolverRunner(inputs, incoming),
+      prefix: build.combo,
+    });
+
+    if (!found.best) return { killTime: null, presses: 0 };
+    setDuelPlan({ steps: found.best.steps, killTime: found.best.killTime ?? 0 });
+    return { killTime: found.best.killTime, presses: found.best.steps.length };
+  }, [
+    bundle,
+    baseStats,
+    stats,
+    bonusStats,
+    ranks,
+    build,
+    targetStats,
+    targetBonusStats,
+    moduleCtx,
+    enemyModule,
+    enemyRanks,
+    enemyData,
+    enemyPlan,
+    solverActions,
+    duelOutcome,
+  ]);
+
   const summonerChips = useMemo(
     () =>
       activeSummonerIds(build)
@@ -1348,6 +1465,9 @@ export default function App() {
             duelEnemyGap={duelEnemyGap}
             duelSides={duelSides}
             duelBlocked={duelBlocked}
+            duelPlanned={duelPlan !== null}
+            onSolveDuel={onSolveDuel}
+            onResetDuelPlan={() => setDuelPlan(null)}
             target={effectiveTarget}
             moment={moment}
             playState={playing ? 'running' : playhead !== null ? 'paused' : 'idle'}

@@ -61,6 +61,12 @@ interface Props {
   };
   /** Why there is no duel, when there is none. */
   duelBlocked?: string | null;
+  /** True when the duel is running a searched continuation rather than the repeat. */
+  duelPlanned?: boolean;
+  /** Search for a continuation against the duel's own conditions. */
+  onSolveDuel?: () => { killTime: number | null; presses: number };
+  /** Back to repeating what was typed. */
+  onResetDuelPlan?: () => void;
   target: TargetConfig;
   /** The attacker, for the bars that face the target. */
   attackerName: string;
@@ -247,6 +253,9 @@ export function AnalysisPanel({
   duelEnemyGap,
   duelSides,
   duelBlocked,
+  duelPlanned,
+  onSolveDuel,
+  onResetDuelPlan,
   target,
   attackerName,
   module,
@@ -569,6 +578,9 @@ export function AnalysisPanel({
             enemyGap={duelEnemyGap ?? null}
             sides={duelSides}
             blocked={duelBlocked ?? null}
+            planned={duelPlanned ?? false}
+            onSolve={onSolveDuel}
+            onReset={onResetDuelPlan}
           />
         )}
 

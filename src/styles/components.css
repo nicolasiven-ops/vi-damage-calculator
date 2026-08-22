@@ -3754,3 +3754,22 @@ code {
   color: var(--text-muted);
   letter-spacing: 0.08em;
 }
+
+/*
+ * Replanning, above the verdict.
+ *
+ * It belongs at the top of the duel rather than at the bottom: it changes what the
+ * chart under it means, and a control that rewrites the answer should not be read
+ * after the answer.
+ */
+.duel-plan {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.duel-plan-note {
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
