@@ -146,6 +146,36 @@ export function runDuel(inputs: DuelInputs): DuelOutcome | null {
 }
 
 /**
+ * What a champion with a kit does: press everything, attack in between, repeat.
+ *
+ * Not a policy with any judgement in it — a real jungler holds the ultimate, waits
+ * for the dash, saves the slow. This one presses in slot order and swings while it
+ * waits, and the engine refuses whatever is on cooldown by name, so the timeline
+ * shows what was actually available rather than pretending the plan worked.
+ *
+ * It is the right shape for a floor: a champion pressing everything as soon as it
+ * comes up is the most damage their kit can produce standing still, and standing
+ * still is all this model has.
+ */
+export function rotationPlan(
+  slots: AbilitySlot[],
+  seconds: number,
+  uid: (index: number) => string,
+): ComboStep[] {
+  const steps: ComboStep[] = [];
+  const rounds = Math.max(1, Math.ceil(seconds / Math.max(1, slots.length + 1)));
+  let index = 0;
+  for (let round = 0; round < rounds; round += 1) {
+    for (const slot of slots) {
+      steps.push({ uid: uid(index++), action: { kind: 'ability', slot } });
+      steps.push({ uid: uid(index++), action: { kind: 'attack' } });
+    }
+    if (slots.length === 0) steps.push({ uid: uid(index++), action: { kind: 'attack' } });
+  }
+  return steps;
+}
+
+/**
  * What an unmodelled champion does: attack, as fast as it can, for as long as the
  * fight can last.
  *

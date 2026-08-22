@@ -14,7 +14,9 @@ import {
   withPublishedGrowth,
 } from './model/stats';
 import { prepareRun, resolveBonusStats, runBuild } from './state/runBuild';
-import { attackPlan, runDuel, type DuelCombatant } from './state/runDuel';
+import { attackPlan, rotationPlan, runDuel, type DuelCombatant } from './state/runDuel';
+import { JUNGLER_MODULES } from './model/champions/junglers';
+import { DEFAULT_ORDER } from './model/skills';
 import { genericModule } from './model/champions/generic';
 import { clearSkill, resolveSkills, skillDown, skillUp } from './model/skills';
 import { itemValues, type ItemValueRow } from './model/itemValue';
@@ -185,6 +187,21 @@ export default function App() {
     bundle?.locale ?? DEFAULT_LOCALE,
     build.championId,
     false,
+  );
+
+  /**
+   * The enemy's own Riot data, when they are a champion.
+   *
+   * A declared kit reads its damage out of that champion's bin at run time, so the
+   * duel needs the target's file the same way it needs Vi's. It is fetched only in
+   * champion mode and cached like every other patch file, so a typed target costs
+   * nothing.
+   */
+  const enemyData = useChampionDetail(
+    bundle?.version ?? null,
+    bundle?.locale ?? DEFAULT_LOCALE,
+    build.targetMode === 'champion' ? build.targetChampionId : '',
+    bundle?.offline ?? true,
   );
 
   /* Portrait and ability names for the target, when it follows a champion. */
@@ -370,22 +387,44 @@ export default function App() {
    * duel cannot disagree with the analysis beside it. See `state/runDuel.ts` for
    * what it does and does not claim; the short version is that nobody moves.
    */
-  const enemyPlan = useMemo(
-    () => attackPlan(15, (index) => `enemy-${index}`),
-    [],
+  /**
+   * The enemy's kit, if anybody has modelled it.
+   *
+   * Vi is written by hand; the ten most-played Emerald+ junglers are declared from
+   * Riot's own formulas; everyone else fights with attacks, items and runes.
+   */
+  const enemyModule = useMemo(() => {
+    const id = build.targetChampionId;
+    if (id === VI_MODULE.championId) return VI_MODULE;
+    return JUNGLER_MODULES[id] ?? null;
+  }, [build.targetChampionId]);
+
+  /**
+   * The enemy's ability ranks.
+   *
+   * Nothing in the interface sets them yet, so they come from the same typical
+   * order Vi's own default uses, resolved at the target's level — a Q-max build,
+   * which is what most of these champions do.
+   */
+  const enemyRanks = useMemo(
+    () =>
+      resolveSkills(DEFAULT_ORDER, build.target.level, { Q: 5, W: 5, E: 5, R: 3 }).ranks,
+    [build.target.level],
   );
+
+  const enemyPlan = useMemo(() => {
+    const slots = (enemyModule?.abilities ?? [])
+      .filter((ability) => ability.castable && (enemyRanks[ability.slot] ?? 0) > 0)
+      .map((ability) => ability.slot);
+    return slots.length > 0
+      ? rotationPlan(slots, 15, (index) => `enemy-${index}`)
+      : attackPlan(15, (index) => `enemy-${index}`);
+  }, [enemyModule, enemyRanks]);
 
   const duelOutcome = useMemo(() => {
     const enemyChampion = bundle?.champions[build.targetChampionId];
     if (!baseStats || !stats || !targetStats || !enemyChampion) return null;
     if (build.targetMode !== 'champion') return null;
-
-    /*
-     * A champion nobody has modelled fights with attacks, items and runes. Vi is
-     * the only one with a kit in here, so a mirror is the only duel where both
-     * sides use everything they have.
-     */
-    const enemyIsModelled = build.targetChampionId === VI_MODULE.championId;
 
     const vi: DuelCombatant = {
       championId: build.championId,
@@ -413,8 +452,7 @@ export default function App() {
       baseStats: enemyChampion.stats,
       stats: targetStats,
       bonusStats: targetBonusStats,
-      /* Their own ranks are not editable yet; a mirror gets Vi's. */
-      ranks: enemyIsModelled ? ranks : { P: 0, Q: 0, W: 0, E: 0, R: 0 },
+      ranks: enemyRanks,
       itemIds: activeItemIds(build.targetLoadout),
       runeIds: activeRuneIds(build.targetLoadout),
       shardIds: activeShardIds(build.targetLoadout),
@@ -422,8 +460,12 @@ export default function App() {
       manualStats: {},
       healthPercent: build.target.currentHealthPercent,
       combo: enemyPlan,
-      module: enemyIsModelled ? VI_MODULE : genericModule(build.targetChampionId, enemyChampion.name),
-      moduleCtx: enemyIsModelled ? moduleCtx : { detail: null, spellById: {}, gameData: null },
+      module: enemyModule ?? genericModule(build.targetChampionId, enemyChampion.name),
+      moduleCtx: {
+        detail: enemyData.detail,
+        spellById: enemyData.spellById,
+        gameData: enemyData.gameData,
+      },
     };
 
     return runDuel({
@@ -446,16 +488,32 @@ export default function App() {
     targetStats,
     targetBonusStats,
     moduleCtx,
+    enemyModule,
+    enemyRanks,
+    enemyData,
     enemyPlan,
   ]);
 
   /** What the enemy's champion cannot contribute, when nobody has modelled it. */
   const duelEnemyGap = useMemo(() => {
-    if (build.targetMode !== 'champion') return 'Only a champion can fight back — a typed target has no attacks.';
-    if (build.targetChampionId === VI_MODULE.championId) return null;
+    if (build.targetMode !== 'champion') {
+      return 'Only a champion can fight back — a typed target has no attacks.';
+    }
     const name = bundle?.champions[build.targetChampionId]?.name ?? 'the target';
-    return `${name} fights with basic attacks, items and runes only — nobody has modelled the kit, so every ability is missing.`;
-  }, [build.targetMode, build.targetChampionId, bundle]);
+    if (!enemyModule) {
+      return `${name} fights with basic attacks, items and runes only — nobody has modelled the kit, so every ability is missing.`;
+    }
+    if (enemyModule.championId === VI_MODULE.championId) return null;
+    /*
+     * A declared kit is real damage from Riot's own formulas, and still only the
+     * part a declaration reaches. The champion's own notes say which part, and the
+     * count is the honest headline.
+     */
+    const missing = new Set(
+      enemyModule.abilities.flatMap((ability) => ability.modelNotes),
+    );
+    return `${name}: ${enemyModule.abilities.length} abilities modelled from Riot's own formulas, with ${missing.size} stated omissions — see the champion's notes.`;
+  }, [build.targetMode, build.targetChampionId, bundle, enemyModule]);
 
   const analysis = useMemo(() => {
     if (!baseStats || !stats) return null;
