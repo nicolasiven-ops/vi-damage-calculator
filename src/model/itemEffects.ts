@@ -21,9 +21,19 @@ import { BURN_ITEMS } from './items/burn';
 import { CRIT_ITEMS } from './items/crit';
 import { ONHIT_ITEMS } from './items/onhit';
 import { PENETRATION_ITEMS } from './items/penetration';
+import { ACTIVE_ITEMS } from './items/actives';
 import { DERIVED_ITEMS } from './items/derived';
 import { RIDER_ITEMS } from './items/riders';
 import type { HitInfo } from './runes';
+
+export interface ItemActiveResult {
+  /** Seconds the press costs before the next step may start. */
+  castSeconds: number;
+  /** What to write on the timeline. */
+  label: string;
+  /** Why it is worth a line: "100 (+10% AP) magic damage", "8 s of empowered mana". */
+  detail?: string;
+}
 
 export interface ItemAttackRider {
   amount: number;
@@ -52,6 +62,16 @@ export interface ItemRuntime {
    * so single-use effects may consume themselves here.
    */
   onBasicAttack?(ctx: SimContext): ItemAttackRider | null;
+  /**
+   * The item's button, pressed as a combo step.
+   *
+   * Returns what pressing it cost in time, so the step occupies the clock like a
+   * cast does — a Rocketbelt dash is not free, and a combo that pretends it is
+   * would fit an attack into a window that does not exist. Return null to refuse
+   * the press (still on cooldown), and the engine will say so rather than
+   * silently dropping the step.
+   */
+  onActive?(ctx: SimContext): ItemActiveResult | null;
 }
 
 /**
@@ -450,6 +470,7 @@ const ALL: ItemEffect[] = [
   ...BRUISER_ITEMS,
   ...RIDER_ITEMS,
   ...DERIVED_ITEMS,
+  ...ACTIVE_ITEMS,
 ];
 
 const BY_ID = new Map<string, ItemEffect>(ALL.map((effect) => [effect.id, effect]));

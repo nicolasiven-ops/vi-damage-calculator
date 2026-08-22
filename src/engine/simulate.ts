@@ -1381,6 +1381,51 @@ export function simulate(
     if (championRuntime.attacksOnCast?.(slot)) performAttack();
   }
 
+  /**
+   * Press an item's button.
+   *
+   * The runtime for an item is created once per simulation and kept in `items`,
+   * so the active shares state with the passive — which is what a cooldown needs
+   * to be a cooldown. Pressing something the build does not own, or something
+   * with no button, is a mistake worth naming rather than a step to drop
+   * quietly: a combo that silently loses a step reports a smaller number for a
+   * reason nobody can see.
+   */
+  function castItemActive(itemId: string): void {
+    const owned = items.find((entry) => entry.id === itemId);
+    const effect = getItemEffect(itemId);
+
+    if (!owned || !effect) {
+      ctx.warn(
+        effect
+          ? `${effect.name} is not in the build — step skipped.`
+          : 'That item is not modelled — step skipped.',
+      );
+      return;
+    }
+    if (!owned.runtime.onActive) {
+      ctx.warn(`${effect.name} has no active this calculator models — step skipped.`);
+      return;
+    }
+
+    const start = time;
+    const result = owned.runtime.onActive(ctx);
+    if (!result) {
+      ctx.warn(`${effect.name} is still on cooldown — step skipped.`);
+      return;
+    }
+
+    advance(input.timings.inputDelay + result.castSeconds);
+    addSpan({
+      lane: 'summoner',
+      kind: 'cast',
+      start,
+      end: time,
+      label: result.label,
+      ...(result.detail ? { detail: result.detail } : {}),
+    });
+  }
+
   function castSummoner(summonerId: string): void {
     const stats = currentStats();
     if (summonerId === IGNITE.id) {
@@ -1524,12 +1569,7 @@ export function simulate(
         castSummoner(step.action.summonerId);
         break;
       case 'item': {
-        const effect = getItemEffect(step.action.itemId);
-        ctx.warn(
-          effect
-            ? `Item active ${effect.name} is only modelled as a passive — step skipped.`
-            : 'Item actives are not modelled yet — step skipped.',
-        );
+        castItemActive(step.action.itemId);
         break;
       }
     }

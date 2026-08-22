@@ -145,10 +145,7 @@ const NO_DAMAGE: Record<string, string> = {
 const BLOCKED: Record<string, { mechanic: ItemMechanic; why: string }> = {
   '2501': { mechanic: 'needs-own-health', why: "Overlord's Bloodmail: Tyranny is modelled; Retribution ramps to +12% attack damage below 70% of the attacker's own health." },
   '2512': { mechanic: 'crit-modifier', why: "Fiendhunter Bolts: after the ultimate, three attacks crit at 80% of normal crit damage, or add 15% true damage if they would have crit anyway." },
-  '2522': { mechanic: 'active', why: "Actualizer: Mana Made Real is an active that raises ability damage for 8 s." },
   '3053': { mechanic: 'needs-own-health', why: "Sterak's Gage: the attack damage is modelled; the Lifeline shield needs the attacker's own health." },
-  '3146': { mechanic: 'active', why: "Hextech Gunblade: the damage is on the Lightning Bolt active." },
-  '3152': { mechanic: 'active', why: "Hextech Rocketbelt: 100 (+10% AP) magic damage on the Supersonic active." },
 };
 /**
  * The verdicts.
