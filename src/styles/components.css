@@ -3453,3 +3453,60 @@ code {
   color: var(--status-bad);
   text-align: right;
 }
+
+/*
+ * The overview page, as the game draws it.
+ *
+ * Two columns of icon-and-number, which is the shape a League player already
+ * knows: the same eight stats in the same order as the box in the client, so the
+ * app and the game can be held next to each other. The name lives in the tooltip,
+ * because the glyph is the label — that is what makes it readable at this size.
+ */
+.stat-sheet.is-hud {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--line-soft);
+}
+
+.hud-stat {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px var(--space-3);
+  min-height: 34px;
+  background: var(--surface-1);
+}
+
+.hud-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  opacity: 0.9;
+}
+
+.hud-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0.01em;
+}
+
+/* Same job as `.stat-delta`: what the last step did to this number. */
+.hud-delta {
+  margin-left: auto;
+  font-size: 9.5px;
+  letter-spacing: 0;
+}
+
+.hud-delta.up {
+  color: var(--status-good);
+}
+
+.hud-delta.down {
+  color: var(--status-bad);
+}
+
+.hud-stat.is-changed {
+  background: var(--surface-2);
+}

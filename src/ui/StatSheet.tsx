@@ -127,6 +127,50 @@ export function unknownStats(overrides: Partial<ChampionStats>): ChampionStats {
   };
 }
 
+/**
+ * One glyph per HUD stat, in the game's own vocabulary.
+ *
+ * Drawn rather than fetched: Riot publishes no HUD stat icons through any mirror,
+ * and eight inline paths theme themselves and cannot fail to load. Each is a
+ * 16×16 view box so they line up whatever the row height is.
+ */
+const ICONS: Record<string, JSX.Element> = {
+  // A sword, point up.
+  ad: (
+    <path d="M8 1.5 10 4v6.5H6V4L8 1.5Zm-2.4 10.5h4.8l-1.2 2.5H6.8l-1.2-2.5Z" />
+  ),
+  // A staff with a head on it.
+  ap: (
+    <path d="M11 2a2.2 2.2 0 1 1-1.7 3.6l-5 8.2-1.5-.9 5-8.2A2.2 2.2 0 0 1 11 2Z" />
+  ),
+  // A shield.
+  armor: <path d="M8 1.5 13.5 3v5.2c0 3-2.3 5.4-5.5 6.3-3.2-.9-5.5-3.3-5.5-6.3V3L8 1.5Z" />,
+  // A shield with a ring, the way magic resistance is drawn.
+  mr: (
+    <path d="M8 1.5 13.5 3v5.2c0 3-2.3 5.4-5.5 6.3-3.2-.9-5.5-3.3-5.5-6.3V3L8 1.5Zm0 3.2a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8Zm0 1.6a1.8 1.8 0 1 1 0 3.6 1.8 1.8 0 0 1 0-3.6Z" />
+  ),
+  // A clock hand sweeping: how often, not how hard.
+  attackSpeed: (
+    <path d="M8 1.6a6.4 6.4 0 1 0 6.3 7.5l-1.7-.3A4.7 4.7 0 1 1 8 3.3v2.3l3.4-2.6L8 .4v1.2Zm.8 3.1v3.6l2.8 1.7.8-1.3-2.2-1.3V4.7H8.8Z" />
+  ),
+  // An hourglass: what haste shortens.
+  haste: (
+    <path d="M4 1.6h8v1.2l-2.8 3.2 2.8 3.2v1.2H4V9.2l2.8-3.2L4 2.8V1.6Zm0 11.2h8v1.6H4v-1.6Z" />
+  ),
+  // A four-pointed spark.
+  crit: <path d="M8 .8 9.4 6 14 8l-4.6 2L8 15.2 6.6 10 2 8l4.6-2L8 .8Z" />,
+  // A boot.
+  moveSpeed: (
+    <path d="M3 3.2h3.2l.6 3.4 4.4 1.9c1.2.5 1.9 1.6 1.9 2.9v1.4H3V3.2Z" />
+  ),
+};
+
+/** Which glyph and which colour a row wears. Rows without one get neither. */
+interface HudLook {
+  icon: keyof typeof ICONS;
+  tone: string;
+}
+
 export function StatSheet({ stats, live, previous }: Props) {
   const [page, setPage] = useState<PageId>('overview');
   const now = { stats, live: live ?? {} };
@@ -151,23 +195,54 @@ export function StatSheet({ stats, live, previous }: Props) {
       <div className="stat-stack">
         {PAGES.map((entry) => (
           <div
-            className="stat-sheet"
+            className={`stat-sheet${entry.id === 'overview' ? ' is-hud' : ''}`}
             key={entry.id}
             role="tabpanel"
             aria-hidden={page !== entry.id}
             data-active={page === entry.id}
           >
-            {buildRows(entry.id, now, previous ?? null).map((row) => (
-              <div className={`stat-row${row.delta ? ' is-changed' : ''}`} key={row.label}>
-                <span className="stat-label">{row.label}</span>
-                {row.delta && (
-                  <span className={`stat-delta mono ${row.delta.direction}`}>
-                    {row.delta.direction === 'up' ? '▲' : '▼'} {row.delta.text}
-                  </span>
-                )}
-                <span className="stat-value mono">{row.value}</span>
-              </div>
-            ))}
+            {entry.id === 'overview'
+              ? /*
+                 * The game's own box: two columns, a glyph where the label was.
+                 * The eight stats here are the eight the HUD shows, in the HUD's
+                 * order, so the app can be held up next to the client and read
+                 * without translating.
+                 */
+                buildRows(entry.id, now, previous ?? null).map((row) => (
+                  <div
+                    className={`hud-stat${row.delta ? ' is-changed' : ''}`}
+                    key={row.label}
+                    title={row.title ?? row.label}
+                  >
+                    {row.look && (
+                      <svg
+                        className="hud-icon"
+                        viewBox="0 0 16 16"
+                        aria-hidden="true"
+                        style={{ fill: row.look.tone }}
+                      >
+                        {ICONS[row.look.icon]}
+                      </svg>
+                    )}
+                    <span className="hud-value mono">{row.value}</span>
+                    {row.delta && (
+                      <span className={`hud-delta mono ${row.delta.direction}`}>
+                        {row.delta.direction === 'up' ? '▲' : '▼'} {row.delta.text}
+                      </span>
+                    )}
+                  </div>
+                ))
+              : buildRows(entry.id, now, previous ?? null).map((row) => (
+                  <div className={`stat-row${row.delta ? ' is-changed' : ''}`} key={row.label}>
+                    <span className="stat-label">{row.label}</span>
+                    {row.delta && (
+                      <span className={`stat-delta mono ${row.delta.direction}`}>
+                        {row.delta.direction === 'up' ? '▲' : '▼'} {row.delta.text}
+                      </span>
+                    )}
+                    <span className="stat-value mono">{row.value}</span>
+                  </div>
+                ))}
           </div>
         ))}
       </div>
@@ -185,6 +260,10 @@ interface Row {
   label: string;
   value: string;
   delta?: { direction: 'up' | 'down'; text: string };
+  /** Set on the HUD page, where an icon stands in for the label. */
+  look?: HudLook;
+  /** What the icon cannot say: the name, and the split behind the number. */
+  title?: string;
 }
 
 type Reading = { stats: ChampionStats; live: LiveStats };
@@ -207,6 +286,7 @@ function buildRows(page: PageId, now: Reading, previous: StatComparison | null):
     pick: Pick,
     format: (value: number) => string = int,
     display?: (value: number) => string,
+    extra?: { look?: HudLook; title?: string },
   ): Row {
     const value = pick(now);
     const past = before ? pick(before) : Number.NaN;
@@ -217,6 +297,8 @@ function buildRows(page: PageId, now: Reading, previous: StatComparison | null):
       delta: moved
         ? { direction: value > past ? 'up' : 'down', text: format(Math.abs(value - past)) }
         : undefined,
+      ...(extra?.look ? { look: extra.look } : {}),
+      ...(extra?.title ? { title: extra.title } : {}),
     };
   }
 
@@ -229,23 +311,59 @@ function buildRows(page: PageId, now: Reading, previous: StatComparison | null):
   const armorPick: Pick = (r) => r.live.armor ?? r.stats.armor;
   const mrPick: Pick = (r) => r.live.magicResist ?? r.stats.magicResist;
 
-  const attackDamage = row('Attack Damage', (r) => r.stats.totalAttackDamage);
-  const abilityPower = row('Ability Power', (r) => r.stats.abilityPower);
+  /*
+   * The tooltip carries the split the game shows when you hover the number —
+   * "94 base + 120 bonus" — which is the form the two can be compared in. The
+   * base half is the one that went wrong for a year: Data Dragon publishes no
+   * attack-damage growth, so it sat at its level 1 value.
+   */
+  const attackDamage = row(
+    'Attack Damage',
+    (r) => r.stats.totalAttackDamage,
+    int,
+    undefined,
+    {
+      look: { icon: 'ad', tone: 'var(--ad-tone, #f0a659)' },
+      title: known(stats.baseAttackDamage)
+        ? `Attack Damage · ${int(stats.baseAttackDamage)} base + ${int(stats.bonusAttackDamage)} bonus`
+        : 'Attack Damage',
+    },
+  );
+  const abilityPower = row('Ability Power', (r) => r.stats.abilityPower, int, undefined, {
+    look: { icon: 'ap', tone: 'var(--ap-tone, #8f7bf5)' },
+  });
   // No footnote about shred or penetration: the value is what the target has
   // right now, the arrow says it moved, and the timeline says what moved it.
-  const armor = row('Armor', armorPick, flex);
-  const magicResist = row('Magic Resistance', mrPick, flex);
-  const attackSpeed = row('Attack Speed', (r) => r.stats.totalAttackSpeed, three);
-  const abilityHaste = row('Ability Haste', (r) => r.stats.abilityHaste);
+  const armor = row('Armor', armorPick, flex, undefined, {
+    look: { icon: 'armor', tone: 'var(--armor-tone, #e0c060)' },
+  });
+  const magicResist = row('Magic Resistance', mrPick, flex, undefined, {
+    look: { icon: 'mr', tone: 'var(--mr-tone, #5fd0c8)' },
+  });
+  const attackSpeed = row('Attack Speed', (r) => r.stats.totalAttackSpeed, three, undefined, {
+    look: { icon: 'attackSpeed', tone: 'var(--as-tone, #d9e05f)' },
+  });
+  const abilityHaste = row('Ability Haste', (r) => r.stats.abilityHaste, int, undefined, {
+    look: { icon: 'haste', tone: 'var(--haste-tone, #7fb6f5)' },
+  });
   /*
    * Both halves in the value, in the order they are bought: how often, then how
    * hard. A multiplier on its own line read as a footnote to the chance, when it
    * is the other half of the same stat.
    */
-  const crit = row('Critical Strike', (r) => r.stats.critChance, pct, (value) =>
-    known(stats.critMultiplier) ? `${pct(value)} / ×${stats.critMultiplier.toFixed(2)}` : pct(value),
+  const crit = row(
+    'Critical Strike',
+    (r) => r.stats.critChance,
+    pct,
+    (value) =>
+      known(stats.critMultiplier)
+        ? `${pct(value)} / ×${stats.critMultiplier.toFixed(2)}`
+        : pct(value),
+    { look: { icon: 'crit', tone: 'var(--crit-tone, #f06868)' } },
   );
-  const moveSpeed = row('Move Speed', (r) => r.stats.moveSpeed);
+  const moveSpeed = row('Move Speed', (r) => r.stats.moveSpeed, int, undefined, {
+    look: { icon: 'moveSpeed', tone: 'var(--ms-tone, #b9c6d8)' },
+  });
   const health = row('Health', (r) => r.live.currentHealth ?? r.stats.maxHealth, int, (value) =>
     live.currentHealth !== undefined ? `${int(value)} / ${int(stats.maxHealth)}` : int(value),
   );
