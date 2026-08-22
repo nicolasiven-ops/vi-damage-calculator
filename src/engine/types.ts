@@ -325,6 +325,22 @@ export interface AttackerConfig {
 
 export type CritMode = 'expected' | 'always' | 'never';
 
+/**
+ * Damage arriving at the attacker, already through their resistances.
+ *
+ * Already mitigated because it comes from the other side's own run, where this
+ * champion *was* the target — so the armour and magic resistance have been
+ * applied once, by the same function, and applying them again here would be the
+ * same lie twice.
+ */
+export interface IncomingHit {
+  /** Seconds since this run's own start. */
+  time: number;
+  amount: number;
+  /** Who hit us, for the log and the timeline. */
+  label: string;
+}
+
 export interface SimulationInput {
   attacker: AttackerConfig;
   /** Champion base stats straight from Data Dragon, for recomputing buffs. */
@@ -337,6 +353,13 @@ export interface SimulationInput {
   combo: ComboStep[];
   timings: TimingConfig;
   critMode: CritMode;
+  /**
+   * What the other side is doing to us, if anything.
+   *
+   * Absent for every ordinary run, which is the app's default question: what does
+   * this combo do to a target that does not fight back. Present in a duel.
+   */
+  incoming?: IncomingHit[];
 }
 
 /**
@@ -444,6 +467,17 @@ export interface SimulationResult {
   targetHpRemaining: number;
   /** Shield Vi gained over the combo. */
   shieldGained: number;
+  /**
+   * The attacker's own health at the end, and what happened to it.
+   *
+   * Only interesting when something was incoming: without it, `attackerHpRemaining`
+   * is just the health the build started with.
+   */
+  attackerHpRemaining: number;
+  /** Incoming damage a shield ate before it reached health. */
+  shieldAbsorbed: number;
+  /** When the attacker's own health would hit zero, if it does. */
+  attackerDeathTime: number | null;
   /** Health Vi recovered from lifesteal/omnivamp. */
   healingDone: number;
   warnings: string[];

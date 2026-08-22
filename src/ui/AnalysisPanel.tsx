@@ -33,6 +33,8 @@ import { HitFormulas } from './HitFormulas';
 import type { FightMoment } from './moment';
 import { DamageChart } from './DamageChart';
 import { DpsChart } from './DpsChart';
+import { DuelPanel } from './DuelPanel';
+import type { DuelOutcome } from '../engine/duel';
 import { ItemValuePanel } from './ItemValuePanel';
 import { StatValuePanel } from './StatValuePanel';
 import { StatGoldPanel } from './StatGoldPanel';
@@ -45,6 +47,13 @@ import { Panel } from './components/Panel';
 
 interface Props {
   analysis: ComboAnalysis;
+  /**
+   * The same build, with the other side fighting back. Null until there is enough
+   * to fight with — no champion data, no duel.
+   */
+  duel?: DuelOutcome | null;
+  /** What the enemy's champion does not contribute, when nobody has modelled it. */
+  duelEnemyGap?: string | null;
   target: TargetConfig;
   /** The attacker, for the bars that face the target. */
   attackerName: string;
@@ -157,7 +166,7 @@ type ResultView = 'timeline' | 'details' | 'detailed' | 'sources' | 'formulas';
  * one panel's height. Stacked they cost the whole screen; as tabs each one gets
  * room to be read.
  */
-type ShapeView = 'total' | 'gantt' | 'burst';
+type ShapeView = 'total' | 'gantt' | 'burst' | 'duel';
 
 /**
  * The ledger's three readings: what the gold did, what it would do, what you did.
@@ -194,6 +203,12 @@ const SHAPE_TITLES: Record<ShapeView, string> = {
   total: 'Total',
   gantt: 'Gantt',
   burst: 'Burst',
+  /*
+   * The only view where the other side acts. It sits with the other three because
+   * it is the same fight read once more — they answer what Vi did, this answers
+   * what it cost her.
+   */
+  duel: 'Duel',
 };
 
 /**
@@ -221,6 +236,8 @@ const STATUS_TAGS: Record<GameDataStatus['state'], { label: string; tone: string
 
 export function AnalysisPanel({
   analysis,
+  duel,
+  duelEnemyGap,
   target,
   attackerName,
   module,
@@ -339,7 +356,7 @@ export function AnalysisPanel({
         center={
           <div className="view-tabs">
             {/* Burst first, because it is the default: the open tab is the left one. */}
-            {(['burst', 'total', 'gantt'] as ShapeView[]).map((entry) => (
+            {(['burst', 'total', 'gantt', 'duel'] as ShapeView[]).map((entry) => (
               <button
                 key={entry}
                 className={`view-tab${shape === entry ? ' is-active' : ''}`}
@@ -532,6 +549,15 @@ export function AnalysisPanel({
             linkedStepUid={linkedStepUid}
             pinnedStepUid={pinnedStepUid}
             onPinStep={onPinStep}
+          />
+        )}
+
+        {shape === 'duel' && (
+          <DuelPanel
+            outcome={duel ?? null}
+            viName={attackerName}
+            enemyName={target.name}
+            enemyGap={duelEnemyGap ?? null}
           />
         )}
 

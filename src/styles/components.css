@@ -3581,3 +3581,133 @@ code {
   display: grid;
   gap: var(--space-3);
 }
+
+/* ------------------------------------------------------------------- the duel */
+
+.duel {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.duel-empty {
+  margin: 0;
+  padding: var(--space-4);
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.duel-verdict {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.duel-winner {
+  font-family: var(--font-display);
+  font-size: 20px;
+  color: var(--status-good);
+  letter-spacing: 0.02em;
+}
+
+.duel-winner.draw {
+  color: var(--gold-100);
+}
+
+.duel-margin {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.duel-when {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.duel-chart {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.duel-grid {
+  stroke: var(--line-soft);
+  stroke-width: 1;
+}
+
+.duel-tick,
+.duel-axis {
+  fill: var(--text-muted);
+  font-size: 9.5px;
+  text-anchor: end;
+}
+
+.duel-axis {
+  text-anchor: start;
+}
+
+/*
+ * Two lines, and which is which has to be readable without the legend: Vi is the
+ * app's own gold, the enemy is the red every target bar in here already uses.
+ */
+.duel-line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.duel-line.vi {
+  stroke: var(--gold-300);
+}
+
+.duel-line.enemy {
+  stroke: var(--status-bad);
+}
+
+.duel-end {
+  stroke: var(--text-muted);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.duel-legend {
+  display: flex;
+  gap: var(--space-4);
+  font-size: 11px;
+}
+
+.duel-key::before {
+  content: '';
+  display: inline-block;
+  width: 10px;
+  height: 2px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.duel-key.vi::before {
+  background: var(--gold-300);
+}
+
+.duel-key.enemy::before {
+  background: var(--status-bad);
+}
+
+/*
+ * The limits, printed rather than tucked away.
+ *
+ * Nobody moves in this model and an unmodelled champion fights with attacks only.
+ * Both change what the verdict means, and a reader who does not know them is
+ * being misled by a number that is otherwise correct.
+ */
+.duel-limits {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-3);
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-void, rgba(4, 8, 16, 0.4));
+  font-size: 10.5px;
+  color: var(--text-muted);
+}

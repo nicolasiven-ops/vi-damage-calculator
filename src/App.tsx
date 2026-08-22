@@ -14,6 +14,8 @@ import {
   withPublishedGrowth,
 } from './model/stats';
 import { prepareRun, resolveBonusStats, runBuild } from './state/runBuild';
+import { attackPlan, runDuel, type DuelCombatant } from './state/runDuel';
+import { genericModule } from './model/champions/generic';
 import { clearSkill, resolveSkills, skillDown, skillUp } from './model/skills';
 import { itemValues, type ItemValueRow } from './model/itemValue';
 import { EMPTY_CHANGE_LOG, buildOf, recordChange } from './state/changeLog';
@@ -359,6 +361,101 @@ export default function App() {
       targetLoadout: { ...current.targetLoadout, ...patch },
     }));
   }, []);
+
+  /**
+   * The same fight, with the other side fighting back.
+   *
+   * Assembled from what the panels already resolved — Vi's build and the target's
+   * champion, level, items and runes — and run through the same engine twice, so a
+   * duel cannot disagree with the analysis beside it. See `state/runDuel.ts` for
+   * what it does and does not claim; the short version is that nobody moves.
+   */
+  const enemyPlan = useMemo(
+    () => attackPlan(15, (index) => `enemy-${index}`),
+    [],
+  );
+
+  const duelOutcome = useMemo(() => {
+    const enemyChampion = bundle?.champions[build.targetChampionId];
+    if (!baseStats || !stats || !targetStats || !enemyChampion) return null;
+    if (build.targetMode !== 'champion') return null;
+
+    /*
+     * A champion nobody has modelled fights with attacks, items and runes. Vi is
+     * the only one with a kit in here, so a mirror is the only duel where both
+     * sides use everything they have.
+     */
+    const enemyIsModelled = build.targetChampionId === VI_MODULE.championId;
+
+    const vi: DuelCombatant = {
+      championId: build.championId,
+      name: VI_MODULE.displayName,
+      level: build.level,
+      baseStats,
+      stats,
+      bonusStats,
+      ranks,
+      itemIds: activeItemIds(build),
+      runeIds: activeRuneIds(build),
+      shardIds: activeShardIds(build),
+      summonerIds: activeSummonerIds(build),
+      manualStats: build.manualStats,
+      healthPercent: build.attackerHealthPercent,
+      combo: build.combo,
+      module: VI_MODULE,
+      moduleCtx,
+    };
+
+    const enemy: DuelCombatant = {
+      championId: build.targetChampionId,
+      name: enemyChampion.name,
+      level: build.target.level,
+      baseStats: enemyChampion.stats,
+      stats: targetStats,
+      bonusStats: targetBonusStats,
+      /* Their own ranks are not editable yet; a mirror gets Vi's. */
+      ranks: enemyIsModelled ? ranks : { P: 0, Q: 0, W: 0, E: 0, R: 0 },
+      itemIds: activeItemIds(build.targetLoadout),
+      runeIds: activeRuneIds(build.targetLoadout),
+      shardIds: activeShardIds(build.targetLoadout),
+      summonerIds: activeSummonerIds(build.targetLoadout),
+      manualStats: {},
+      healthPercent: build.target.currentHealthPercent,
+      combo: enemyPlan,
+      module: enemyIsModelled ? VI_MODULE : genericModule(build.targetChampionId, enemyChampion.name),
+      moduleCtx: enemyIsModelled ? moduleCtx : { detail: null, spellById: {}, gameData: null },
+    };
+
+    return runDuel({
+      vi,
+      enemy,
+      timings: build.timings,
+      critMode: build.critMode,
+      situation: {
+        flatDamageReduction: build.target.flatDamageReduction,
+        percentDamageReduction: build.target.percentDamageReduction,
+      },
+    });
+  }, [
+    bundle,
+    baseStats,
+    stats,
+    bonusStats,
+    ranks,
+    build,
+    targetStats,
+    targetBonusStats,
+    moduleCtx,
+    enemyPlan,
+  ]);
+
+  /** What the enemy's champion cannot contribute, when nobody has modelled it. */
+  const duelEnemyGap = useMemo(() => {
+    if (build.targetMode !== 'champion') return 'Only a champion can fight back — a typed target has no attacks.';
+    if (build.targetChampionId === VI_MODULE.championId) return null;
+    const name = bundle?.champions[build.targetChampionId]?.name ?? 'the target';
+    return `${name} fights with basic attacks, items and runes only — nobody has modelled the kit, so every ability is missing.`;
+  }, [build.targetMode, build.targetChampionId, bundle]);
 
   const analysis = useMemo(() => {
     if (!baseStats || !stats) return null;
@@ -1126,6 +1223,8 @@ export default function App() {
         {analysis && stats ? (
           <AnalysisPanel
             analysis={analysis}
+            duel={duelOutcome}
+            duelEnemyGap={duelEnemyGap}
             target={effectiveTarget}
             moment={moment}
             playState={playing ? 'running' : playhead !== null ? 'paused' : 'idle'}

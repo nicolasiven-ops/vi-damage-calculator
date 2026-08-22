@@ -253,6 +253,21 @@ export function simulate(
   /** Crowd control on the target: label and when it ends. */
   const crowdControl: { label: string; expiresAt: number }[] = [];
   const scheduled: ScheduledEvent[] = [];
+  /**
+   * Shields with an expiry, because now something can spend them.
+   *
+   * They used to be a running total for the display — nothing damaged the
+   * attacker, so a pool would have been bookkeeping with no reader. In a duel the
+   * pool is the difference between Blast Shield mattering and being a number in a
+   * chip.
+   */
+  const shieldPool: { amount: number; until: number; label: string }[] = [];
+  /** Incoming hits already applied, so the walk stays linear as the clock moves. */
+  let incomingAt = 0;
+  let incomingTaken = 0;
+  let shieldAbsorbed = 0;
+  let attackerDeathTime: number | null = null;
+
   const cooldowns = new Map<AbilitySlot, number>();
   /**
    * Summoner spells, by id: casts left and when the next charge returns.
@@ -560,14 +575,16 @@ export function simulate(
     },
     get attackerCurrentHealth() {
       /*
-       * An input, clamped: the attacker never loses health here, so this is the
-       * fraction the player set, applied to whatever the build's maximum works
-       * out to. It is a getter rather than a constant because the maximum can
-       * move mid-combo — Sterak's own health, a temporary buff — and a lifeline
-       * reading a stale maximum would arm at the wrong moment.
+       * The health the build started with, less whatever has arrived by now.
+       *
+       * Still a getter rather than a constant, and now for two reasons: the
+       * maximum moves mid-combo (Sterak's own health, a temporary buff) and so
+       * does the damage taken. A lifeline reading either one stale would arm at
+       * the wrong moment.
        */
+      takeIncomingUpTo(time);
       const fraction = Math.min(1, Math.max(0, input.attacker.currentHealthPercent ?? 1));
-      return currentStats().maxHealth * fraction;
+      return Math.max(0, currentStats().maxHealth * fraction - incomingTaken);
     },
     rank: (slot) => input.attacker.ranks[slot] ?? 0,
 
@@ -585,6 +602,8 @@ export function simulate(
 
     grantShield({ amount, durationSeconds, label }) {
       shieldGained += amount;
+      // A pool entry as well as a chip, so incoming damage has something to eat.
+      shieldPool.push({ amount, until: time + durationSeconds, label });
       const detail = `+${amount.toFixed(0)} shield for ${durationSeconds} s`;
       addEvent({ kind: 'shield', label, detail });
       addEffectSpan(`shield:${label}`, label, detail, time + durationSeconds, 'defense');
@@ -1644,6 +1663,39 @@ export function simulate(
   const stepFates: StepFate[] = [];
   let refusedReason: string | null = null;
 
+  /**
+   * Apply everything that has arrived up to `until`, shields first.
+   *
+   * Linear rather than a re-scan: the clock only moves forward, so a cursor is
+   * enough and the cost does not grow with the length of the fight. Shields are
+   * spent oldest-first among those still up at the moment of the hit, which is
+   * the only ordering that makes an expiring shield mean anything.
+   */
+  function takeIncomingUpTo(until: number): void {
+    const hits = input.incoming;
+    if (!hits) return;
+
+    while (incomingAt < hits.length && hits[incomingAt]!.time <= until + 0.0005) {
+      const hit = hits[incomingAt]!;
+      incomingAt += 1;
+      let left = hit.amount;
+
+      for (const shield of shieldPool) {
+        if (left <= 0) break;
+        if (shield.until < hit.time || shield.amount <= 0) continue;
+        const eaten = Math.min(shield.amount, left);
+        shield.amount -= eaten;
+        left -= eaten;
+        shieldAbsorbed += eaten;
+      }
+
+      incomingTaken += left;
+      const fraction = Math.min(1, Math.max(0, input.attacker.currentHealthPercent ?? 1));
+      const pool = currentStats().maxHealth * fraction;
+      if (attackerDeathTime === null && incomingTaken >= pool) attackerDeathTime = hit.time;
+    }
+  }
+
   function refuse(reason: string): void {
     refusedReason = reason;
     ctx.warn(reason);
@@ -1772,6 +1824,20 @@ export function simulate(
     killTime: killer?.time ?? null,
     targetHpRemaining: targetCurrentHealth,
     shieldGained,
+    /*
+     * Everything that arrived, whether or not the clock reached it during a cast:
+     * the run is over, so the last word on the attacker's own health is the sum
+     * of the whole incoming list rather than wherever the cursor happened to stop.
+     */
+    ...(() => {
+      takeIncomingUpTo(Infinity);
+      const fraction = Math.min(1, Math.max(0, input.attacker.currentHealthPercent ?? 1));
+      return {
+        attackerHpRemaining: Math.max(0, currentStats().maxHealth * fraction - incomingTaken),
+        shieldAbsorbed,
+        attackerDeathTime,
+      };
+    })(),
     healingDone,
     manaSpent,
     targetRegenerated,

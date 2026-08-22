@@ -1140,3 +1140,80 @@ describe('summoner spells have a cooldown', () => {
     expect(result.stepFates[4]!.why).toContain('no charge left');
   });
 });
+
+/**
+ * Being hit back.
+ *
+ * The engine's oldest assumption was that nothing damages the attacker, and every
+ * effect that reads her own health has been reading a constant. A duel needs that
+ * loosened, and these are the four things that have to hold for the rest of the
+ * app to keep meaning what it says: health falls, shields eat what they can, an
+ * expired shield eats nothing, and a run with nothing incoming is unchanged.
+ */
+describe('incoming damage', () => {
+  const attacks = Array.from({ length: 4 }, () => step({ kind: 'attack' }));
+
+  it('takes it off the attacker own health', () => {
+    const plain = run(attacks);
+    const beaten = run(attacks, {
+      incoming: [
+        { time: 0.2, amount: 300, label: 'Ahri: Attack' },
+        { time: 0.9, amount: 200, label: 'Ahri: Attack' },
+      ],
+    });
+
+    expect(beaten.attackerHpRemaining).toBeCloseTo(plain.attackerHpRemaining - 500, 4);
+    // Nothing about the attacker's own output changed: she is not dead yet.
+    expect(beaten.totalMitigated).toBeCloseTo(plain.totalMitigated, 4);
+  });
+
+  it('lets a shield eat it first', () => {
+    /*
+     * Vi's passive shields her when an ability hits, so the Q leads and the hit
+     * lands inside the three seconds it lasts.
+     */
+    const combo = [step({ kind: 'ability', slot: 'Q' }), ...attacks];
+    const shielded = run(combo, {
+      incoming: [{ time: 2, amount: 120, label: 'Ahri: Attack' }],
+    });
+
+    expect(shielded.shieldAbsorbed).toBeGreaterThan(0);
+    // Whatever the shield ate did not reach health.
+    const reached = 120 - shielded.shieldAbsorbed;
+    const full = run(combo).attackerHpRemaining;
+    expect(shielded.attackerHpRemaining).toBeCloseTo(full - reached, 4);
+  });
+
+  it('does not let an expired shield eat anything', () => {
+    const combo = [step({ kind: 'ability', slot: 'Q' }), ...attacks];
+    // Blast Shield lasts 3 s; this arrives well after it.
+    const late = run(combo, {
+      incoming: [{ time: 9, amount: 120, label: 'Ahri: Attack' }],
+    });
+
+    expect(late.shieldAbsorbed).toBe(0);
+    expect(late.attackerHpRemaining).toBeCloseTo(run(combo).attackerHpRemaining - 120, 4);
+  });
+
+  it('names the moment the attacker would die', () => {
+    const doomed = run(attacks, {
+      incoming: [
+        { time: 0.5, amount: 5000, label: 'Ahri: Attack' },
+        { time: 1.5, amount: 5000, label: 'Ahri: Attack' },
+      ],
+    });
+
+    // The first hit is already more than the pool, so that is the moment.
+    expect(doomed.attackerDeathTime).toBeCloseTo(0.5, 6);
+    expect(doomed.attackerHpRemaining).toBe(0);
+  });
+
+  it('changes nothing at all when there is nothing incoming', () => {
+    const before = run(attacks);
+    expect(before.shieldAbsorbed).toBe(0);
+    expect(before.attackerDeathTime).toBeNull();
+    // The health she started with, which is what every earlier run reported.
+    const stats = resolveChampionStats(FIXTURE_CHAMPION_STATS, 11, emptyStats());
+    expect(before.attackerHpRemaining).toBeCloseTo(stats.maxHealth, 4);
+  });
+});
