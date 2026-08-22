@@ -32,18 +32,19 @@
  * applied to both ends of it.
  */
 
-import type { ComboStep, IncomingHit, SimulationResult } from './types';
+import type { ComboStep, IncomingHit, Interruption, SimulationResult } from './types';
 
 /** One side of the fight: how to run it, and what it has to lose. */
 export interface DuelSide {
   name: string;
   /**
-   * Runs this side's plan against the other, with whatever is arriving.
+   * Runs this side's plan against the other, with whatever is arriving and
+   * whatever is stopping them.
    *
    * A closure rather than a build, so the caller keeps ownership of how a side is
    * assembled — items, runes, champion module — and this file never learns.
    */
-  run: (incoming: IncomingHit[]) => SimulationResult | null;
+  run: (incoming: IncomingHit[], stopped: Interruption[]) => SimulationResult | null;
   /** The plan, kept only so the result can report what was pressed. */
   combo: ComboStep[];
   /** Health at the start of the fight, after the health-percent setting. */
@@ -102,6 +103,25 @@ function outgoing(result: SimulationResult, label: string): IncomingHit[] {
     .sort((first, second) => first.time - second.time);
 }
 
+/**
+ * The crowd control one run applied, as windows the other side cannot act in.
+ *
+ * Read off the timeline rather than tracked separately: the engine already records
+ * every stun, knock-up and fear as a span in the `cc` lane, because the display
+ * needed it. What the duel adds is a consequence.
+ */
+function stopsFrom(result: SimulationResult): Interruption[] {
+  return result.spans
+    /*
+     * Only the crowd control that takes an action. A slow is crowd control and
+     * belongs on the timeline, and treating it as a window of standing still
+     * invented two free seconds on every combo that carries Scorchclaw.
+     */
+    .filter((span) => span.lane === 'cc' && span.stopsActions === true && span.end > span.start)
+    .map((span) => ({ from: span.start, to: span.end, label: span.label }))
+    .sort((first, second) => first.from - second.from);
+}
+
 /** A health curve from a starting pool and the hits that arrive. */
 function curveOf(startingHealth: number, hits: IncomingHit[]): { time: number; health: number }[] {
   const curve = [{ time: 0, health: startingHealth }];
@@ -133,8 +153,10 @@ export function duel(
 
   let intoA: IncomingHit[] = [];
   let intoB: IncomingHit[] = [];
-  let runA = a.run(intoA);
-  let runB = b.run(intoB);
+  let stopA: Interruption[] = [];
+  let stopB: Interruption[] = [];
+  let runA = a.run(intoA, stopA);
+  let runB = b.run(intoB, stopB);
   if (!runA || !runB) return null;
 
   let passes = 1;
@@ -144,6 +166,13 @@ export function duel(
   for (; passes <= maxPasses; passes += 1) {
     intoA = outgoing(runB, b.name);
     intoB = outgoing(runA, a.name);
+    /*
+     * Each side's crowd control stops the other. This is what makes the loop a
+     * fixed point over more than damage: A stuns B, so B acts later, so B's damage
+     * lands later, so A lives longer — which can change when A's own stun lands.
+     */
+    stopA = stopsFrom(runB);
+    stopB = stopsFrom(runA);
 
     /*
      * The fight ends when the first side falls, so anything arriving after that
@@ -155,15 +184,15 @@ export function duel(
     const ends = [deathA, deathB].filter((value): value is number => value !== null);
     const cut = ends.length > 0 ? Math.min(...ends) : Infinity;
 
-    const settled = `${deathA ?? -1}|${deathB ?? -1}`;
+    const settled = `${deathA ?? -1}|${deathB ?? -1}|${stopA.length}|${stopB.length}`;
     if (settled === previous) {
       unsettled = false;
       break;
     }
     previous = settled;
 
-    const nextA = a.run(intoA.filter((hit) => hit.time <= cut + 0.0005));
-    const nextB = b.run(intoB.filter((hit) => hit.time <= cut + 0.0005));
+    const nextA = a.run(intoA.filter((hit) => hit.time <= cut + 0.0005), stopA);
+    const nextB = b.run(intoB.filter((hit) => hit.time <= cut + 0.0005), stopB);
     if (!nextA || !nextB) return null;
     runA = nextA;
     runB = nextB;

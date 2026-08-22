@@ -3773,3 +3773,176 @@ code {
   font-size: 10.5px;
   color: var(--text-muted);
 }
+
+/* ------------------------------------------------------- the duel, as lanes */
+
+/*
+ * Two lanes, one trigger line, time running right to left.
+ *
+ * The whole view rests on one rule: distance is time, at the same scale in both
+ * lanes. That is what makes two icons level with each other mean "together" and a
+ * gap mean a gap in the fight.
+ */
+.lanes {
+  position: relative;
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  overflow: hidden;
+}
+
+.lane {
+  display: grid;
+  gap: 4px;
+}
+
+.lane-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.lane-name {
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.lane-vi .lane-name {
+  color: var(--gold-100);
+}
+
+.lane-enemy .lane-name {
+  color: var(--status-danger);
+}
+
+.lane-health {
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.lane-health-max {
+  color: var(--text-muted);
+}
+
+/* The bar is the same event as the icon crossing the line, seen the other way. */
+.lane-bar {
+  height: 6px;
+  border-radius: 2px;
+  background: var(--surface-input);
+  overflow: hidden;
+}
+
+.lane-bar-fill {
+  height: 100%;
+  transition: width 90ms linear;
+}
+
+.lane-vi .lane-bar-fill {
+  background: linear-gradient(90deg, var(--bar-health-ally-dim), var(--bar-health-ally));
+}
+
+.lane-enemy .lane-bar-fill {
+  background: linear-gradient(90deg, var(--bar-health-enemy-dim), var(--bar-health-enemy));
+}
+
+.lane-track {
+  position: relative;
+  height: var(--lane-height, 62px);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(90deg, rgba(4, 8, 16, 0.6), rgba(4, 8, 16, 0.15));
+  overflow: hidden;
+}
+
+/*
+ * A press, at the moment it landed.
+ *
+ * Centred on its own instant, so the icon's middle is the time — an icon whose
+ * left edge were the time would read half a beat early at every scale.
+ */
+.lane-beat {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  transition: left 90ms linear, opacity 140ms ease;
+}
+
+.lane-beat img,
+.lane-glyph {
+  width: 34px;
+  height: 34px;
+  border-radius: 3px;
+  border: 1px solid var(--line);
+  background: var(--surface-input);
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.lane-amount {
+  font-size: 9.5px;
+  color: var(--text-muted);
+}
+
+/* Coming, landing, landed — three states, because only one of them is news. */
+.lane-beat.is-coming {
+  opacity: 0.5;
+}
+
+.lane-beat.is-firing img,
+.lane-beat.is-firing .lane-glyph {
+  border-color: var(--gold-300);
+  box-shadow: 0 0 12px rgba(200, 170, 110, 0.55);
+}
+
+.lane-beat.is-firing .lane-amount {
+  color: var(--gold-100);
+}
+
+.lane-beat.is-past {
+  opacity: 0.32;
+}
+
+/*
+ * A window this side cannot act in.
+ *
+ * Hatched rather than filled: it is not an event, it is the absence of them — and
+ * the icons after it are late because of it.
+ */
+.lane-stop {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(224, 75, 75, 0.34) 0 6px,
+    rgba(224, 75, 75, 0.08) 6px 12px
+  );
+  border-left: 1px solid rgba(224, 75, 75, 0.6);
+  border-right: 1px solid rgba(224, 75, 75, 0.6);
+}
+
+/* Now, for both lanes at once. */
+.lane-trigger {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-left: 2px solid var(--gold-300);
+  pointer-events: none;
+}
+
+.lane-trigger-time {
+  position: absolute;
+  top: -2px;
+  left: 5px;
+  font-size: 9.5px;
+  color: var(--gold-200);
+}

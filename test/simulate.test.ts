@@ -1217,3 +1217,65 @@ describe('incoming damage', () => {
     expect(before.attackerHpRemaining).toBeCloseTo(stats.maxHealth, 4);
   });
 });
+
+/**
+ * Being stopped.
+ *
+ * Crowd control was recorded and had no consequence: a 1.3 second knock-up was a
+ * line on a chart. These are the two things that have to hold for it to mean
+ * something — a press waits out the window, and the cooldowns do not wait with it.
+ */
+describe('interruptions', () => {
+  const attacks = Array.from({ length: 3 }, () => step({ kind: 'attack' }));
+
+  it('makes the next press wait for the window to end', () => {
+    const free = run(attacks);
+    const stunned = run(attacks, {
+      interruptions: [{ from: 0, to: 1.5, label: 'Knocked up' }],
+    });
+
+    const first = (result: ReturnType<typeof run>) =>
+      result.instances.filter((entry) => entry.sourceId === 'AA')[0]!.time;
+
+    // The first attack cannot start before 1.5 s, so it lands a wind-up later.
+    expect(first(stunned)).toBeGreaterThan(1.5);
+    expect(first(free)).toBeLessThan(1.5);
+    expect(stunned.warnings.some((warning) => /Knocked up/.test(warning))).toBe(true);
+  });
+
+  it('does not bank the time: cooldowns run through it', () => {
+    /*
+     * Being stunned costs you the window rather than saving it. A Q pressed at zero
+     * is up again on its own clock whether or not part of that clock was spent
+     * standing still — so a stun in the middle must not stop the second Q from
+     * being castable, only from being cast *during* the stun.
+     */
+    const combo = [
+      step({ kind: 'ability', slot: 'Q' }),
+      ...Array.from({ length: 8 }, () => step({ kind: 'attack' })),
+      step({ kind: 'ability', slot: 'Q' }),
+    ];
+
+    const qs = (result: ReturnType<typeof run>) =>
+      result.instances.filter((entry) => entry.sourceId === 'Q');
+
+    const free = run(combo);
+    const stunned = run(combo, {
+      interruptions: [{ from: 2, to: 4, label: 'Stunned' }],
+    });
+
+    // Both Qs land in both runs: the cooldown ticked through the stun.
+    expect(qs(free)).toHaveLength(2);
+    expect(qs(stunned)).toHaveLength(2);
+    // And the fight is longer by roughly the window, not by more.
+    expect(stunned.duration).toBeGreaterThan(free.duration);
+    expect(stunned.duration).toBeLessThan(free.duration + 2.5);
+  });
+
+  it('changes nothing when no window covers the press', () => {
+    const late = run(attacks, {
+      interruptions: [{ from: 9, to: 10, label: 'Stunned' }],
+    });
+    expect(late.totalMitigated).toBeCloseTo(run(attacks).totalMitigated, 4);
+  });
+});

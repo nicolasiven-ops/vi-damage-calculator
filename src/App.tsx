@@ -788,6 +788,24 @@ export default function App() {
   }, [champion.detail, bundle]);
 
   /**
+   * The enemy's ability icons, for the duel's lanes.
+   *
+   * Their own champion's spells in their own slot order, so the icon on the lane is
+   * the icon on their sidebar. Keyed by slot because that is what a damage instance
+   * carries as its source.
+   */
+  const enemySpellIcons = useMemo(() => {
+    const icons: Partial<Record<string, string>> = {};
+    const detail = enemyData.detail ?? targetProfile.profile;
+    if (!detail || !bundle) return icons;
+    (['Q', 'W', 'E', 'R'] as const).forEach((slot, index) => {
+      const spell = detail.spells?.[index];
+      if (spell) icons[slot] = imageUrls.spell(bundle.version, spell.image.full);
+    });
+    return icons;
+  }, [enemyData.detail, targetProfile.profile, bundle]);
+
+  /**
    * The state of the fight at the focused step, derived once for everyone.
    *
    * The bars in the middle and the two stat sheets in the sidebars are three
@@ -1466,6 +1484,7 @@ export default function App() {
             duelSides={duelSides}
             duelBlocked={duelBlocked}
             duelPlanned={duelPlan !== null}
+            duelIcons={{ vi: spellIcons, enemy: enemySpellIcons }}
             onSolveDuel={onSolveDuel}
             onResetDuelPlan={() => setDuelPlan(null)}
             target={effectiveTarget}

@@ -202,6 +202,13 @@ export type EffectOrigin = 'champion' | 'gear';
  */
 export interface TimelineSpan {
   id: string;
+  /**
+   * For crowd control: whether it takes the target's next action away.
+   *
+   * A knock-up does, a slow does not, and the difference is worth seconds in a
+   * duel. Absent on every span that is not crowd control.
+   */
+  stopsActions?: boolean;
   /** The combo step that caused this — see the note on DamageInstance. */
   stepUid?: string;
   lane: TimelineLane;
@@ -341,6 +348,20 @@ export interface IncomingHit {
   label: string;
 }
 
+/**
+ * A window in which the attacker cannot act, because the other side stopped them.
+ *
+ * Stuns, knock-ups, charms, fears — everything the engine records as crowd control
+ * on one side becomes one of these on the other. The attacker's cooldowns keep
+ * running through it: a stun costs you the window, it does not bank it.
+ */
+export interface Interruption {
+  from: number;
+  to: number;
+  /** What stopped you, for the timeline. */
+  label: string;
+}
+
 export interface SimulationInput {
   attacker: AttackerConfig;
   /** Champion base stats straight from Data Dragon, for recomputing buffs. */
@@ -360,6 +381,8 @@ export interface SimulationInput {
    * this combo do to a target that does not fight back. Present in a duel.
    */
   incoming?: IncomingHit[];
+  /** Windows in which the attacker cannot act — see `Interruption`. */
+  interruptions?: Interruption[];
 }
 
 /**

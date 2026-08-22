@@ -25,6 +25,7 @@ import type {
   ComboStep,
   CritMode,
   IncomingHit,
+  Interruption,
   SimulationResult,
   TargetConfig,
   TimingConfig,
@@ -110,7 +111,7 @@ function sideFor(
     name: who.name,
     combo: who.combo,
     startingHealth: who.stats.maxHealth * who.healthPercent,
-    run: (incoming: IncomingHit[]) =>
+    run: (incoming: IncomingHit[], stopped: Interruption[] = []) =>
       simulate(
         {
           attacker: {
@@ -132,6 +133,7 @@ function sideFor(
           timings: inputs.timings,
           critMode: inputs.critMode,
           incoming,
+          interruptions: stopped,
         },
         who.module,
         who.moduleCtx,
@@ -156,7 +158,12 @@ export function viSolverRunner(
   incoming: IncomingHit[],
 ): (steps: ComboStep[]) => SimulationResult | null {
   return (steps) =>
-    sideFor({ ...inputs.vi, combo: steps }, inputs.enemy, inputs, true).run(incoming);
+    /*
+     * No interruptions in the search: what stops her depends on what the enemy
+     * lives long enough to cast, which is what the search is deciding. One
+     * iteration is what the duel itself uses — see `duel.ts`.
+     */
+    sideFor({ ...inputs.vi, combo: steps }, inputs.enemy, inputs, true).run(incoming, []);
 }
 
 export function runDuel(inputs: DuelInputs): DuelOutcome | null {

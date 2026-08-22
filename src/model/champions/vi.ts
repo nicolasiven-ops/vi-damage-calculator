@@ -474,7 +474,12 @@ class ViRuntime implements ChampionRuntime {
       ],
     });
 
-    ctx.applyCrowdControl({ label: 'Airborne', durationSeconds: qKnockup.value });
+    // Airborne: the target loses their next action, which is the point of the knock-up.
+    ctx.applyCrowdControl({
+      label: 'Airborne',
+      durationSeconds: qKnockup.value,
+      stopsActions: true,
+    });
 
     // Vault Breaker applies Denting Blows to everything it hits.
     this.applyDentingBlows(ctx);
@@ -530,7 +535,11 @@ class ViRuntime implements ChampionRuntime {
       notes: [`${base.value.toFixed(0)} base + ${pct(adRatio.value)} bonus AD`],
     });
 
-    ctx.applyCrowdControl({ label: 'Airborne', durationSeconds: knockup.value });
+    ctx.applyCrowdControl({
+      label: 'Airborne',
+      durationSeconds: knockup.value,
+      stopsActions: true,
+    });
 
     this.tryPassive(ctx);
   }

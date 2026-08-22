@@ -11,7 +11,7 @@
 import { describe, expect, it } from 'vitest';
 import { duel, type DuelSide } from '../src/engine/duel';
 import { repeatPlan } from '../src/state/runDuel';
-import type { IncomingHit, SimulationResult } from '../src/engine/types';
+import type { IncomingHit, Interruption, SimulationResult } from '../src/engine/types';
 
 /**
  * A side that swings for a fixed amount on a fixed clock.
@@ -24,14 +24,19 @@ function swinger(
   every: number,
   hits: number,
   seen: IncomingHit[][] = [],
-): DuelSide & { seen: IncomingHit[][] } {
+  /** Crowd control this side applies, which stops the other one. */
+  cc: { start: number; end: number; soft?: boolean }[] = [],
+  stops: Interruption[][] = [],
+): DuelSide & { seen: IncomingHit[][]; stops: Interruption[][] } {
   const side = {
     name: 'side',
     combo: [],
     startingHealth: 1000,
     seen,
-    run: (incoming: IncomingHit[]): SimulationResult => {
+    stops,
+    run: (incoming: IncomingHit[], stopped: Interruption[]): SimulationResult => {
       seen.push(incoming);
+      stops.push(stopped);
       const instances = Array.from({ length: hits }, (_, index) => ({
         id: `h${index}`,
         time: every * (index + 1),
@@ -40,6 +45,15 @@ function swinger(
       }));
       return {
         instances,
+        /* The engine records crowd control as spans in the `cc` lane. */
+        spans: cc.map((window, index) => ({
+          id: `cc${index}`,
+          lane: 'cc',
+          start: window.start,
+          end: window.end,
+          label: window.soft ? 'Slowed 30%' : 'Knocked up',
+          stopsActions: !window.soft,
+        })),
         duration: every * hits,
         totalMitigated: perHit * hits,
         killTime: null,
@@ -146,5 +160,56 @@ describe('the plan continues', () => {
   it('leaves an empty combo empty', () => {
     // Nothing typed is a real answer: she stands there, and the duel says so.
     expect(repeatPlan([], 10, (index) => `dup-${index}`)).toEqual([]);
+  });
+});
+
+describe('crowd control crosses over', () => {
+  it("hands one side's stuns to the other as windows it cannot act in", () => {
+    /*
+     * The first real interaction between the two sides beyond damage. Vi's ultimate
+     * is a 1.3 second knock-up, and until this existed that was a damage spell with
+     * a note attached.
+     */
+    const aStops = [{ start: 1, end: 2.3 }];
+    const a = swinger(100, 1, 5, [], aStops);
+    const b = swinger(100, 1, 5, []);
+
+    duel({ ...a, name: 'A' }, { ...b, name: 'B' }, { maxPasses: 2 });
+
+    // B is told about A's knock-up; A is told about nothing, because B has none.
+    const toldB = b.stops.at(-1) ?? [];
+    expect(toldB).toEqual([{ from: 1, to: 2.3, label: 'Knocked up' }]);
+    expect(a.stops.at(-1) ?? []).toEqual([]);
+  });
+
+  it('counts a change in crowd control as the answer still moving', () => {
+    // The settle check compares deaths *and* stuns: a pass that changed only the
+    // windows has changed the fight, and stopping there would freeze a half-answer.
+    const a = swinger(100, 1, 5, [], [{ start: 0.5, end: 1.5 }]);
+    const b = swinger(100, 1, 5, [], [{ start: 2, end: 2.5 }]);
+
+    const result = duel({ ...a, name: 'A' }, { ...b, name: 'B' }, { maxPasses: 3 })!;
+    expect(result.passes).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe('a slow is not a stun', () => {
+  it('only lets action-taking crowd control stop the other lane', () => {
+    /*
+     * The worst version of this feature was the first one: every crowd-control span
+     * became a window of standing still, so Scorchclaw's 30% movement slow — which
+     * is on almost every Vi combo — handed her two free seconds. Inventing time is
+     * a worse error than ignoring crowd control altogether.
+     */
+    const hard = swinger(100, 1, 5, [], [{ start: 1, end: 2 }]);
+    const target = swinger(100, 1, 5, []);
+    duel({ ...hard, name: 'Hard' }, { ...target, name: 'Target' }, { maxPasses: 2 });
+    expect(target.stops.at(-1)).toHaveLength(1);
+
+    // The same window, recorded as a slow: the timeline keeps it, the lane does not.
+    const soft = swinger(100, 1, 5, [], [{ start: 1, end: 2, soft: true }]);
+    const other = swinger(100, 1, 5, []);
+    duel({ ...soft, name: 'Soft' }, { ...other, name: 'Other' }, { maxPasses: 2 });
+    expect(other.stops.at(-1)).toHaveLength(0);
   });
 });

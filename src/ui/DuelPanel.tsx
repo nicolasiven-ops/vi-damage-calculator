@@ -16,6 +16,7 @@
 
 import { useState } from 'react';
 import type { DuelOutcome } from '../engine/duel';
+import { DuelLanes } from './DuelLanes';
 
 interface Props {
   outcome: DuelOutcome | null;
@@ -36,41 +37,14 @@ interface Props {
   onSolve?: () => { killTime: number | null; presses: number };
   /** Back to repeating the typed combo. */
   onReset?: () => void;
+  /** Ability icons for the lanes. */
+  icons?: { vi: Partial<Record<string, string>>; enemy: Partial<Record<string, string>> };
+  /** Where the fight is right now, from the app's own playback clock. */
+  playhead?: number | null;
 }
-
-const WIDTH = 720;
-const HEIGHT = 210;
-const PAD = { left: 46, right: 16, top: 16, bottom: 26 };
 
 function formatSeconds(value: number): string {
   return value >= 10 ? value.toFixed(1) : value.toFixed(2);
-}
-
-function line(
-  curve: { time: number; health: number }[],
-  span: number,
-  most: number,
-): string {
-  const x = (time: number) =>
-    PAD.left + (span <= 0 ? 0 : (time / span) * (WIDTH - PAD.left - PAD.right));
-  const y = (health: number) =>
-    HEIGHT - PAD.bottom - (most <= 0 ? 0 : (health / most) * (HEIGHT - PAD.top - PAD.bottom));
-
-  /*
-   * Stepped, not sloped. Health does not drain — it drops when something lands,
-   * and a diagonal between two hits draws seconds of bleeding that never happened.
-   */
-  const parts: string[] = [];
-  curve.forEach((point, index) => {
-    const previous = curve[index - 1];
-    if (!previous) {
-      parts.push(`M ${x(point.time).toFixed(1)} ${y(point.health).toFixed(1)}`);
-      return;
-    }
-    parts.push(`L ${x(point.time).toFixed(1)} ${y(previous.health).toFixed(1)}`);
-    parts.push(`L ${x(point.time).toFixed(1)} ${y(point.health).toFixed(1)}`);
-  });
-  return parts.join(' ');
 }
 
 export function DuelPanel({
@@ -83,6 +57,8 @@ export function DuelPanel({
   planned,
   onSolve,
   onReset,
+  icons,
+  playhead,
 }: Props) {
   const [searching, setSearching] = useState(false);
   const [found, setFound] = useState<string | null>(null);
@@ -125,15 +101,6 @@ export function DuelPanel({
       </div>
     );
   }
-
-  const span = Math.max(outcome.endTime, 0.5);
-  const most = Math.max(
-    outcome.curveA[0]?.health ?? 1,
-    outcome.curveB[0]?.health ?? 1,
-  );
-  const x = (time: number) => PAD.left + (time / span) * (WIDTH - PAD.left - PAD.right);
-  const y = (health: number) =>
-    HEIGHT - PAD.bottom - (health / most) * (HEIGHT - PAD.top - PAD.bottom);
 
   const winnerName =
     outcome.winner === 'a' ? viName : outcome.winner === 'b' ? enemyName : null;
@@ -217,53 +184,19 @@ export function DuelPanel({
         )}
       </div>
 
-      <svg className="duel-chart" viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img">
-        <title>
-          {`${viName} against ${enemyName}: health over ${formatSeconds(outcome.endTime)} s`}
-        </title>
-
-        {/* Quarters of the taller health pool, so both lines share one scale. */}
-        {[0, 0.25, 0.5, 0.75, 1].map((share) => (
-          <g key={share}>
-            <line
-              className="duel-grid"
-              x1={PAD.left}
-              x2={WIDTH - PAD.right}
-              y1={y(most * share)}
-              y2={y(most * share)}
-            />
-            <text className="duel-tick mono" x={PAD.left - 6} y={y(most * share) + 3}>
-              {Math.round(most * share).toLocaleString('en-US')}
-            </text>
-          </g>
-        ))}
-
-        <path className="duel-line vi" d={line(outcome.curveA, span, most)} />
-        <path className="duel-line enemy" d={line(outcome.curveB, span, most)} />
-
-        {/* The moment it ended, which is the only instant worth a line. */}
-        {outcome.winner && (
-          <line
-            className="duel-end"
-            x1={x(outcome.endTime)}
-            x2={x(outcome.endTime)}
-            y1={PAD.top}
-            y2={HEIGHT - PAD.bottom}
-          />
-        )}
-
-        <text className="duel-axis mono" x={PAD.left} y={HEIGHT - 8}>
-          0 s
-        </text>
-        <text className="duel-axis mono" x={WIDTH - PAD.right} y={HEIGHT - 8} textAnchor="end">
-          {formatSeconds(span)} s
-        </text>
-      </svg>
-
-      <div className="duel-legend">
-        <span className="duel-key vi">{viName}</span>
-        <span className="duel-key enemy">{enemyName}</span>
-      </div>
+      {/*
+        * The fight itself, as two lanes running at a trigger line — see `DuelLanes`.
+        * It replaced a pair of health curves: those answered who wins and nothing
+        * about how, which is the only part worth watching.
+        */}
+      <DuelLanes
+        outcome={outcome}
+        viName={viName}
+        enemyName={enemyName}
+        viIcons={icons?.vi ?? {}}
+        enemyIcons={icons?.enemy ?? {}}
+        playhead={playhead ?? null}
+      />
 
       <ul className="duel-limits">
         <li>

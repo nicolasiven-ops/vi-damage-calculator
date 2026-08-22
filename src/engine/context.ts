@@ -132,6 +132,22 @@ export interface SimContext {
    * reason the next two hits land unanswered, and a timeline that shows the hits
    * but not the airborne window is showing half the story.
    */
+  /**
+   * Crowd control on the target.
+   *
+   * `stopsActions` is the half that matters in a duel: a knock-up takes the other
+   * champion's next action away, a slow does not. It defaults to false, so an
+   * effect that forgets to say understates itself rather than inventing free
+   * seconds for whoever applied it.
+   */
+  /**
+   * Crowd control on the target.
+   *
+   * `stopsActions` is the half that matters in a duel: a knock-up takes the other
+   * champion's next action away, a slow does not. It defaults to false, so an
+   * effect that forgets to say understates itself rather than inventing free
+   * seconds for whoever applied it.
+   */
   applyCrowdControl(args: {
     label: string;
     durationSeconds: number;
@@ -142,6 +158,8 @@ export interface SimContext {
      * same way would overstate the second one.
      */
     detail?: string;
+    /** True for stuns, knock-ups, charms — anything that takes the next action. */
+    stopsActions?: boolean;
   }): void;
   /**
    * Cut a fraction off what is left of the basic abilities' cooldowns.

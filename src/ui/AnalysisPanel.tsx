@@ -63,6 +63,11 @@ interface Props {
   duelBlocked?: string | null;
   /** True when the duel is running a searched continuation rather than the repeat. */
   duelPlanned?: boolean;
+  /** Ability icons for both sides, for the duel's lanes. */
+  duelIcons?: {
+    vi: Partial<Record<string, string>>;
+    enemy: Partial<Record<string, string>>;
+  };
   /** Search for a continuation against the duel's own conditions. */
   onSolveDuel?: () => { killTime: number | null; presses: number };
   /** Back to repeating what was typed. */
@@ -254,6 +259,7 @@ export function AnalysisPanel({
   duelSides,
   duelBlocked,
   duelPlanned,
+  duelIcons,
   onSolveDuel,
   onResetDuelPlan,
   target,
@@ -468,8 +474,14 @@ export function AnalysisPanel({
              */
             value={
               figures.killed && figures.killTime !== null
-                ? `${Math.max(0, figures.killTime - analysis.timeToFirstDamage).toFixed(2)} s`
-                : `${Math.round(figures.remaining).toLocaleString('en-US')} HP`
+                ? /*
+                   * A non-breaking space, so the unit never ends up on a line of
+                   * its own: "2.72" over "s after first impact" reads as two
+                   * different numbers. The suffix after it may still wrap, which is
+                   * what should wrap.
+                   */
+                  `${Math.max(0, figures.killTime - analysis.timeToFirstDamage).toFixed(2)} s`
+                : `${Math.round(figures.remaining).toLocaleString('en-US')} HP`
             }
             suffix={figures.killed && figures.killTime !== null ? 'after first impact' : undefined}
             detail={
@@ -579,6 +591,8 @@ export function AnalysisPanel({
             sides={duelSides}
             blocked={duelBlocked ?? null}
             planned={duelPlanned ?? false}
+            icons={duelIcons}
+            playhead={playhead ?? null}
             onSolve={onSolveDuel}
             onReset={onResetDuelPlan}
           />

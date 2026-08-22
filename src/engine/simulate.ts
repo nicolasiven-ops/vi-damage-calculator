@@ -674,7 +674,7 @@ export function simulate(
       });
     },
 
-    applyCrowdControl({ label, durationSeconds, detail: what }) {
+    applyCrowdControl({ label, durationSeconds, detail: what, stopsActions }) {
       const until = time + durationSeconds;
       crowdControl.push({ label, expiresAt: until });
       const detail = `${seconds(durationSeconds)} s`;
@@ -685,9 +685,15 @@ export function simulate(
         start: time,
         end: until,
         label,
-        detail: `${what ?? 'target cannot act'} · ${detail}`,
+        detail: `${what ?? (stopsActions ? 'target cannot act' : 'target impaired')} · ${detail}`,
         effectKind: 'debuff',
         effectOrigin: 'champion',
+        /*
+         * Carried on the span because the duel reads its interruptions off the
+         * timeline — see `duel.ts`. A slow belongs on the timeline and must never
+         * become a window in which the other side does nothing.
+         */
+        stopsActions: stopsActions === true,
       });
     },
 
@@ -768,6 +774,8 @@ export function simulate(
     parts?: { label: string; seconds: number }[];
     effectKind?: EffectKind;
     effectOrigin?: 'champion' | 'gear';
+    /** Crowd control only: whether it takes the target's next action. */
+    stopsActions?: boolean;
   }): void {
     const start = Math.max(0, span.start);
     const end = Math.min(span.end, MAX_SIMULATED_SECONDS);
@@ -1721,6 +1729,31 @@ export function simulate(
       stepFates.push(...unreached.map((entry) => ({ uid: entry.uid, fate: 'unused' as const })));
       break;
     }
+    /*
+     * Stunned means stunned: the step waits for the window to end.
+     *
+     * Before the step rather than after, because what a stun costs is the *start*
+     * of the next action. A cast already in flight is not interrupted here —
+     * modelling that needs cast-time granularity the loop does not have, and
+     * pretending otherwise would be the wrong kind of precise.
+     */
+    for (const window of input.interruptions ?? []) {
+      if (time >= window.from - 0.0005 && time < window.to) {
+        addSpan({
+          lane: 'cc',
+          kind: 'effect',
+          start: time,
+          end: window.to,
+          label: window.label,
+          detail: `cannot act for ${seconds(window.to - time)} s`,
+          effectKind: 'debuff',
+          effectOrigin: 'champion',
+        });
+        ctx.warn(`${window.label}: ${seconds(window.to - time)} s of nothing.`);
+        time = window.to;
+      }
+    }
+
     currentStepUid = step.uid;
     refusedReason = null;
     switch (step.action.kind) {
