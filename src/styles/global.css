@@ -94,42 +94,78 @@ a {
  * Narrower, the target column tucks under the build column; narrower still,
  * both fold into the tab drawer.
  */
+/*
+ * Two layouts, one boundary.
+ *
+ * Below 1280 the columns stop working — the analysis needs the room — so
+ * configuration folds into one panel at a time, chosen by the tabs. That is the
+ * base state here rather than a media query, which is what closes the gap: a
+ * viewport of 1279.5 satisfies neither `max-width: 1279px` nor `min-width: 1280px`,
+ * and used to land in a third layout that existed only in that sliver.
+ */
 .app-body {
   flex: 1;
   width: min(1680px, 100%);
   margin: 0 auto;
   padding: var(--space-5) var(--space-5) var(--space-7);
   display: grid;
-  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-5);
   align-items: start;
+}
+
+.app-main,
+.app-config,
+.app-config-target {
+  grid-column: 1;
+  grid-row: auto;
 }
 
 .app-main {
   display: block;
   min-width: 0;
-  grid-column: 2;
-  grid-row: 1 / span 2;
 }
 
+/* Whichever panel the tabs opened belongs above the numbers, not below. */
 .app-config-target {
-  grid-column: 1;
+  order: -1;
 }
 
-/* Room for three: attacker, numbers, target. */
-@media (min-width: 1680px) {
+/*
+ * Room for three: attacker, numbers, target.
+ *
+ * From 1280, not from 1680. Above 1280 there is room for three columns as long as
+ * the middle one is allowed to be narrower — and it is the one that can be:
+ * charts reflow to whatever width they get, while a sidebar of two-column stat
+ * blocks either has its width or stops being two columns. Sending the target to
+ * the bottom of the page to keep the analysis wide was the wrong trade on every
+ * ordinary 16:10 screen.
+ *
+ * The sides give back a few pixels as the window closes — 19vw between 248 and
+ * 300 — so the squeeze is shared rather than paid entirely by the middle.
+ */
+@media (min-width: 1280px) {
   .app-body {
-    width: min(2160px, 100%);
-    grid-template-columns: minmax(0, 300px) minmax(0, 1fr) minmax(0, 300px);
+    grid-template-columns:
+      minmax(0, clamp(248px, 19vw, 300px))
+      minmax(0, 1fr)
+      minmax(0, clamp(248px, 19vw, 300px));
+  }
+
+  .app-config {
+    grid-column: 1;
+    grid-row: 1;
   }
 
   .app-main {
+    grid-column: 2;
     grid-row: 1;
   }
 
   .app-config-target {
     grid-column: 3;
     grid-row: 1;
+    order: 0;
   }
 
   /*
@@ -147,6 +183,13 @@ a {
   }
 }
 
+/* Past 1680 the page itself is allowed to be wider than the columns need. */
+@media (min-width: 1680px) {
+  .app-body {
+    width: min(2160px, 100%);
+  }
+}
+
 /*
  * Below three columns the rows are not shared, so the wrappers are plain
  * stacks — nothing to line up against.
@@ -157,28 +200,6 @@ a {
   flex-direction: column;
   gap: var(--space-4);
   min-width: 0;
-}
-
-/*
- * Below this the columns stop working: the analysis needs the room, so
- * configuration folds back into one panel at a time, chosen by the tabs.
- */
-@media (max-width: 1279px) {
-  .app-body {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .app-main,
-  .app-config,
-  .app-config-target {
-    grid-column: 1;
-    grid-row: auto;
-  }
-
-  /* Whichever panel the tabs opened belongs above the numbers, not below. */
-  .app-config-target {
-    order: -1;
-  }
 }
 
 .column {

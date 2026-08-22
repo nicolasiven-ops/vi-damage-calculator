@@ -264,7 +264,6 @@
 .site-links {
   display: flex;
   gap: var(--space-2);
-  margin-right: auto;
 }
 
 .site-link {
@@ -286,19 +285,20 @@
 }
 
 .config-tabs {
-  display: none;
+  display: flex;
   flex-wrap: wrap;
   gap: var(--space-1);
 }
 
-@media (max-width: 1279px) {
+/* With the columns on screen every panel is already visible; the tabs are noise. */
+@media (min-width: 1280px) {
   .config-tabs {
-    display: flex;
+    display: none;
   }
 
-  /* With the tabs back, the links stop claiming the free space. */
+  /* Without the tabs, the links may claim the free space again. */
   .site-links {
-    margin-right: 0;
+    margin-right: auto;
   }
 }
 
@@ -375,23 +375,37 @@
   box-shadow: 0 0 0 1px rgba(120, 90, 40, 0.35);
 }
 
-@media (max-width: 1279px) {
+/*
+ * One panel at a time, and the champion by default.
+ *
+ * `data-active` is empty until a tab is clicked, and with every slot hidden that
+ * left the folded layout showing no build at all — a page whose left half is
+ * blank until you guess that the tabs do something.
+ */
+.app-config > .config-slot {
+  display: none;
+}
+
+.app-config:not([data-active]) > [data-tab="champion"],
+.app-config[data-active=""] > [data-tab="champion"],
+.app-config[data-active="champion"] > [data-tab="champion"],
+.app-config[data-active="items"] > [data-tab="items"],
+.app-config[data-active="runes"] > [data-tab="runes"],
+.app-config[data-active="target"] > [data-tab="target"],
+.app-config[data-active="sim"] > [data-tab="sim"] {
+  display: block;
+}
+
+/* Nothing to highlight when only one panel is on screen anyway. */
+.app-config > .config-slot > .panel {
+  border-color: var(--line);
+  box-shadow: none;
+}
+
+/* With room for the columns, every panel is on screen at once. */
+@media (min-width: 1280px) {
   .app-config > .config-slot {
-    display: none;
-  }
-
-  .app-config[data-active="champion"] > [data-tab="champion"],
-  .app-config[data-active="items"] > [data-tab="items"],
-  .app-config[data-active="runes"] > [data-tab="runes"],
-  .app-config[data-active="target"] > [data-tab="target"],
-  .app-config[data-active="sim"] > [data-tab="sim"] {
     display: block;
-  }
-
-  /* Nothing to highlight when only one panel is on screen anyway. */
-  .app-config > .config-slot > .panel {
-    border-color: var(--line);
-    box-shadow: none;
   }
 }
 
@@ -442,8 +456,8 @@
  */
 .combo-bar-track {
   display: grid;
-  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
-  gap: var(--space-5);
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3) var(--space-5);
   align-items: start;
 }
 
@@ -457,26 +471,30 @@
 /*
  * The body's own breakpoints, to the pixel.
  *
- * Two columns up to 1679, three from 1680 — the same numbers as `.app-body` in
- * global.css, and they have to stay the same numbers: a bar that splits into
- * three above a body that is still two lines up with nothing. Above 1680 the bar
- * also widens with the body.
+ * Three columns from 1280 — the same number as `.app-body` in global.css, and it
+ * has to stay the same number: a bar that splits differently from the body under
+ * it lines up with nothing. Above 1680 the bar also widens with the body.
  */
+@media (min-width: 1280px) {
+  .combo-bar-track {
+    grid-template-columns: minmax(0, clamp(248px, 19vw, 300px)) minmax(0, 1fr) minmax(0, clamp(248px, 19vw, 300px));
+  }
+}
+
 @media (min-width: 1680px) {
   .workbench-top > .combo-bar {
     width: min(2160px, 100%);
   }
-
-  .combo-bar-track {
-    grid-template-columns: minmax(0, 300px) minmax(0, 1fr) minmax(0, 300px);
-  }
 }
 
-/* With two columns the modes sit under the strip rather than beside it. */
-@media (max-width: 1679px) {
+/* Folded into one column, the modes sit under the strip rather than beside it. */
+.combo-bar-modes {
+  justify-content: flex-start;
+}
+
+@media (min-width: 1280px) {
   .combo-bar-modes {
-    grid-column: 2;
-    justify-content: flex-start;
+    justify-content: flex-end;
   }
 }
 
@@ -923,6 +941,16 @@
   border: 0;
   background: none;
   cursor: pointer;
+  /*
+   * One column that is allowed to be narrower than its contents want.
+   *
+   * Without this the icon's own intrinsic width becomes the tile's floor, and in
+   * a 248 px sidebar — which is what the third column costs on a 1280 px screen —
+   * five tiles at that floor are wider than the strip. They overflowed rather
+   * than shrank, which is the one thing a sidebar must never do.
+   */
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
 }
 
 .ability-tile:disabled {
@@ -980,6 +1008,7 @@
 .ability-badge img {
   width: 100%;
   height: 100%;
+  min-width: 0;
   display: block;
   border-radius: 1px;
 }
