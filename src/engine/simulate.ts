@@ -41,6 +41,7 @@ import type {
   DamageInstance,
   SimulationInput,
   SimulationResult,
+  StepFate,
   EffectKind,
   SpanKind,
   StatSnapshot,
@@ -1181,7 +1182,7 @@ export function simulate(
   function castAbility(slot: AbilitySlot, chargeSeconds: number): void {
     const rank = input.attacker.ranks[slot] ?? 0;
     if (rank < 1) {
-      ctx.warn(`${slot} is not learned — step skipped.`);
+      refuse(`${slot} is not learned — step skipped.`);
       return;
     }
 
@@ -1203,7 +1204,7 @@ export function simulate(
      */
     const cost = championRuntime.abilityCost?.(slot, ctx, rank) ?? 0;
     if (cost > currentMana + 0.0005) {
-      ctx.warn(
+      refuse(
         `${slot} costs ${cost.toFixed(0)} mana and only ${currentMana.toFixed(0)} is left — step skipped.`,
       );
       return;
@@ -1212,7 +1213,7 @@ export function simulate(
     const blocked = blockedUntil(slot);
     if (blocked) {
       if (blocked.at > MAX_SIMULATED_SECONDS) {
-        ctx.warn(
+        refuse(
           `${slot} would not be ready until ${seconds(blocked.at)} s (${blocked.reason}) — step skipped.`,
         );
         return;
@@ -1426,7 +1427,7 @@ export function simulate(
     const effect = getItemEffect(itemId);
 
     if (!owned || !effect) {
-      ctx.warn(
+      refuse(
         effect
           ? `${effect.name} is not in the build — step skipped.`
           : 'That item is not modelled — step skipped.',
@@ -1434,14 +1435,14 @@ export function simulate(
       return;
     }
     if (!owned.runtime.onActive) {
-      ctx.warn(`${effect.name} has no active this calculator models — step skipped.`);
+      refuse(`${effect.name} has no active this calculator models — step skipped.`);
       return;
     }
 
     const start = time;
     const result = owned.runtime.onActive(ctx);
     if (!result) {
-      ctx.warn(`${effect.name} is still on cooldown — step skipped.`);
+      refuse(`${effect.name} is still on cooldown — step skipped.`);
       return;
     }
 
@@ -1506,7 +1507,7 @@ export function simulate(
        * something it cannot hit is a mistake worth naming, not a zero to add.
        */
       if (champion && !smite.championDamage) {
-        ctx.warn(`${smite.label} does not affect champions — step skipped.`);
+        refuse(`${smite.label} does not affect champions — step skipped.`);
         return;
       }
       const amount = champion
@@ -1535,7 +1536,7 @@ export function simulate(
       return;
     }
 
-    ctx.warn(`Summoner spell ${summonerId} is not modelled — step skipped.`);
+    refuse(`Summoner spell ${summonerId} is not modelled — step skipped.`);
   }
 
   /* --------------------------------------------------------------- main loop */
@@ -1549,6 +1550,18 @@ export function simulate(
 
   /** Steps the combo never got to, because the target was already dead. */
   const unusedSteps: string[] = [];
+  /*
+   * A fate per press. `refuse()` is called from wherever the engine declines a
+   * step, right next to the warning it already wrote, so the two can never
+   * disagree about what happened.
+   */
+  const stepFates: StepFate[] = [];
+  let refusedReason: string | null = null;
+
+  function refuse(reason: string): void {
+    refusedReason = reason;
+    ctx.warn(reason);
+  }
 
   for (const [stepIndex, step] of input.combo.entries()) {
     if (time >= MAX_SIMULATED_SECONDS) {
@@ -1565,10 +1578,13 @@ export function simulate(
      * grey them out.
      */
     if (targetCurrentHealth <= 0) {
-      unusedSteps.push(...input.combo.slice(stepIndex).map((entry) => entry.uid));
+      const unreached = input.combo.slice(stepIndex);
+      unusedSteps.push(...unreached.map((entry) => entry.uid));
+      stepFates.push(...unreached.map((entry) => ({ uid: entry.uid, fate: 'unused' as const })));
       break;
     }
     currentStepUid = step.uid;
+    refusedReason = null;
     switch (step.action.kind) {
       case 'attack':
         performAttack();
@@ -1603,6 +1619,12 @@ export function simulate(
         break;
       }
     }
+    stepFates.push(
+      refusedReason === null
+        ? { uid: step.uid, fate: 'landed' }
+        : { uid: step.uid, fate: 'refused', why: refusedReason },
+    );
+
     // The state this step left behind, before the next one starts.
     takeSnapshot(stepIndex, step.uid);
     currentStepUid = undefined;
@@ -1647,6 +1669,7 @@ export function simulate(
     events,
     snapshots,
     unusedSteps,
+    stepFates,
     // Sorted so a view can draw them in the order they began, whatever order
     // the simulation happened to record them in.
     spans: [...spans].sort((a, b) => a.start - b.start || a.end - b.end),

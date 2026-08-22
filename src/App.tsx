@@ -453,6 +453,20 @@ export default function App() {
     });
   }, [analysis, baseStats, build, effectiveTarget, goldRates, itemById, moduleCtx]);
 
+  /**
+   * The presses the engine declined, by step, with its own sentence.
+   *
+   * Derived rather than passed around: the strip needs a lookup and the engine
+   * reports a list, and the conversion belongs where the two meet.
+   */
+  const refusedSteps = useMemo<Record<string, string>>(() => {
+    const out: Record<string, string> = {};
+    for (const fate of analysis?.stepFates ?? []) {
+      if (fate.fate === 'refused' && fate.why) out[fate.uid] = fate.why;
+    }
+    return out;
+  }, [analysis]);
+
   const abilities = useMemo(
     () => resolveAbilityNames(VI_MODULE.abilities, moduleCtx),
     [moduleCtx],
@@ -797,6 +811,7 @@ export default function App() {
           linkedStepUid={linkedStepUid}
           pinnedStepUid={pinnedStepUid}
           unusedStepUids={analysis?.unusedSteps}
+          refusedSteps={refusedSteps}
           onPinStep={(uid) => setPinnedStepUid((current) => (current === uid ? null : uid))}
         />
       </div>

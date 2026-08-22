@@ -1045,3 +1045,40 @@ describe('effect classification', () => {
     expect(kit?.effectOrigin).toBe('champion');
   });
 });
+
+describe('what became of every press', () => {
+  it('marks a press the engine declined, with the reason', () => {
+    // R is unlearned at rank 0, so the engine refuses the press rather than
+    // casting a rank it does not have.
+    const result = run([step({ kind: 'attack' }), step({ kind: 'ability', slot: 'R' })], {
+      attacker: {
+        championId: 'Vi',
+        level: 11,
+        ranks: { P: 1, Q: 5, W: 5, E: 5, R: 0 },
+        itemIds: [],
+        runeIds: [],
+        shardIds: [],
+        manualStats: {},
+      },
+    });
+
+    const fates = result.stepFates;
+    expect(fates).toHaveLength(2);
+    expect(fates[0]!.fate).toBe('landed');
+    expect(fates[1]!.fate).toBe('refused');
+    expect(fates[1]!.why).toContain('not learned');
+    // The warning and the fate say the same thing, because one calls the other.
+    expect(result.warnings).toContain(fates[1]!.why);
+  });
+
+  it('marks the presses the target never lived to see', () => {
+    const result = run(
+      [step({ kind: 'ability', slot: 'Q' }, VI_CONSTANTS.q.maxChargeSeconds), step({ kind: 'attack' })],
+      { target: { ...TARGET, maxHealth: 60, armor: 0 } },
+    );
+
+    expect(result.stepFates[0]!.fate).toBe('landed');
+    expect(result.stepFates[1]!.fate).toBe('unused');
+    expect(result.unusedSteps).toContain(result.stepFates[1]!.uid);
+  });
+});

@@ -3287,3 +3287,14 @@ code {
 .dps-segment.is-clickable {
   cursor: pointer;
 }
+
+/* a press the engine declined: reached, and refused */
+.combo-strip .combo-card.is-refused {
+  border-color: rgba(224, 90, 90, 0.55);
+  background: linear-gradient(180deg, rgba(224, 90, 90, 0.12), transparent);
+}
+.combo-strip .combo-card.is-refused .combo-label {
+  color: var(--status-bad);
+  text-decoration: line-through;
+  text-decoration-color: rgba(224, 90, 90, 0.6);
+}

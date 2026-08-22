@@ -83,6 +83,15 @@ interface Props {
    */
   unusedStepUids?: string[];
   /**
+   * Steps the engine declined, and why.
+   *
+   * A refusal is different from an unused step: the combo reached this press and
+   * the game would have said no — no mana, not learned yet, an item not owned.
+   * The reason is the engine's own sentence, so the card and the warning list
+   * cannot drift apart.
+   */
+  refusedSteps?: Record<string, string>;
+  /**
    * Toggle the focused step.
    *
    * The card is where you point at a press, so clicking one focuses that
@@ -102,6 +111,7 @@ export function ComboBuilder({
   linkedStepUid,
   pinnedStepUid,
   unusedStepUids,
+  refusedSteps,
   onPinStep,
 }: Props) {
   const sensors = useSensors(
@@ -239,6 +249,7 @@ export function ComboBuilder({
                     linked={linkedStepUid === entry.uid}
                     pinned={pinnedStepUid === entry.uid}
                     unused={unusedStepUids?.includes(entry.uid) ?? false}
+                    refusedWhy={refusedSteps?.[entry.uid]}
                     unlearned={
                       entry.action.kind === 'ability' &&
                       (learnedRanks[entry.action.slot] ?? 0) < 1
@@ -272,6 +283,8 @@ interface StepProps {
   pinned: boolean;
   /** True when the target died before this step. */
   unused: boolean;
+  /** Set when the engine declined this press: its own reason. */
+  refusedWhy?: string;
   /** True when the ability has no rank: it can be planned, it just does nothing. */
   unlearned: boolean;
   onPin: () => void;
@@ -290,6 +303,7 @@ function SortableStep({
   linked,
   pinned,
   unused,
+  refusedWhy,
   unlearned,
   onPin,
   onRemove,
@@ -351,14 +365,16 @@ function SortableStep({
       className={`combo-card ${descriptor.className}${isDragging ? ' dragging' : ''}${
         linked ? ' is-linked' : ''
       }${pinned ? ' is-pinned' : ''}${unused ? ' is-unused' : ''}${
-        unlearned ? ' is-unlearned' : ''
-      }`}
+        refusedWhy ? ' is-refused' : ''
+      }${unlearned ? ' is-unlearned' : ''}`}
       title={
-        unlearned
-          ? 'Not learned — the step stays in the plan and contributes nothing'
-          : unused
-            ? 'The target was already dead — this step never happened'
-            : undefined
+        refusedWhy
+          ? refusedWhy
+          : unlearned
+            ? 'Not learned — the step stays in the plan and contributes nothing'
+            : unused
+              ? 'The target was already dead — this step never happened'
+              : undefined
       }
       onClick={onPin}
       {...attributes}

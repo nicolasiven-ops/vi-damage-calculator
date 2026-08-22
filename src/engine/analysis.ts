@@ -12,6 +12,7 @@ import type {
   DamageInstance,
   DamageType,
   SimulationResult,
+  StepFate,
   TargetConfig,
   TimelineEvent,
   TimelineSpan,
@@ -83,6 +84,8 @@ export interface ComboAnalysis {
   targetRegenerated: number;
   /** Steps the combo never reached, because the target was already dead. */
   unusedSteps: string[];
+  /** What became of every press, in combo order. */
+  stepFates: StepFate[];
   warnings: string[];
   /**
    * Everything that happened but dealt no damage: casts and their timing,
@@ -224,6 +227,7 @@ export function analyse(
     healingDone: result.healingDone,
     targetRegenerated: result.targetRegenerated,
     unusedSteps: result.unusedSteps,
+    stepFates: result.stepFates,
     warnings: [...result.warnings, ...hardLimitWarnings(attacker)],
     events: result.events,
     spans: result.spans,

@@ -71,6 +71,21 @@ export interface DamageInstance {
  * rather than a restatement.
  */
 /** One ability's readiness at a moment: what a game HUD would show. */
+/**
+ * What became of one press.
+ *
+ * `landed` is the normal case. `refused` means the engine declined it and said
+ * why — no mana, not learned, an item not owned, a summoner that cannot touch a
+ * champion. `unused` means the target was already dead, so the press was never
+ * reached at all: still part of the plan, and not part of what happened.
+ */
+export interface StepFate {
+  uid: string;
+  fate: 'landed' | 'refused' | 'unused';
+  /** Present on a refusal: the reason, in the same words the warning uses. */
+  why?: string;
+}
+
 export interface AbilityAvailability {
   slot: AbilitySlot;
   /** Seconds until it can be cast again; 0 when it is up. */
@@ -403,6 +418,8 @@ export interface SimulationResult {
    * them out rather than pretending they landed.
    */
   unusedSteps: string[];
+  /** What became of every press, in combo order. */
+  stepFates: StepFate[];
   instances: DamageInstance[];
   events: TimelineEvent[];
   /** One entry per combo step, plus the state before the first — see StatSnapshot. */
