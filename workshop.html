@@ -26,7 +26,23 @@
         <span class="lab-nav-sub">Where a feature is argued out</span>
         <ol>
           <li><a href="#duel">Why the duel is the point</a></li>
-          <li class="lab-nav-break">Still proposals</li>
+          <li class="lab-nav-break">Build these first</li>
+          <li><a href="#two-sides">Two combatants</a></li>
+          <li><a href="#sustain">Shields that get spent</a></li>
+          <li><a href="#gap">The gap</a></li>
+          <li><a href="#samples">Two thousand duels</a></li>
+          <li><a href="#ahead">Who was ahead</a></li>
+          <li><a href="#replay">Replay the death that actually happened</a></li>
+          <li class="lab-nav-break">Forty ideas, grouped</li>
+          <li><a href="#grp-sym">Two sides, one clock (4)</a></li>
+          <li><a href="#grp-ms">Milliseconds, published and human (5)</a></li>
+          <li><a href="#grp-dist">The answer is a distribution (5)</a></li>
+          <li><a href="#grp-when">When the fight happens (4)</a></li>
+          <li><a href="#grp-space">The ruler the clock never had (5)</a></li>
+          <li><a href="#grp-place">The fight has a place (4)</a></li>
+          <li><a href="#grp-verdict">Verdicts, and what checks them (3)</a></li>
+          <li><a href="#grp-read">Reading a fight (4)</a></li>
+          <li class="lab-nav-break">Older proposals</li>
           <li><a href="#pin">Hold a build</a></li>
           <li><a href="#react">What the target does</a></li>
           <li class="lab-nav-break">Off the bench</li>
@@ -103,8 +119,8 @@
             The honest part is what a duel <strong>cannot</strong> be. Positions, dodges,
             wave states, and what the other player was thinking are not in any published
             file, and a simulation that pretends otherwise is a game with the fun removed.
-            So the model has to be explicit about its stance: the duel is a *stated
-            scenario* — both sides commit, distances are a single number, and every dial a
+            So the model has to be explicit about its stance: the duel is a <em>stated
+            scenario</em> — both sides commit, distances are a single number, and every dial a
             player would set is a dial rather than a guess.
           </p>
           <p class="lab-caption">
@@ -115,6 +131,407 @@
             outcome — which is the point at which every idea in the groups below has
             something real to stand on.
           </p>
+        </section>
+
+        <!-- ================================================= Two combatants, one clock -->
+        <section class="lab-section" id="two-sides">
+          <div class="lab-section-head">
+            <span class="lab-num">★</span>
+            <h2>Two combatants, one clock</h2>
+            <div class="lab-cost">
+              <span class="lab-pill needs">main feature</span>
+              <span class="lab-pill ready">first</span>
+            </div>
+          </div>
+          <p class="lab-why">The engine is one attacker and a set of numbers that gets hit. Make it two of the same thing: two ChampionRuntimes, two stat blocks, two health pools, two resource pools, two cooldown and charge ledgers, two step cursors, one event queue. Damage flows both ways through the mitigation chain that already exists, and either side can die.</p>
+          <p class="lab-why">It is also the cheapest of the big changes, which is the surprise. The mitigation chain never knew who was attacking — <code>mitigate()</code> takes a resistance block and a penetration figure and has no opinion about whose they are — so damage flowing the other way needs no new arithmetic at all. What is asymmetric is a handful of loose variables in one file, and those are one record waiting to be extracted twice.</p>
+          <p class="lab-why">Two things become dishonest the moment the other side acts, and both are already in the code: a shield is a number that is granted and never spent, and crowd control is drawn as a bar that stops nobody. Neither mattered while the target stood still. Both decide fights.</p>
+          <p class="lab-caption">
+            <strong>How.</strong> Extract the loose locals in simulate.ts (targetCurrentHealth, currentMana, nextAttackReadyAt, cooldowns, cooldownTotals, chargeStates, shreds, magicShreds, tempStats, targetAmps, crowdControl) into one Combatant record, instantiated twice as A and B. The loop no longer walks one combo: each side has its own nextActionReadyAt, and each iteration advances the clock to min(A.next, B.next, nextScheduledEvent) and resolves whichever is due — so a scheduled Ignite tick, B's auto and A's Q interleave on the same clock the way they interleave in the game. SimContext splits ctx.stats/ctx.target into ctx.self and ctx.foe (same shape both times), so a champion module is written once and works on either side; damage calls mitigate with the victim's ResistanceInput and the caster's penetration, which is exactly what damage.ts already takes.
+          </p>
+          <p class="lab-caption">
+            <strong>Data.</strong> Nothing new. Both sides already resolve real base stats, level growth, items and runes: state/build.ts already carries a full LoadoutState for the target, and the two sidebars were built from one mould.
+            <strong>Assumes.</strong> Both scripts are pressed as written; nobody reacts to anything. Simultaneity needs a stated tie-break (a documented rule, e.g. the side whose action was queued earlier, then side A), and it must be stated because it can decide a kill. No distance and no misses yet — every action lands.
+          </p>
+        </section>
+
+        <!-- ================================================= Shields that get spent, health that comes back -->
+        <section class="lab-section" id="sustain">
+          <div class="lab-section-head">
+            <span class="lab-num">★</span>
+            <h2>Shields that get spent, health that comes back</h2>
+            <div class="lab-cost">
+              <span class="lab-pill ">medium</span>
+              <span class="lab-pill ready">first</span>
+            </div>
+          </div>
+          <p class="lab-why">Blast Shield is currently a number that is granted and never touched, lifesteal is a stat with nowhere to go, and Heal and Barrier are picks with no effect. Once damage arrives from the other side, all of that becomes arithmetic — incoming damage meets a pool before it meets health.</p>
+          <p class="lab-why">This is the half of the fight the calculator has never had. Every defensive pick in the app — Barrier, Heal, lifesteal, Blast Shield, Sterak's — currently changes nothing, and a duel in which they change nothing is not a duel, it is two stopwatches.</p>
+          <p class="lab-caption">
+            <strong>How.</strong> Shields become a list of pools with amount, source and expiry. Post-mitigation damage is spent against them in expiry order (soonest first) before it touches health; a partially spent pool keeps its remainder; an expired pool drops. The shield span on the timeline stops being a flat bar and draws as a level that steps down as it is eaten. Lifesteal, omnivamp and vamp items already produce healingDone — that number now restores health, capped at maximum, on whichever side earned it. Barrier and Heal become castable steps on either side with real values, and the target's defensive item passives — the Randuin's damage reduction and Bramble's grievous wounds that itemDecisions.ts already classifies as target-defensive with nowhere to fire — finally have an incoming hit to fire on.
+          </p>
+          <p class="lab-caption">
+            <strong>Data.</strong> Item and rune stats are already parsed. Barrier and Heal are levelled values that Data Dragon does not ship — its summoner payload names and dates them and nothing more — so they join Ignite and Smite as maintained constants in src/model/summoners.ts, marked registry and pinned by a test, which is the pattern that file …
+            <strong>Assumes.</strong> Soonest-expiry-first is the stated spend rule. No shield stacking exceptions beyond what each item's own text says. Explicitly not built: a tally of shield that expired unspent — that thought is already in the scrapyard as "what was wasted", and it stays there; what is added here is the absorbed number the fight needs …
+          </p>
+        </section>
+
+        <!-- ================================================= The gap, on the same clock as the damage -->
+        <section class="lab-section" id="gap">
+          <div class="lab-section-head">
+            <span class="lab-num">★</span>
+            <h2>The gap, on the same clock as the damage</h2>
+            <div class="lab-cost">
+              <span class="lab-pill ">medium</span>
+              <span class="lab-pill ready">first</span>
+            </div>
+          </div>
+          <p class="lab-why">One number added to the simulation state — the distance between the two champions in Riot's game units — and every step made to move it or be refused by it. The timeline gains a distance track under the damage: the gap over time, with each ability's reach drawn behind it as a band. A combo stops being a list that always works and becomes a plan that starts somewhere.</p>
+          <p class="lab-why">One number, not a map. Distance is the single dimension a duel actually turns on, and Riot publishes every input it needs: cast ranges, dash distances, missile speeds, attack ranges. What it does not publish is where two players stood, so the opening gap is a dial — and every step either closes it, needs it, or is refused by it.</p>
+          <p class="lab-caption">
+            <strong>How.</strong> <code>gap</code> becomes a scalar in the <code>simulate()</code> loop beside <code>time</code>, <code>currentMana</code> and <code>targetCurrentHealth</code>. Each step reads and writes it. An ability is refused unless gap is within its cast range — using the refusal path the engine already has for mana, which declines a cast and states the reason instead of quietly resolving it — and the refusal reports the shortfall in units. A basic attack is checked the same way against attackRange. Vi's Q sets gap to max(0, gap − d) where d = min(gap, 250 + (715−250) × charge/1.25), and costs d ÷ 1200 seconds of dash. A walk step closes the gap at the attacker's move speed, becoming the first combo step whose cost in seconds is derived rather than typed. Output: gap before and after each step in the snapshot the sidebars already read, plus a distance lane on the Gantt view, ranges drawn as horizontal bands behind it.
+          </p>
+          <p class="lab-caption">
+            <strong>Data.</strong> Cast ranges from Data Dragon <code>spells[].range</code> (Vi: 250 / 750 / 400 / 800) — unlike the damage arrays, this field is populated and correct. Attack range 125 and move speed 340 from the champion stats block; <code>moveSpeedFlat</code> and <code>moveSpeedPercent</code> are already parsed by <code>src/model/items.ts</code>.
+            <strong>Assumes.</strong> The opening gap is an input — a slider over the distance axis — defaulting to the attacker's own reach so the app's current behaviour ('close enough') is the zero position and no existing number moves silently.
+          </p>
+        </section>
+
+        <!-- ================================================= Two thousand duels -->
+        <section class="lab-section" id="samples">
+          <div class="lab-section-head">
+            <span class="lab-num">★</span>
+            <h2>Two thousand duels</h2>
+            <div class="lab-cost">
+              <span class="lab-pill needs">large</span>
+              <span class="lab-pill ready">first</span>
+            </div>
+          </div>
+          <p class="lab-why">Crit and misses do not just widen a damage total in a duel — they change who is alive, and therefore which abilities get cast at all. That nonlinearity is invisible to a floor-and-ceiling pair, so sample the fight instead and report a win rate with the health distribution behind it.</p>
+          <p class="lab-why">The reason a range is not enough: in a duel, a crit does not widen a total, it changes who is alive — and a dead champion casts nothing. That nonlinearity is invisible to a floor and a ceiling, and it is exactly where matchups live.</p>
+          <p class="lab-caption">
+            <strong>How.</strong> Run the two-sided simulation N times (default 2,000) with a seeded RNG, drawing three inputs per run: crit as a Bernoulli per critable hit at the build's real crit chance; hit or miss per skillshot from a per-ability hit-chance slider, where a miss still costs the cast time, the cooldown and the mana; and each side's first-action offset from a stated distribution (default zero, optional uniform 0–150 ms). Report side A's win rate with a binomial confidence interval, P(both die), P(nobody dies inside the window), and a histogram of the survivor's remaining health — which is the output worth having, because a 60 % win rate that survives at 40 health and a 60 % that survives at 900 are different matchups. Then one sensitivity pass: re-run with each random input pinned to its mean and report the change in win rate, so the panel can say which roll the fight actually hangs on.
+          </p>
+          <p class="lab-caption">
+            <strong>Data.</strong> Crit chance comes from item stats already parsed. Riot publishes nothing about hit rates, so hit chance is a slider per ability, defaulting to 100 % and shown as an assumption next to every number derived from it. Reaction offsets are equally unpublished and default to zero so the honest case is the deterministic one.
+            <strong>Assumes.</strong> Independence between rolls, which is wrong for a real player (someone who lands Q is better positioned for E) and is stated as such. The confidence interval is printed with the win rate so 51.3 % is never read as a fact, and the seed is shown so a surprising run can be reproduced and inspected as a single timeline.
+          </p>
+        </section>
+
+        <!-- ================================================= Who was ahead, second by second -->
+        <section class="lab-section" id="ahead">
+          <div class="lab-section-head">
+            <span class="lab-num">★</span>
+            <h2>Who was ahead, second by second</h2>
+            <div class="lab-cost">
+              <span class="lab-pill ">medium</span>
+              <span class="lab-pill ready">first</span>
+            </div>
+          </div>
+          <p class="lab-why">A duel has two health bars and neither says who is winning: 40% of Vi's health and 40% of Darius's are not the same amount of fight left. So compute one signed number instead — at every moment, fork the duel, let both sides finish the plan they still have, and record who wins that fork and with how much.</p>
+          <p class="lab-why">Two health bars do not say who is winning. Forty per cent of Vi and forty per cent of Darius are not the same amount of fight left, and the number that says so is computable from the thing the engine already does best.</p>
+          <p class="lab-caption">
+            <strong>How.</strong> 1) The engine already snapshots one state per resolved action; make that state forkable (clone stats, cooldowns, charges, resource, shields, CC, scheduled damage). 2) At each snapshot, run the fork to completion with both sides continuing their remaining steps and nothing else changed. 3) Define margin(t) = ±(winner's remaining health / that winner's max health), sign positive for our side. This is fully defined for every fork — no infinities, no rates — and produces one line from -1 to +1. 4) Draw it under the two bars; mark the last sign change as the point of no return; a click on any point of the line opens that fork's own timeline, so the claim is checkable rather than asserted. 5) Deliberately NOT the naive version: seconds-to-live from a trailing damage rate, which looks plausible and moves for reasons that are not in the fight.
+          </p>
+          <p class="lab-caption">
+            <strong>Data.</strong> Nothing new from Riot. Every fork runs on the same published data the single-sided simulation already uses (Data Dragon base stats and items, bin ability formulas). The two plans are user input, which is the honest substitute for what Riot does not publish — what a player actually does.
+            <strong>Assumes.</strong> The fork assumes both sides keep pressing what is left of their plan and do nothing else: no reaction, no disengage. That sentence belongs on the axis, not in a footnote, because it is what the line means.
+          </p>
+        </section>
+
+        <!-- ================================================= Replay the death that actually happened -->
+        <section class="lab-section" id="replay">
+          <div class="lab-section-head">
+            <span class="lab-num">★</span>
+            <h2>Replay the death that actually happened</h2>
+            <div class="lab-cost">
+              <span class="lab-pill needs">large</span>
+              <span class="lab-pill ready">first</span>
+            </div>
+          </div>
+          <p class="lab-why">Riot records, for every champion kill, what damage the victim received and from which spell. That is an external ground truth for a damage calculator, and it is the one thing this app has never had: a number it did not compute itself. Paste a match id, pick a death, and the app rebuilds both sides from the match's own data, replays the fight, and puts its numbers beside Riot's.</p>
+          <p class="lab-why">The one thing this project has never had is an external check. Every number in it is traceable to Riot's own files and none of it has ever been compared against a game that really happened — which is the difference between an audit trail and a proof.</p>
+          <p class="lab-caption">
+            <strong>How.</strong> From Match-V5: <code>/matches/{id}</code> gives every participant's champion, level, runes (<code>perks</code>) and final items; <code>/matches/{id}/timeline</code> gives <code>ITEM_PURCHASED</code> and <code>ITEM_SOLD</code> events with millisecond timestamps, <code>LEVEL_UP</code> and <code>SKILL_LEVEL_UP</code> events, and per-minute <code>participantFrames</code> with stats. Take a <code>CHAMPION_KILL</code> event at time T, reconstruct both builds as they stood at T by replaying the purchase and level events up to T (this is exact, not estimated), then read the event's <code>victimDamageReceived</code> array: one entry per damage instance with <code>spellName</code>, <code>spellSlot</code>, <code>basic</code>, and the physical/magic/true split, post-mitigation. Two outputs. (a) The reconstruction: a duel loaded into the app with both sides' real builds and levels, ready to re-run with anything changed.
+          </p>
+          <p class="lab-caption">
+            <strong>Data.</strong> Riot Match-V5 (needs the user's own API key, entered by them; personal keys expire daily and the panel should say so). Riot does NOT publish per-instance timestamps inside <code>victimDamageReceived</code> — the entries are a bag of instances over a window before the death, not an ordered log — nor the victim's resistances at the …
+            <strong>Assumes.</strong> The reconstructed fight is the app's guess at the sequence, not Riot's recording of it — so the timeline is labelled "reconstructed", while the residual table is labelled "measured".
+          </p>
+        </section>
+
+        <!-- ================================================= Two sides, one clock -->
+        <section class="lab-section" id="grp-sym">
+          <div class="lab-section-head">
+            <span class="lab-num">04</span>
+            <h2>Two sides, one clock</h2>
+            <div class="lab-cost"><span class="lab-pill">4 ideas</span></div>
+          </div>
+          <div class="lab-stage plain">
+            <ul class="lab-scrap">
+              <li>
+                <b>Every press, and whether it happened <span class="lab-pill ">small</span></b>
+                <span>In a duel the plan and what occurred stop being the same list. A press can land, be interrupted mid-cast, be refused because the mana or the charge or the cooldown was not there, or never be reached because its owner was already dead — and the strips on both sides should say which, in the same idiom the combo strip already uses to grey out steps after a kill.</span>
+                <em><strong>How.</strong> 1) The engine records a fate per step per side: landed (with the instances it produced), interrupted (at t, by which effect, with how much of the cast had elapsed), refused (with the reason and the exact shortfall: 12 mana, 1.4 s of cooldown, no charge), never reached. <strong>Assumes.</strong> That a knock-up cancels a channel and a slow does not is a rule someone wrote down, not a number Riot ships. Each fate on a cancelled cast therefore names the rule that produced it, so a wrong rule is visible where it acts rather than buried in the engine.</em>
+              </li>
+              <li>
+                <b>Stances instead of a second combo <span class="lab-pill needs">large</span></b>
+                <span>A duel where the enemy needs a hand-typed combo per matchup is a duel nobody runs twice. Give the other side a small set of named policies — all-in, short trade, disengage, answer-only — each a function from the current state to the next legal action, and run the fight against all of them.</span>
+                <em><strong>How.</strong> A stance is <code>(self, foe, time) =&gt; Action | null</code>, which is the same thing the combo cursor already is, so a scripted list is just one more stance. Four to start, all resolved against the engine's own legality rules (cooldown up, charges free, resource payable, rank learned): all-in presses, at every moment it can act, the legal action with the highest immediate raw damage, until dead; short trade does the same for a … <strong>Assumes.</strong> Named plainly on the panel: all-in is greedy per press, not optimal, so it can be beaten by an order it did not consider; disengage means "stops casting", not "walks away", until distance exists; answer-only's trigger threshold is a slider because no published …</em>
+              </li>
+              <li>
+                <b>Fights decided inside one tick <span class="lab-pill ">medium</span></b>
+                <span>With two sides acting, the order of two hits at the same instant can decide who dies — and that order is a tie-break rule this tool invented, not something Riot published. So find every fight whose outcome depends on it, and refuse to report those as wins.</span>
+                <em><strong>How.</strong> After the deterministic run, scan the instance list for pairs of opposing damage instances whose timestamps fall within epsilon (default one server tick, user-editable, sitting beside the existing animation timings). For each such contested instant, re-run the fight from a fork with that pair's resolution order reversed. <strong>Assumes.</strong> That reversing a resolution order is a fair proxy for tick-boundary uncertainty; it is a bound on ordering sensitivity, not a physics model, and the panel says so.</em>
+              </li>
+              <li>
+                <b>Interrupted mid-cast, decided by the file's own flags <span class="lab-pill ">medium</span></b>
+                <span>A duel is where a combo stops being a list and starts being a thing that can be taken away from you. The bin says, per spell, what the game does about that: cantCastWhileRooted, canCastWhileDisabled, mCanMoveWhileChanneling, mCantCancelWhileChanneling, CanTimeoutWhileCasting, mUseChargeChanneling. Those flags are the rules for the worst thing a player can be — surprised while committed.</span>
+                <em><strong>How.</strong> Read the flags into the canonical spell model. When the opponent's crowd control lands inside a cast or charge window, resolve it by the flags rather than by a house rule: a charge with mUseChargeChanneling that eats a stun is lost or released early depending on the timeout flag, an uninterruptible commitment such as Vi's grab runs to completion, a rooted caster keeps casting what it may and loses what it may not. <strong>Assumes.</strong> That the flag set found for Vi generalises; the honest handling is the app's existing one — an unrecognised combination makes the case unresolved and visible, rather than resolved by guesswork.</em>
+              </li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- ================================================= Milliseconds, published and human -->
+        <section class="lab-section" id="grp-ms">
+          <div class="lab-section-head">
+            <span class="lab-num">05</span>
+            <h2>Milliseconds, published and human</h2>
+            <div class="lab-cost"><span class="lab-pill">5 ideas</span></div>
+          </div>
+          <div class="lab-stage plain">
+            <ul class="lab-scrap">
+              <li>
+                <b>Wind-up, cast time and missile flight out of Riot's own file <span class="lab-pill ">medium</span></b>
+                <span>The engine's three timing constants are one global guess standing in for per-spell numbers the game ships. Vi's bin carries mAttackCastTime 0.36, spellCastTime per spell (E 0.25, R 0.25, R's dunk 0.9), missileSpeed (Q 1500, Q's launch 1200, R 1400/2000) and widths (Q 55/90/120, R 85). Read them and the clock stops guessing where the game publishes an answer.</span>
+                <em><strong>How.</strong> Extend src/data/bin.ts to read per spell block: spellCastTime, the mCastTime override, mMissileSpec.movementComponent.mSpeed / missileSpeed, mMissileWidth / mLineWidth, castRange + castRangeValues, mCastRangeGrowthDuration / mCastRangeGrowthMax, and from CharacterRecords/Root/basicAttack the mAttackCastTime plus the attack-speed ratio. <strong>Assumes.</strong> Only the ratio-to-seconds derivation, which is why it must be validated before it is trusted: if the derived wind-up disagrees with the published per-champion value, the app keeps the constant and shows the mismatch, exactly as it already does when the bin's r …</em>
+              </li>
+              <li>
+                <b>How much warning did you give, and was it enough to answer <span class="lab-pill ">medium</span></b>
+                <span>Every action broadcasts itself for a measurable stretch before it lands: a charge held, a cast animation, a missile in flight. That stretch is the opponent's reaction budget, and it is computable from the file down to the millisecond. Put the budget next to a stated reaction time and a window stops being a picture and becomes a verdict.</span>
+                <em><strong>How.</strong> For each action compute telegraph = charge/cast seconds + flight (distance / missileSpeed), i.e. the seconds between the cue appearing and the damage landing. Then compare against the answering side's reactionMs + pingMs. <strong>Assumes.</strong> That the cue is visible the instant the cast starts, which is false for anything begun out of vision or behind a minion wave — so the readout states 'assuming the target is looking at you'.</em>
+              </li>
+              <li>
+                <b>The player as five named latencies, with a zero that reproduces today <span class="lab-pill ">small</span></b>
+                <span>Skill is not a one-to-ten slider; it is a handful of latencies with units, each one something a person can state about themselves. Ping, reaction to a cue, the slack between two presses of a rehearsed combo, the input-buffer window, and cancel latency. Five numbers in one PlayerProfile, sitting exactly where TimingConfig already sits.</span>
+                <em><strong>How.</strong> PlayerProfile { pingMs, reactionMs, comboSlackMs, bufferWindowMs, cancelMs } passed into simulate() beside TimingConfig. Every action's start becomes max(engineEarliest, requested) + pingMs + (reactive ? reactionMs : comboSlackMs); an action issued within bufferWindowMs of becoming legal starts at engineEarliest + pingMs and pays no slack, which is what input buffering actually is. <strong>Assumes.</strong> All of it, deliberately: five admitted assumptions with units are better than one hidden claim of perfect play. The dials are also independent, which is a simplification — a tired player is slower on all five at once — and the panel says so rather than modelli …</em>
+              </li>
+              <li>
+                <b>The half of an animation you are allowed to throw away <span class="lab-pill ">medium</span></b>
+                <span>An attack is two stretches: the committed part up to the damage point, and the tail after it that a player may cancel by moving or casting. The engine already assumes the tail is always thrown away perfectly — after a basic attack the clock stands at the damage point and the next step may start immediately, while the tail is enforced only against the next attack.</span>
+                <em><strong>How.</strong> Split the attack span into 'committed' (start to damage, the wind-up from idea 1) and 'tail' (damage to the end of the animation, from spellCastTime — Vi's basic attack is 0.4236 s total against a 0.36-derived wind-up, so roughly 0.19 s of tail). The tail is drawn as a hatched block rather than left invisible. <strong>Assumes.</strong> That the tail is fully cancellable once the damage has landed, which holds for basic attacks and not for every spell — hence reading the flags rather than assuming.</em>
+              </li>
+              <li>
+                <b>What your guesses cost <span class="lab-pill ">small</span></b>
+                <span>Three timing constants in the Simulation panel are honest guesses, and the app says so. In a one-sided combo they only shift the clock. In a duel they decide who gets the last hit in, so the guess now moves the answer — and the right response is not to grade the guess but to measure what it is worth: sample within a band instead of at a point, and print how much of the win rate the band accounts for.</span>
+                <em><strong>How.</strong> Each unpublished constant gets a band rather than a value — attack windup, dash travel, input delay, and the reaction latency — with the current value as the centre and a width the user can widen or set to zero. <strong>Assumes.</strong> That the true value lies in the band and that a uniform draw inside it is a fair way to say 'I do not know where'. Both are stated on the panel.</em>
+              </li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- ================================================= The answer is a distribution -->
+        <section class="lab-section" id="grp-dist">
+          <div class="lab-section-head">
+            <span class="lab-num">05</span>
+            <h2>The answer is a distribution</h2>
+            <div class="lab-cost"><span class="lab-pill">5 ideas</span></div>
+          </div>
+          <div class="lab-stage plain">
+            <ul class="lab-scrap">
+              <li>
+                <b>One named roll at a time <span class="lab-pill ">small</span></b>
+                <span>The engine has no randomness at all — <code>critMultiplierFor</code> folds crit into a multiplier so the number is reproducible, and that was the right call for a calculator. A duel needs actual rolls, but it needs them reproducible too. So: every random decision in the simulation comes from one seeded stream, each draw carries a name, and the whole tape of draws comes back in the result.</span>
+                <em><strong>How.</strong> <code>SimulationInput</code> gains an optional <code>rolls: { seed: number; overrides?: Record&lt;string, number&gt; }</code>. Inside the engine, every random decision goes through one function — <code>draw(name)</code> — which pulls the next value from a small deterministic PRNG (xorshift/mulberry32, four lines, no dependency) and records <code>{ seq, name, u, outcome }</code> into <code>SimulationResult.rolls</code>. <strong>Assumes.</strong> That each critable hit is an independent Bernoulli draw at the current crit chance. That is what League does for the plain case, and it is worth stating on the panel because the exceptions are real and this engine will meet them: guaranteed crits (Sundered Sky …</em>
+              </li>
+              <li>
+                <b>The answer curve: when he answers, and how late is too late <span class="lab-pill ">medium</span></b>
+                <span>The roadmap marks the stretches where the target is free to act. The next question is the one that decides matchups: does it matter which of those stretches he uses? Slide the defender's answer along the clock, one full duel per offset, and the outcome margin becomes a curve with a crossing point.</span>
+                <em><strong>How.</strong> Fix both sequences. Fix the attacker's opening at t=0. Sweep the defender's <em>start</em> offset d from 0 to the end of the fight in 50 ms steps, running one complete duel per offset, and plot the survivor margin (attacker health minus defender health at resolution, signed) against d. <strong>Assumes.</strong> Both sequences are fixed; only the offset moves. So it answers "when", never "what", which keeps it clear of the scrapped window-alignment solver — that shuffled one side's steps to fit its own buff windows; this moves the <em>other side</em> along the clock and chan …</em>
+              </li>
+              <li>
+                <b>Open one of the two thousand <span class="lab-pill ">medium</span></b>
+                <span>A win rate is a shrug until you can look at a duel. The app already has the best sample viewer imaginable — the timeline, the health bars, the formula inspector, the availability strip — and it is currently pointed at the only run that exists. Point it at a chosen sample instead, and the distribution stops being a statistic and becomes a shelf of readable fights.</span>
+                <em><strong>How.</strong> Each sampled run keeps its seed and its outcome, so any of them can be reproduced exactly by re-running that seed (guaranteed by the determinism test in the first idea). Sort the samples by survivor health and offer named ones: the median duel, the 5th and 95th percentile, the closest loss, the worst loss, and the closest win. <strong>Assumes.</strong> Percentile labels are about the sample, not the population — 'the 5th percentile of 2,000 runs' is what it says, and with N=200 the tail tiles are a handful of runs and the label should say so.</em>
+              </li>
+              <li>
+                <b>The roll that decided it <span class="lab-pill ">medium</span></b>
+                <span>Out of a hundred random draws in a duel, one or two decided it and the rest were scenery. Because every draw is named and the tape can be replayed with one value overridden, the app can find out which — not by theory, by flipping one roll and playing the duel again.</span>
+                <em><strong>How.</strong> Common random numbers. For a sampled duel, re-run it with exactly one named draw forced the other way (a crit that did not happen, a Q that missed) and every other draw taken from the recorded tape. That draw is <em>pivotal in that duel</em> if the flip changes the winner. Across the sample this yields two readings. <strong>Assumes.</strong> One-at-a-time flipping finds single points of failure and cannot find pairs — two rolls that only matter together are invisible to it, and the panel should say so rather than imply the taxonomy is exhaustive (the 'no single roll' bucket is exactly where those …</em>
+              </li>
+              <li>
+                <b>Dice or hands <span class="lab-pill ">small</span></b>
+                <span>Two duels can both read 60% and be completely different problems: one is a coinflip you cannot influence, the other is a reaction test you keep failing. The distribution's <em>width</em> comes from two sources — the game's rolls and the player's timing — and separating them is one extra pass over the sampler and the single most useful sentence it could produce.</span>
+                <em><strong>How.</strong> Three sample sets over the same duel. (a) Rolls vary, every latency pinned at its mean. (b) Latency varies over its stated distribution, rolls pinned to one tape. (c) Both vary — the headline figure. Report the win rate and its interval for each, plus the standard deviation of survivor health. <strong>Assumes.</strong> The latency distribution is entirely an assumption: a mean and a spread the user sets, defaulted to something plausible and labelled as a default, never as a measurement — Riot publishes nothing about player reaction and neither does anyone else in a form this …</em>
+              </li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- ================================================= When the fight happens -->
+        <section class="lab-section" id="grp-when">
+          <div class="lab-section-head">
+            <span class="lab-num">04</span>
+            <h2>When the fight happens</h2>
+            <div class="lab-cost"><span class="lab-pill">4 ideas</span></div>
+          </div>
+          <div class="lab-stage plain">
+            <ul class="lab-scrap">
+              <li>
+                <b>Which part of the clock you are losing to <span class="lab-pill ">medium</span></b>
+                <span>At any minute the two sides differ in exactly three separable ways: levels, gold already spent on items, and ability ranks. Run the duel four times — as it stands, then handing the losing side only the winner's levels, only their items, only their ranks — and the three deltas say which of the three this matchup is actually about.</span>
+                <em><strong>How.</strong> Baseline duel, survivor health recorded. Then three counterfactual runs, each substituting exactly one component from one side into the other and holding everything else: the level (and therefore the base-stat growth resolveChampionStats already derives from it), the item id list, the Q/W/E/R rank map. Each run's survivor health minus the baseline is that component's contribution. <strong>Assumes.</strong> None of the unpublished kind — both sides are whatever the two sidebars currently say, so this works on hand-typed opponents and on generated ones alike.</em>
+              </li>
+              <li>
+                <b>The same fight, eighteen times <span class="lab-pill ">medium</span></b>
+                <span>A matchup is not one verdict, it is a sequence of them: lost early, won the moment the ultimate lands, lost again when the other kit outscales. Run the identical duel once per level with both sides scaling, and mark the levels where the winner changes.</span>
+                <em><strong>How.</strong> Eighteen runs of the two-sided simulation, level 1 through 18, both sides moved together: base stats via Riot's level growth curve the app already implements and tests, ability ranks stepped by a per-level rank plan, everything else held fixed. <strong>Assumes.</strong> Both sides at the same level, which is the clean comparison and not always the real one — hence a level-difference offset the user can set.</em>
+              </li>
+              <li>
+                <b>The matchup as a curve over the game clock <span class="lab-pill needs">main feature</span></b>
+                <span>The same two champions are not one matchup but forty. Run the duel once every thirty seconds of game time from 3:00 to 25:00 and plot one signed line: how much health the winner has left, positive when that is you. The zero crossings are the answer — the minutes at which this matchup changes hands.</span>
+                <em><strong>How.</strong> Per tick t: (1) XP = t × the assumed XP rate per side, turned into a level by ExperienceCurveData's thresholds; (2) gold = 10.2 g per 5 s of passive income from 1:05 plus the assumed farm rate, then walked down a hand-kept core order for that archetype, components filling the remainder; (3) ability ranks from RecSpellRankUpInfoList's priority order, ultimate gated at 6/11/16 and maxrank read per champion rather than … <strong>Assumes.</strong> Exactly two unpublished numbers per side: XP per minute and gold per minute. They are role presets (solo lane, jungle, support) that are editable, printed on the axis rather than buried, and the curve is drawn with a faint band showing the same sweep at ±20 % …</em>
+              </li>
+              <li>
+                <b>Summoner spells are a cooldown, not a checkbox <span class="lab-pill ">medium</span></b>
+                <span>Across a game a summoner spell is a three-to-five-minute clock, and whether the enemy's Heal or Barrier is up decides more duels than any single item does. Model both sides' summoners as available or not, and report the duel for every combination of the two.</span>
+                <em><strong>How.</strong> Read each spell's cooldown from Data Dragon's summoner.json and shorten it by the haste sources already modelled (Cosmic Insight, boots), so the panel can state how long a spell is gone once spent and mark the ticks of the minute curve where it is back. <strong>Assumes.</strong> The trigger health for Heal and Barrier is unpublished and unknowable, so it is an input with a stated default rather than an inference, and the availability of each spell is a toggle the user sets.</em>
+              </li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- ================================================= The ruler the clock never had -->
+        <section class="lab-section" id="grp-space">
+          <div class="lab-section-head">
+            <span class="lab-num">05</span>
+            <h2>The ruler the clock never had</h2>
+            <div class="lab-cost"><span class="lab-pill">5 ideas</span></div>
+          </div>
+          <div class="lab-stage plain">
+            <ul class="lab-scrap">
+              <li>
+                <b>Exposure: what the engage costs in seconds you cannot answer <span class="lab-pill needs">main feature</span></b>
+                <span>For a chosen opening gap, count the seconds between the moment the defender can first reach the attacker and the moment the attacker's first damage lands. That interval is the price of the engage, and it is the first number in this app that belongs to the other champion rather than to the build.</span>
+                <em><strong>How.</strong> Run the combo through the gap model. Sample the clock; at each instant compare the gap against both sides' reach lists and label the moment one of four ways: neither can act, only he can, only she can, both. Sum the 'only he can' stretches falling before the attacker's first landed hit — that is exposure, in seconds, and it is pure geometry. <strong>Assumes.</strong> The one real guess is what he does, and it is exposed as three named policies rather than hidden as a default: holds his ground, walks toward, walks away — each a straight line at his published move speed, with the reading given for the one selected and the ot …</em>
+              </li>
+              <li>
+                <b>The dodge window, computed <span class="lab-pill ">medium</span></b>
+                <span>Hit rate is the number everyone fudges with a slider labelled 'skillshot accuracy'. Most of it does not need fudging. The missile's width, its speed, the cast time, the range and the target's own body radius are all in Riot's shipped data, and the target's movement speed is in Data Dragon.</span>
+                <em><strong>How.</strong> For a skillshot: take the flight time as cast time plus distance divided by missile speed, subtract the assumed reaction latency to get the seconds the target has to move, multiply by its movement speed for the escape radius r. The missile sweeps a corridor of half-width w = (missile width / 2) + the target's collision radius. <strong>Assumes.</strong> Three, each named on the panel. That the target reacts after a latency (an input, defaulted and adjustable, never presented as measured).</em>
+              </li>
+              <li>
+                <b>Kiting, as arithmetic <span class="lab-pill ">medium</span></b>
+                <span>Retreat-and-attack is a repeated cycle with a closing rate, and every term in it is published. Over one attack cycle the kiter stands still for the windup and walks for the rest; the pursuer walks the whole time. The difference is a speed, and a speed applied over a distance is a count of attacks.</span>
+                <em><strong>How.</strong> Kiter's average speed = moveSpeed × (1 − windupSeconds × attacksPerSecond). Since windupSeconds = windupFraction ÷ attackSpeed, the attack speed cancels and the penalty is exactly the windup fraction: a kiter surrenders 22.5% of its move speed to attacking regardless of how fast it attacks, which is the sort of result worth putting on screen. Closing rate = pursuer's move speed − that. <strong>Assumes.</strong> Perfect kiting in a straight line, no terrain, no misstep — an upper bound, labelled as one, which is the same honesty the combo solver's panel already carries about being a theoretical maximum.</em>
+              </li>
+              <li>
+                <b>The reach chart: who can hit whom, before anyone presses anything <span class="lab-pill ">small</span></b>
+                <span>One horizontal axis in game units, both champions' abilities drawn on it as bars from zero to their reach — hers above the line, his below. No simulation at all, just the two kits' geometry side by side, with the bands where one side can act and the other cannot filled in.</span>
+                <em><strong>How.</strong> Per ability of both sides, reach = cast range plus that ability's own hitbox contribution, which is a different sum per shape: a point-blank cone is its <code>coneRange</code> (Vi's E is 535 with a 350 radius, where Data Dragon reports only 400); a landing area is castRange + castRadius (Vi's R is 800 plus 220 on arrival, with a 275 secondary knockback ring); a charged dash is not a line but a bar that grows with the charge. <strong>Assumes.</strong> Reach is drawn centre-to-centre, said on the chart. Where a champion's gameplay radius would extend a range, the published collision radius stands in with a label.</em>
+              </li>
+              <li>
+                <b>The charge curve: what a longer Q buys, and what it costs <span class="lab-pill ">medium</span></b>
+                <span>Vault Breaker is this tool's most interesting object because charging buys two things at once — damage and distance — and pays for both in one currency: up to 1.25 seconds standing inside his range. Sweep the charge and price both sides, and the best charge is not the longest one.</span>
+                <em><strong>How.</strong> For each charge time from 0 to 1.25 s in small steps, four figures: the Q's damage (already computed, linear between minimum and maximum); the dash distance, 250 growing to 715; the flight time, distance ÷ 1,200; and the health the defender removes during the hold at the current gap, from the exposure rate. Plot net health advantage against charge time and mark the maximum. <strong>Assumes.</strong> Inherits the exposure policy for what he does, shown on this panel too rather than referenced. Adds one of its own: the charge is held stationary, which is what the game does.</em>
+              </li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- ================================================= The fight has a place -->
+        <section class="lab-section" id="grp-place">
+          <div class="lab-section-head">
+            <span class="lab-num">04</span>
+            <h2>The fight has a place</h2>
+            <div class="lab-cost"><span class="lab-pill">4 ideas</span></div>
+          </div>
+          <div class="lab-stage plain">
+            <ul class="lab-scrap">
+              <li>
+                <b>The turret is the deadline <span class="lab-pill ">medium</span></b>
+                <span>Under a turret the question stops being "who wins" and becomes "who wins in time". Give the turret its published damage and its consecutive-shot escalation, and the verdict grows a second clock: you kill him at 4.1 s, the turret kills you at 5.8 s, you win by 1.7 s.</span>
+                <em><strong>How.</strong> The turret is an actor with one shot every 1/attackSpeed, damage from its own character record, and the escalation Riot applies to successive shots on the same target read off its attack spell (each shot multiplied, capped). <strong>Assumes.</strong> Distance is a boolean — in range or out — because the app has no map and should not pretend to. Where the turret is in its own firing cycle when the fight starts is genuinely unknowable, so the first shot's offset is one labelled slider with a stated default …</em>
+              </li>
+              <li>
+                <b>The wave shoots back <span class="lab-pill needs">main feature</span></b>
+                <span>A minion is a champion with no kit: base stats, one attack timer, one target. Put six of them on the field with their published stats and let them fire at whoever they are pointed at, so the duel finally has incoming damage — from an opponent that cannot be wrong about its rotation, because it has none.</span>
+                <em><strong>How.</strong> Each minion becomes an actor with attack damage, attack speed and range read from its character record, plus the map's per-wave scaling for the chosen game minute. It fires on its own clock at its assigned champion; the damage runs through the mitigation chain the engine already owns (flat → percent → penetration → lethality) against that champion's armour, and lands on the existing Gantt timeline as its own lane wit … <strong>Assumes.</strong> Which minions are alive and which side they shoot is an input, not a guess — aggro as a changing thing is idea 6's problem, and v1 states its choice with a label saying it is stated.</em>
+              </li>
+              <li>
+                <b>Which drakes are up <span class="lab-pill ">small</span></b>
+                <span>Drakes, soul and Elder are the only part of the world that multiplies both champions' entire sheets, and Riot publishes every percentage exactly. A row of toggles above the two sidebars — infernal ×2, mountain, soul, Elder — and those buffs enter the stat sheet, the timeline and the verdict like any other source of stats.</span>
+                <em><strong>How.</strong> Read each drake's buff percentages out of its bin (infernal as % bonus AD and AP, mountain as % armour and magic resist, hextech as attack speed and haste, cloud labelled as changing nothing that this simulation measures) and inject them into the existing bonus-stat block per side, each carrying its own source badge. <strong>Assumes.</strong> None about values. The only input is which buffs are up on which side, which the user states — and Elder running out mid-duel is a clock the timeline can already draw. Baron is deliberately out of scope: its real effect is on minions and recall, not on a 1v1.</em>
+              </li>
+              <li>
+                <b>Both of us just did a camp <span class="lab-pill ">medium</span></b>
+                <span>Two health sliders is a guess wearing a control. Pick a cause instead: both of us just cleared Gromp. Fight the camp with each champion's combo, let the camp hit back, and start the duel from whatever health, mana and cooldowns are actually left over.</span>
+                <em><strong>How.</strong> The camp is the same non-champion actor as a minion, with the monster's published stats and its game-time scaling for the chosen minute. Each side clears it using a combo built in the existing builder against a monster target — which the engine already supports, caps and all — while the monster's own attack clock chews on the clearer. <strong>Assumes.</strong> What a camp does beyond hitting — Gromp's slow, Krugs splitting, the red buff's own burn — is real behaviour a first version should refuse to model. Say the camp is a body with an attack timer and nothing else, and label the health lost as a floor.</em>
+              </li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- ================================================= Verdicts, and what checks them -->
+        <section class="lab-section" id="grp-verdict">
+          <div class="lab-section-head">
+            <span class="lab-num">03</span>
+            <h2>Verdicts, and what checks them</h2>
+            <div class="lab-cost"><span class="lab-pill">3 ideas</span></div>
+          </div>
+          <div class="lab-stage plain">
+            <ul class="lab-scrap">
+              <li>
+                <b>Counter-building: what the loser should buy <span class="lab-pill ">medium</span></b>
+                <span>Every optimisation in the app so far sits in the attacker's chair. The duel opens the other one: given a fight you lose, which single purchase changes that, and is it armour, health, resistance, damage reduction, or simply more damage of your own? Ranked by what it buys per thousand gold, not by what a guide says.</span>
+                <em><strong>How.</strong> Take a duel the near side loses. For each candidate item in a shortlist drawn from the shop by class, put it in the loser's next free slot, re-run the sampled duel with the same seeds, and record the change in win rate and in survivor margin, divided by the item's gold cost. Sort. <strong>Assumes.</strong> One combo, one enemy build, no six-slot pressure and no build path (it buys finished items, and a real game passes through components).</em>
+              </li>
+              <li>
+                <b>The trade, not the kill <span class="lab-pill ">small</span></b>
+                <span>Most of a lane is fights nobody dies in. Bound the duel at a chosen number of seconds instead of at a corpse, and report what was traded — health for health — plus the thing that actually decides the next trade: whose cooldowns come back first.</span>
+                <em><strong>How.</strong> Run the two-sided duel with a horizon T (default: until both sides are out of castable abilities) rather than until death. At the end, report four things the engine already knows exactly: health lost on each side as absolute and as percentage of maximum, the ratio between them, each side's remaining cooldowns and charges at disengage, and the time each side needs to be whole again — from real health regeneration per … <strong>Assumes.</strong> Explicitly not the scrapped ten-second rotation: that looped one side's combo against a target that never fought back and produced something shaped like a DPS number, which is why it was rejected.</em>
+              </li>
+              <li>
+                <b>Both sides play well: iterated best response, and the skill premium <span class="lab-pill needs">large</span></b>
+                <span>A duel where one side has a fixed plan is still half a punching bag. Run the existing sequence search on both sides in turn — his best answer to your line, your best line against that answer, repeat — and the pair it settles on is the matchup played properly. The gap between that and "he does nothing" is a number worth having: how much this matchup depends on the enemy.</span>
+                <em><strong>How.</strong> Reuse the combo solver's pruned breadth-first search over sequences, on both sides. Start with the near side's best line against a passive target (which the solver already produces). Compute the far side's best reply against that fixed line, scoring by survivor margin. Then the near side's best line against that reply. <strong>Assumes.</strong> Best response is computed against a fixed opponent line, so this is iterated best response and not a game-theoretic equilibrium — no mixed strategies, no simultaneous choice, no hidden information.</em>
+              </li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- ================================================= Reading a fight -->
+        <section class="lab-section" id="grp-read">
+          <div class="lab-section-head">
+            <span class="lab-num">04</span>
+            <h2>One readable object per question</h2>
+            <div class="lab-cost"><span class="lab-pill">4 ideas</span></div>
+          </div>
+          <div class="lab-stage plain">
+            <ul class="lab-scrap">
+              <li>
+                <b>The recap, with the record under every sentence <span class="lab-pill ">medium</span></b>
+                <span>After a duel the useful output is four or five sentences, not a table: who won, what decided it, what the loser never got to do. Write them with a fixed set of named detectors over records the engine already keeps, and let every sentence carry the instances and spans it was derived from, so it can be checked instead of believed.</span>
+                <em><strong>How.</strong> A fixed, printed detector list, each yielding at most one templated sentence filled from records: (a) the verdict — winner, time, remaining health; (b) the decisive hit — the instance after which the margin curve last changed sign; (c) the biggest swing — the largest single-instance change in health share, either side; (d) the longest unanswered stretch — the longest span in which one side was disabled or animation-l … <strong>Assumes.</strong> The detectors are an editorial choice about what makes a fight interesting, and the panel says so by listing them in order. No detector may state anything it cannot link to; a sentence without its records does not ship.</em>
+              </li>
+              <li>
+                <b>The point of no return <span class="lab-pill ">medium</span></b>
+                <span>Every duel has a last moment at which the loser could still have walked away alive. Find it by re-running the fight from each of the loser's own decision points with their remaining actions replaced by "stop", and mark the first point from which even stopping dies.</span>
+                <em><strong>How.</strong> Requires forkable state — one structured clone of the two Combatant records, the scheduled queue and the clock, which is cheap once the state is a record instead of thirty locals. At every boundary t_i where the eventual loser was free to act, fork and re-run with that side's stance replaced by "stop acting": damage already in flight still lands, DoTs still tick, cooldowns still run, no new casts. <strong>Assumes.</strong> Disengaging means casting nothing further — not fleeing, since there is no map unless the distance axis is built; with distance, the branch becomes "back off at movement speed" and the number gets sharper.</em>
+              </li>
+              <li>
+                <b>Cooldown parity, as a signed curve <span class="lab-pill ">medium</span></b>
+                <span>Duels between two full kits are usually decided by who has more buttons available at the moment of contact. Price that: at every instant, the damage each side could start right now, differenced into one signed curve whose peaks are the windows and whose crossings are the moments to be elsewhere.</span>
+                <em><strong>How.</strong> The engine already computes AbilityAvailability per side — readyIn, cooldown, charges — for the ability strip. Extend it to a number: available_damage(side, t) = the sum, over the actions that side could legally start at t, of the raw damage each would produce against the current opposing stat block, evaluated through the dry-run context (records, applies nothing). <strong>Assumes.</strong> It prices what is available, not what will land — so it ignores range, hit chance and cast time to impact, and says so.</em>
+              </li>
+              <li>
+                <b>Damage already in the air <span class="lab-pill ">small</span></b>
+                <span>A duel is often over before the last hit lands: an ignite is ticking, a missile is in flight, the target is airborne and cannot leave. Draw that committed damage on the health bar as a segment continuing past the fill, and the moment it covers what is left, say it — decided at 4.1 s, dead at 5.6 s.</span>
+                <em><strong>How.</strong> 1) At the playhead, sum only the damage instances the engine has already scheduled for a later time — DoTs, delayed detonations, missiles in flight — mitigated against the target's state at their own scheduled time. Nothing predicted: an attack not yet begun is not in the air. 2) Draw the sum as its own segment past the health fill, in the same visual idiom as the existing translucent stub for damage just taken. <strong>Assumes.</strong> That committed damage is unavoidable is only true because the simulation has no dodging or cleansing; that limit is already in the known-gaps list and this segment inherits it, stated where it is drawn.</em>
+              </li>
+            </ul>
+          </div>
         </section>
 
                                                                                                                                                                                                                                                                         <!-- =========================================== 33 Two builds, one pin -->
