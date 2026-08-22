@@ -34,6 +34,8 @@ import type { FightMoment } from './moment';
 import { DamageChart } from './DamageChart';
 import { DpsChart } from './DpsChart';
 import { ItemValuePanel } from './ItemValuePanel';
+import { StatValuePanel } from './StatValuePanel';
+import type { StatValueRow } from '../model/statValue';
 import { TYPE_COLOR } from './palette';
 import type { ItemValueRow } from '../model/itemValue';
 import { Panel } from './components/Panel';
@@ -77,6 +79,8 @@ interface Props {
   itemValueRows?: ItemValueRow[];
   /** For item icons. */
   patchVersion?: string;
+  /** What each stat is worth to this combo, per point and per thousand gold. */
+  statValueRows?: StatValueRow[];
   /**
    * Where playback stands: not started, running, or held.
    *
@@ -147,12 +151,18 @@ type ResultView = 'timeline' | 'details' | 'detailed' | 'sources' | 'formulas';
  */
 type ShapeView = 'total' | 'gantt' | 'burst';
 
-/** The ledger's two readings: what the gold bought, and where numbers come from. */
-type LedgerView = 'items' | 'reference';
+/**
+ * The ledger's two readings, both about gold.
+ *
+ * What the gold you already spent is doing, and what the next thousand would do.
+ * The formula reference moved out into its own window: it is not a record of
+ * this build, it is where the numbers come from at all.
+ */
+type LedgerView = 'items' | 'stats';
 
 const LEDGER_TITLES: Record<LedgerView, string> = {
   items: 'Item value',
-  reference: 'Reference',
+  stats: 'Stat value',
 };
 
 const SHAPE_TITLES: Record<ShapeView, string> = {
@@ -197,6 +207,7 @@ export function AnalysisPanel({
   moment,
   itemValueRows,
   patchVersion,
+  statValueRows,
   playState = 'idle',
   playhead,
   onTogglePlay,
@@ -674,7 +685,7 @@ export function AnalysisPanel({
         title="Ledger"
         center={
           <div className="view-tabs">
-            {(['items', 'reference'] as LedgerView[]).map((entry) => (
+            {(['items', 'stats'] as LedgerView[]).map((entry) => (
               <button
                 key={entry}
                 className={`view-tab${ledger === entry ? ' is-active' : ''}`}
@@ -695,15 +706,25 @@ export function AnalysisPanel({
           />
         )}
 
-        {ledger === 'reference' && (
-          <FormulaInspector
-            module={module}
-            moduleCtx={moduleCtx}
-            ranks={ranks}
-            abilities={abilities}
-            gameDataStatus={gameDataStatus}
-          />
-        )}
+        {ledger === 'stats' && <StatValuePanel rows={statValueRows ?? []} />}
+      </Panel>
+
+      {/*
+        * The reference is its own window.
+        *
+        * It answers a different kind of question from everything above it —
+        * not "what did this build do" but "where does this number come from at
+        * all" — and it is the one panel you read while *not* looking at a
+        * result.
+        */}
+      <Panel className="analysis-reference" title="Reference">
+        <FormulaInspector
+          module={module}
+          moduleCtx={moduleCtx}
+          ranks={ranks}
+          abilities={abilities}
+          gameDataStatus={gameDataStatus}
+        />
       </Panel>
       </div>
     </div>

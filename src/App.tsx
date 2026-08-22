@@ -10,6 +10,7 @@ import { runeStats } from './model/runes';
 import { emptyStats, resolveChampionStats, sumStats } from './model/stats';
 import { resolveBonusStats, runBuild } from './state/runBuild';
 import { itemValues, type ItemValueRow } from './model/itemValue';
+import { statGoldRates, statValues, type StatValueRow } from './model/statValue';
 import { itemVerdict } from './model/itemDecisions';
 import {
   activeItemIds,
@@ -375,6 +376,55 @@ export default function App() {
       isModelled: (itemId) => itemVerdict(itemId).kind === 'modelled',
     });
   }, [analysis, baseStats, build, effectiveTarget, itemById, moduleCtx]);
+
+  /** The shop's own price per point of each stat, for the value column. */
+  const goldRates = useMemo(() => statGoldRates(items), [items]);
+
+  /**
+   * What each stat is worth to this combo — one run per stat, twice.
+   *
+   * Once for a small step (the per-point reading) and once for a thousand gold's
+   * worth (the reading that decides a purchase). About twenty extra simulations
+   * per change, which is still under a millisecond each, and all of them go
+   * through the same `runBuild` as the build on screen so the differences are
+   * differences.
+   */
+  const statValueRows = useMemo<StatValueRow[]>(() => {
+    if (!baseStats || !analysis) return [];
+
+    const inputs = {
+      baseStats,
+      level: build.level,
+      ranks: build.ranks,
+      itemIds: activeItemIds(build),
+      runeIds: activeRuneIds(build),
+      shardIds: activeShardIds(build),
+      summonerIds: activeSummonerIds(build),
+      manualStats: build.manualStats,
+      championId: build.championId,
+      combo: build.combo,
+      timings: build.timings,
+      critMode: build.critMode,
+      target: effectiveTarget,
+    };
+
+    return statValues({
+      base: analysis,
+      rates: goldRates,
+      run: (bonus) =>
+        runBuild(
+          {
+            ...inputs,
+            // Probed on top of whatever was typed by hand, because "one more
+            // point" means one more than the build actually has.
+            manualStats: sumStats([build.manualStats, bonus]),
+          },
+          itemById,
+          VI_MODULE,
+          moduleCtx,
+        ).analysis,
+    });
+  }, [analysis, baseStats, build, effectiveTarget, goldRates, itemById, moduleCtx]);
 
   const abilities = useMemo(
     () => resolveAbilityNames(VI_MODULE.abilities, moduleCtx),
@@ -866,6 +916,7 @@ export default function App() {
             combo={build.combo}
             gameDataStatus={champion.gameDataStatus}
             itemValueRows={itemValueRows}
+            statValueRows={statValueRows}
             patchVersion={bundle?.version ?? ""}
             linkedStepUid={linkedStepUid}
             pinnedStepUid={pinnedStepUid}
