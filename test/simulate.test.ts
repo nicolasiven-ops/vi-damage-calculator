@@ -1082,3 +1082,24 @@ describe('what became of every press', () => {
     expect(result.unusedSteps).toContain(result.stepFates[1]!.uid);
   });
 });
+
+describe('summoner spells have a cooldown', () => {
+  it('refuses the third Smite in a row, and names the cooldown', () => {
+    // Data Dragon: Smite is 15 s with two charges, so two casts inside a combo
+    // are legal and the third is not. The combo solver found this by pressing
+    // Smite four times in a second and being allowed all four.
+    const result = run(
+      [
+        step({ kind: 'summoner', summonerId: 'SummonerSmite' }),
+        step({ kind: 'summoner', summonerId: 'SummonerSmite' }),
+        step({ kind: 'summoner', summonerId: 'SummonerSmite' }),
+      ],
+      { target: { ...TARGET, unitType: 'monster', maxHealth: 9000 } },
+    );
+
+    const smites = result.instances.filter((entry) => entry.sourceKind === 'summoner');
+    expect(smites).toHaveLength(2);
+    expect(result.stepFates[2]!.fate).toBe('refused');
+    expect(result.stepFates[2]!.why).toContain('cooldown');
+  });
+});

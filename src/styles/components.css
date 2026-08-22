@@ -430,10 +430,54 @@
   flex: 1;
 }
 
+/*
+ * The same columns as the body below it.
+ *
+ * The palette sits above Vi's sidebar, the combo above the analysis it feeds, and
+ * the modes above the target they are aimed at. As a flex row the three ended
+ * wherever their content ended, which lined up with nothing.
+ *
+ * The palette is first in the DOM and the modes last, so the order reads the way
+ * it looks even when the columns fold into one below 1280 px.
+ */
 .combo-bar-track {
+  display: grid;
+  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.combo-bar-modes {
   display: flex;
+  justify-content: flex-end;
   align-items: flex-start;
-  gap: var(--space-4);
+  gap: var(--space-2);
+}
+
+/*
+ * The body's own breakpoints, to the pixel.
+ *
+ * Two columns up to 1679, three from 1680 — the same numbers as `.app-body` in
+ * global.css, and they have to stay the same numbers: a bar that splits into
+ * three above a body that is still two lines up with nothing. Above 1680 the bar
+ * also widens with the body.
+ */
+@media (min-width: 1680px) {
+  .workbench-top > .combo-bar {
+    width: min(2160px, 100%);
+  }
+
+  .combo-bar-track {
+    grid-template-columns: minmax(0, 300px) minmax(0, 1fr) minmax(0, 300px);
+  }
+}
+
+/* With two columns the modes sit under the strip rather than beside it. */
+@media (max-width: 1679px) {
+  .combo-bar-modes {
+    grid-column: 2;
+    justify-content: flex-start;
+  }
 }
 
 /*
@@ -445,9 +489,7 @@
  * to explain buttons that explain themselves.
  */
 .combo-bar-track .action-palette {
-  flex: 0 0 auto;
   padding-right: var(--space-3);
-  border-right: 1px solid var(--line-soft);
 }
 
 .combo-bar-track .action-chips {
@@ -3375,4 +3417,89 @@ code {
   font-weight: 600;
   color: var(--gold-200);
   font-variant-numeric: tabular-nums;
+}
+
+/* Asking for a combo instead of typing one. */
+.combo-modes {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  width: 100%;
+}
+
+.btn.solve {
+  border-color: rgba(200, 170, 110, 0.5);
+  color: var(--gold-100);
+  background: linear-gradient(180deg, rgba(200, 170, 110, 0.16), transparent);
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+}
+
+.btn.solve:hover:not(:disabled) {
+  border-color: var(--gold-300);
+  background: linear-gradient(180deg, rgba(200, 170, 110, 0.26), transparent);
+}
+
+.solve-result {
+  width: 100%;
+  display: grid;
+  gap: 3px;
+  padding: 5px 7px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-void, rgba(4, 8, 16, 0.5));
+  text-align: left;
+}
+
+.solve-best {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.solve-best .strong {
+  font-size: 14px;
+  color: var(--status-good);
+}
+
+.solve-order {
+  color: var(--text-secondary);
+  font-size: 10.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.solve-others {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.solve-apply {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  width: 100%;
+  border: 0;
+  padding: 1px 0;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 10.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.solve-apply:hover {
+  color: var(--gold-200);
+}
+
+.solve-foot {
+  font-size: 9.5px;
+  color: var(--text-muted);
 }

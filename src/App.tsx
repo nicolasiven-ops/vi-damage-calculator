@@ -8,9 +8,12 @@ import { resolveAbilityNames, type ChampionModuleContext } from './model/champio
 import { resolveAllItems, resolvePurchasableItems } from './model/items';
 import { runeStats } from './model/runes';
 import { emptyStats, resolveChampionStats, sumStats } from './model/stats';
-import { resolveBonusStats, runBuild } from './state/runBuild';
+import { prepareRun, resolveBonusStats, runBuild } from './state/runBuild';
 import { itemValues, type ItemValueRow } from './model/itemValue';
 import { EMPTY_CHANGE_LOG, buildOf, recordChange } from './state/changeLog';
+import { solveFastestKill, type SolverAction, type SolverResult } from './model/comboSolver';
+import { isSummonerSimulated } from './model/summoners';
+import { ComboModes } from './ui/ComboModes';
 import {
   statGoldRates,
   statPriceTable,
@@ -738,6 +741,114 @@ export default function App() {
    * spell the app has never heard of still shows up correctly the moment Riot
    * ships it.
    */
+  /**
+   * What the solver is allowed to press.
+   *
+   * Built from the build rather than hardcoded: an ability nobody has put a point
+   * in is not an option, a summoner nobody took is not an option, and a
+   * chargeable ability is three options rather than one — held for nothing, held
+   * halfway, held to the end. Those three are the interesting part: the order
+   * matters far less than whether Vault Breaker was worth the second and a half.
+   */
+  const solverActions = useMemo<SolverAction[]>(() => {
+    const actions: SolverAction[] = [
+      { id: 'aa', label: 'AA', make: (uid) => ({ uid, action: { kind: 'attack' } }) },
+    ];
+
+    for (const ability of abilities) {
+      if (!ability.castable) continue;
+      if ((build.ranks[ability.slot] ?? 0) < 1) continue;
+
+      const charge = ability.chargeable?.maxSeconds;
+      if (charge === undefined) {
+        actions.push({
+          id: ability.slot,
+          label: ability.slot,
+          make: (uid) => ({ uid, action: { kind: 'ability', slot: ability.slot } }),
+        });
+        continue;
+      }
+
+      const holds: [string, number][] = [
+        [`${ability.slot} tap`, 0],
+        [`${ability.slot} half`, Math.round(charge * 50) / 100],
+        [`${ability.slot} full`, charge],
+      ];
+      for (const [label, seconds] of holds) {
+        actions.push({
+          id: label,
+          label,
+          make: (uid) => ({
+            uid,
+            action: { kind: 'ability', slot: ability.slot },
+            chargeSeconds: seconds,
+          }),
+        });
+      }
+    }
+
+    for (const summonerId of activeSummonerIds(build)) {
+      const name = summonerNames[summonerId];
+      if (!name) continue;
+      /*
+       * Only the ones the engine can actually resolve. Flash is a summoner and a
+       * press, and it deals nothing — offering it to the search means every answer
+       * comes back padded with Flashes that change no number and no time.
+       */
+      if (!isSummonerSimulated(summonerId)) continue;
+      actions.push({
+        id: summonerId,
+        label: name,
+        make: (uid) => ({ uid, action: { kind: 'summoner', summonerId } }),
+      });
+    }
+
+    return actions;
+  }, [abilities, build, summonerNames]);
+
+  /**
+   * The search, run against the same pipeline as everything else.
+   *
+   * `runBuild` is what the item and stat ledgers use, so a combo the solver calls
+   * fastest is fastest by the app's own arithmetic — there is no second model to
+   * disagree with.
+   */
+  const solveCombo = useCallback((): SolverResult => {
+    if (!baseStats) {
+      return { best: null, runnersUp: [], simulations: 0, hitLimit: false };
+    }
+
+    const inputs = {
+      baseStats,
+      level: build.level,
+      ranks: build.ranks,
+      itemIds: activeItemIds(build),
+      runeIds: activeRuneIds(build),
+      shardIds: activeShardIds(build),
+      summonerIds: activeSummonerIds(build),
+      manualStats: build.manualStats,
+      attackerHealthPercent: build.attackerHealthPercent,
+      championId: build.championId,
+      timings: build.timings,
+      critMode: build.critMode,
+      target: effectiveTarget,
+    };
+
+    // Resolved once, then one simulation per candidate: see `prepareRun`.
+    const run = prepareRun(
+      { ...inputs, combo: [] },
+      itemById,
+      VI_MODULE,
+      moduleCtx,
+    );
+
+    return solveFastestKill({
+      actions: solverActions,
+      startingHealth: effectiveTarget.maxHealth * effectiveTarget.currentHealthPercent,
+      run,
+    });
+  }, [baseStats, build, effectiveTarget, itemById, moduleCtx, solverActions]);
+
   const summonerChips = useMemo(
     () =>
       activeSummonerIds(build)
@@ -846,6 +957,16 @@ export default function App() {
           pinnedStepUid={pinnedStepUid}
           unusedStepUids={analysis?.unusedSteps}
           refusedSteps={refusedSteps}
+          modes={
+            <ComboModes
+              disabled={!baseStats}
+              onSolve={solveCombo}
+              onApply={(result, index) => {
+                const pick = index === 0 ? result.best : result.runnersUp[index - 1];
+                if (pick) patchBuild({ combo: pick.steps });
+              }}
+            />
+          }
           onPinStep={(uid) => setPinnedStepUid((current) => (current === uid ? null : uid))}
         />
       </div>

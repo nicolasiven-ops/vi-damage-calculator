@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { activeSummonerIds, emptyLoadout } from '../src/state/build';
-import { isSummonerSimulated, summonerGap } from '../src/model/summoners';
+import { isSummonerSimulated, summonerCooldown, summonerGap } from '../src/model/summoners';
 
 describe('summoner selection', () => {
   it('keeps slot order and drops empty slots', () => {
@@ -28,5 +28,20 @@ describe('summoner selection', () => {
     expect(summonerGap('SummonerFlash')).toMatch(/Positionierung/);
     // A spell Riot adds later must still produce a sentence, not undefined.
     expect(summonerGap('SummonerMark')).toBeTruthy();
+  });
+});
+
+describe('summoner cooldowns', () => {
+  it('match what Data Dragon publishes for patch 16.16', () => {
+    // summoner.json: SummonerSmite cooldownBurn 15, maxammo 2;
+    // SummonerDot cooldownBurn 180, maxammo -1 (which is one cast).
+    expect(summonerCooldown('SummonerSmite')).toEqual({ seconds: 15, charges: 2 });
+    expect(summonerCooldown('SummonerDot')).toEqual({ seconds: 180, charges: 1 });
+    // The upgraded Smites are the same spell with a pet attached.
+    expect(summonerCooldown('SummonerSmiteAvatarOffensive')?.charges).toBe(2);
+  });
+
+  it('says nothing about a spell this app does not simulate', () => {
+    expect(summonerCooldown('SummonerFlash')).toBeNull();
   });
 });

@@ -31,7 +31,7 @@ import type {
   DealDamageArgs,
   SimContext,
 } from './context';
-import { IGNITE, byLevel, smiteById } from '../model/summoners';
+import { IGNITE, byLevel, smiteById, summonerCooldown } from '../model/summoners';
 import { effectiveResistance, mitigate } from './damage';
 import { DEFAULT_TIMINGS } from './types';
 import type {
@@ -239,6 +239,14 @@ export function simulate(
   const crowdControl: { label: string; expiresAt: number }[] = [];
   const scheduled: ScheduledEvent[] = [];
   const cooldowns = new Map<AbilitySlot, number>();
+  /**
+   * Summoner spells, by id: casts left and when the next charge returns.
+   *
+   * They had no cooldown at all until the combo solver pressed Smite four times
+   * inside a second and the engine allowed all four. A combo nobody would type
+   * never showed it.
+   */
+  const summonerCharges = new Map<string, { left: number; readyAt: number }>();
   /**
    * How long the running cooldown actually is, per slot.
    *
@@ -1459,7 +1467,48 @@ export function simulate(
     });
   }
 
+  /**
+   * Whether a summoner spell is up, and the sentence for when it is not.
+   *
+   * Charges refill on their own clock, so this both spends and refills — the same
+   * treatment the charged abilities get, which is what makes "Smite twice in one
+   * combo" true and "Smite four times" false.
+   */
+  function summonerReady(id: string): { ok: true } | { ok: false; why: string } {
+    const model = summonerCooldown(id);
+    if (!model) return { ok: true };
+
+    const state = summonerCharges.get(id) ?? { left: model.charges, readyAt: 0 };
+    while (state.left < model.charges && time >= state.readyAt) {
+      state.left += 1;
+      state.readyAt = state.left < model.charges ? state.readyAt + model.seconds : 0;
+    }
+
+    if (state.left <= 0) {
+      summonerCharges.set(id, state);
+      return {
+        ok: false,
+        why: `${seconds(Math.max(0, state.readyAt - time))} s of its ${model.seconds} s cooldown left`,
+      };
+    }
+
+    state.left -= 1;
+    if (state.readyAt <= time) state.readyAt = time + model.seconds;
+    summonerCharges.set(id, state);
+    return { ok: true };
+  }
+
   function castSummoner(summonerId: string): void {
+    /*
+     * Up first, cast second. A spell on cooldown is a refusal like any other —
+     * named, recorded as the step's fate, and not silently dropped.
+     */
+    const ready = summonerReady(summonerId);
+    if (!ready.ok) {
+      refuse(`${summonerId} is on cooldown — ${ready.why} — step skipped.`);
+      return;
+    }
+
     const stats = currentStats();
     if (summonerId === IGNITE.id) {
       const total = byLevel(IGNITE.total, stats.level);

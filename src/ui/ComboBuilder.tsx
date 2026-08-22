@@ -11,7 +11,7 @@
  * that produced it, which is what makes the strip readable as a cause.
  */
 
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   DndContext,
   KeyboardSensor,
@@ -98,6 +98,13 @@ interface Props {
    * moment and the stats, the health bar and the timeline follow it.
    */
   onPinStep?: (uid: string | null) => void;
+  /**
+   * The right-hand column of the bar, above the target's sidebar.
+   *
+   * Passed in rather than built here: what belongs there is a way to *ask for* a
+   * combo — a mode, a solver — and that is the app's business, not the strip's.
+   */
+  modes?: ReactNode;
 }
 
 export function ComboBuilder({
@@ -113,6 +120,7 @@ export function ComboBuilder({
   unusedStepUids,
   refusedSteps,
   onPinStep,
+  modes,
 }: Props) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -264,6 +272,9 @@ export function ComboBuilder({
             </SortableContext>
           </DndContext>
         )}
+
+        {/* Last in the DOM as well as on the right: the grid follows source order. */}
+        <div className="combo-bar-modes">{modes}</div>
       </div>
     </div>
   );

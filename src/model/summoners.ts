@@ -124,6 +124,31 @@ export const SMITES: SmiteModel[] = [
   })),
 ];
 
+/**
+ * How long a summoner spell is gone for, and how many casts it holds.
+ *
+ * Data Dragon's own `cooldownBurn` and `maxammo` for patch 16.16: Smite is 15 s
+ * with two charges, Ignite 180 s with one. `maxammo: -1` in the file means "no
+ * ammo", which is one charge.
+ *
+ * Kept here rather than read from the bundle because the engine takes a build,
+ * not a patch: the simulation is handed ids and has to know what they cost in
+ * time. When a patch moves these, `test/summoners.test.ts` compares them with the
+ * file and fails.
+ */
+export const SUMMONER_COOLDOWNS: Record<string, { seconds: number; charges: number }> = {
+  SummonerDot: { seconds: 180, charges: 1 },
+  SummonerSmite: { seconds: 15, charges: 2 },
+  SummonerSmiteAvatarOffensive: { seconds: 15, charges: 2 },
+  SummonerSmiteAvatarDefensive: { seconds: 15, charges: 2 },
+  SummonerSmiteAvatarUtility: { seconds: 15, charges: 2 },
+};
+
+/** The cooldown for a spell, or null when this app does not model the spell. */
+export function summonerCooldown(id: string): { seconds: number; charges: number } | null {
+  return SUMMONER_COOLDOWNS[id] ?? null;
+}
+
 export function smiteById(id: string): SmiteModel | undefined {
   return SMITES.find((entry) => entry.id === id);
 }

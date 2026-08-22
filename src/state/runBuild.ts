@@ -16,6 +16,7 @@
 
 import { analyse, type ComboAnalysis } from '../engine/analysis';
 import { simulate } from '../engine/simulate';
+import type { SimulationResult } from '../engine/types';
 import type { AbilitySlot, ComboStep, CritMode, TargetConfig, TimingConfig } from '../engine/types';
 import type { ChampionModule, ChampionModuleContext } from '../model/champions/types';
 import type { ResolvedItem } from '../model/items';
@@ -132,4 +133,56 @@ export function runBuild(
   );
 
   return { analysis: analyse(result, inputs.target, stats), stats, bonusStats };
+}
+
+/**
+ * The same build, ready to run any number of combos.
+ *
+ * Everything that does not depend on the combo — the items' stats, the runes on
+ * top of them, the derived item stats, the champion's resolved numbers — is done
+ * once here. What is left per call is the simulation itself, which is what a
+ * search over orderings actually needs.
+ *
+ * It deliberately returns the raw `SimulationResult` rather than an analysis. A
+ * search reads four numbers off a candidate and discards it; `analyse()` builds a
+ * curve, a timeline and a source breakdown, and doing that for a candidate nobody
+ * will look at was most of the cost.
+ */
+export function prepareRun(
+  inputs: BuildInputs,
+  itemById: Map<string, ResolvedItem>,
+  module: ChampionModule,
+  moduleCtx: ChampionModuleContext,
+): (combo: ComboStep[]) => SimulationResult {
+  const bonusStats = resolveBonusStats(inputs, itemById);
+  const stats = resolveChampionStats(inputs.baseStats, inputs.level, bonusStats);
+  const attacker = {
+    championId: inputs.championId,
+    level: inputs.level,
+    ranks: inputs.ranks,
+    itemIds: inputs.itemIds,
+    runeIds: inputs.runeIds,
+    shardIds: inputs.shardIds,
+    summonerIds: inputs.summonerIds,
+    manualStats: inputs.manualStats,
+    ...(inputs.attackerHealthPercent !== undefined
+      ? { currentHealthPercent: inputs.attackerHealthPercent }
+      : {}),
+  };
+
+  return (combo) =>
+    simulate(
+      {
+        attacker,
+        championBaseStats: inputs.baseStats,
+        attackerStats: stats,
+        bonusStats,
+        target: inputs.target,
+        combo,
+        timings: inputs.timings,
+        critMode: inputs.critMode,
+      },
+      module,
+      moduleCtx,
+    );
 }
