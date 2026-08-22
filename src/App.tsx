@@ -10,7 +10,12 @@ import { runeStats } from './model/runes';
 import { emptyStats, resolveChampionStats, sumStats } from './model/stats';
 import { resolveBonusStats, runBuild } from './state/runBuild';
 import { itemValues, type ItemValueRow } from './model/itemValue';
-import { statGoldRates, statValues, type StatValueRow } from './model/statValue';
+import {
+  statGoldRates,
+  statPriceTable,
+  statValues,
+  type StatValueRow,
+} from './model/statValue';
 import { itemVerdict } from './model/itemDecisions';
 import {
   activeItemIds,
@@ -379,6 +384,8 @@ export default function App() {
 
   /** The shop's own price per point of each stat, for the value column. */
   const goldRates = useMemo(() => statGoldRates(items), [items]);
+  /** The same prices as a table, for the reference window. */
+  const statPriceRows = useMemo(() => statPriceTable(goldRates), [goldRates]);
 
   /**
    * What each stat is worth to this combo — one run per stat, twice.
@@ -917,6 +924,7 @@ export default function App() {
             gameDataStatus={champion.gameDataStatus}
             itemValueRows={itemValueRows}
             statValueRows={statValueRows}
+            statPriceRows={statPriceRows}
             patchVersion={bundle?.version ?? ""}
             linkedStepUid={linkedStepUid}
             pinnedStepUid={pinnedStepUid}

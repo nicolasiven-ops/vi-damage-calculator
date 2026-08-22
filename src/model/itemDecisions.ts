@@ -17,6 +17,8 @@
  */
 
 /** The shapes almost every item passive in the game reduces to. */
+import { REGISTERED_ITEM_IDS } from './itemEffects';
+
 export type ItemMechanic =
   /** Extra damage folded into a basic attack. */
   | 'on-hit-rider'
@@ -51,27 +53,15 @@ export type ItemVerdict =
   | { kind: 'todo'; mechanic: ItemMechanic; why?: string };
 
 /**
- * The passives already implemented in `itemEffects.ts`.
+ * Every item whose passive is implemented — read off the registry itself.
  *
- * Kept as a list rather than derived, so the coverage test can check the two
- * against each other: a decision claiming "modelled" for an item with no
- * implementation is a lie the test catches.
+ * It used to be a hand-kept list checked against the implementation, which was
+ * the right shape while thirteen items were modelled by hand in one file. With
+ * six families registering their own entries, a hand-kept list is a second
+ * source of truth that can only ever fall behind, so the direction is reversed:
+ * the registry is the fact and this is the view of it.
  */
-export const MODELLED_ITEM_IDS = [
-  '3057', // Sheen
-  '3078', // Trinity Force
-  '3508', // Essence Reaver
-  '3071', // Black Cleaver
-  '3153', // Blade of the Ruined King
-  '3748', // Titanic Hydra
-  '3115', // Nashor's Tooth
-  '3091', // Wit's End
-  '3036', // Lord Dominik's Regards
-  '6692', // Eclipse
-  '6610', // Sundered Sky
-  '6699', // Voltaic Cyclosword
-  '3161', // Spear of Shojin
-] as const;
+export const MODELLED_ITEM_IDS: readonly string[] = REGISTERED_ITEM_IDS;
 
 /** Items whose passive text cannot reach a damage number, and why. */
 const NO_DAMAGE: Record<string, string> = {
@@ -108,19 +98,51 @@ export function itemVerdict(id: string): ItemVerdict {
   return ITEM_DECISIONS[id] ?? { kind: 'todo', mechanic: 'unclassified' };
 }
 
-/** How far the item work has got, for the notes panel and for the test. */
-export function itemCoverage(shopIds: string[]): {
+/**
+ * How far the item work has got.
+ *
+ * Counted over the items that *can* have a passive worth modelling, not over
+ * every line in the shop. A shop dump is 218 entries, but 112 of those are
+ * components, consumables and trinkets: a component is a stat line by
+ * construction, already handled by the description parser, and counting it as an
+ * unmodelled item made the number read far worse than the work is. What is left
+ * is the ~104 completed items whose text actually contains a passive — that is
+ * the denominator this project is trying to close.
+ */
+export interface ItemCoverage {
+  /** Completed items with a passive: the honest denominator. */
+  relevant: number;
   modelled: number;
   dismissed: number;
   todo: number;
   unclassified: number;
-} {
+  /** Everything in the shop, for context. */
+  shopTotal: number;
+  /** Components and consumables, which need no passive modelled. */
+  statOnly: number;
+}
+
+export interface CoverageItem {
+  id: string;
+  completed: boolean;
+  hasPassive: boolean;
+}
+
+export function itemCoverage(items: CoverageItem[]): ItemCoverage {
   let modelled = 0;
   let dismissed = 0;
   let todo = 0;
   let unclassified = 0;
-  for (const id of shopIds) {
-    const verdict = itemVerdict(id);
+  let relevant = 0;
+  let statOnly = 0;
+
+  for (const item of items) {
+    if (!item.completed || !item.hasPassive) {
+      statOnly += 1;
+      continue;
+    }
+    relevant += 1;
+    const verdict = itemVerdict(item.id);
     if (verdict.kind === 'modelled') modelled += 1;
     else if (verdict.kind === 'no-damage-effect') dismissed += 1;
     else {
@@ -128,5 +150,14 @@ export function itemCoverage(shopIds: string[]): {
       if (verdict.mechanic === 'unclassified') unclassified += 1;
     }
   }
-  return { modelled, dismissed, todo, unclassified };
+
+  return {
+    relevant,
+    modelled,
+    dismissed,
+    todo,
+    unclassified,
+    shopTotal: items.length,
+    statOnly,
+  };
 }

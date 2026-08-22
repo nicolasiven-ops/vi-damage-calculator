@@ -15,6 +15,12 @@
 import type { SimContext } from '../engine/context';
 import type { AbilitySlot, DamageType } from '../engine/types';
 import type { StatBlock } from './stats';
+import { ABILITY_ITEMS } from './items/ability';
+import { BRUISER_ITEMS } from './items/bruiser';
+import { BURN_ITEMS } from './items/burn';
+import { CRIT_ITEMS } from './items/crit';
+import { ONHIT_ITEMS } from './items/onhit';
+import { PENETRATION_ITEMS } from './items/penetration';
 import type { HitInfo } from './runes';
 
 export interface ItemAttackRider {
@@ -399,9 +405,34 @@ const ALL: ItemEffect[] = [
   SUNDERED_SKY,
   VOLTAIC_CYCLOSWORD,
   MURAMANA,
+  /*
+   * The families, each in its own file under items/.
+   *
+   * They live apart because a hundred passives in one file is a file nobody
+   * reads, and because each family shares a shape: the burns all schedule ticks,
+   * the energised items all count charges, the penetration items all argue with
+   * the resistance pipeline. Grouping them puts the shared reasoning next to the
+   * items that depend on it.
+   */
+  ...PENETRATION_ITEMS,
+  ...CRIT_ITEMS,
+  ...ONHIT_ITEMS,
+  ...BURN_ITEMS,
+  ...ABILITY_ITEMS,
+  ...BRUISER_ITEMS,
 ];
 
 const BY_ID = new Map<string, ItemEffect>(ALL.map((effect) => [effect.id, effect]));
+
+/**
+ * Every id the registry knows, in registration order.
+ *
+ * Exported so a test can check the list against itself: two families modelling
+ * the same item would otherwise collapse into the Map with the later one winning
+ * silently, and a silent winner is the kind of thing that is only discovered when
+ * a number is already wrong.
+ */
+export const REGISTERED_ITEM_IDS: string[] = ALL.map((effect) => effect.id);
 
 export function getItemEffect(id: string): ItemEffect | undefined {
   return BY_ID.get(id);

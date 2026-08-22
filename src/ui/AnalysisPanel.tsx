@@ -35,7 +35,8 @@ import { DamageChart } from './DamageChart';
 import { DpsChart } from './DpsChart';
 import { ItemValuePanel } from './ItemValuePanel';
 import { StatValuePanel } from './StatValuePanel';
-import type { StatValueRow } from '../model/statValue';
+import { StatGoldPanel } from './StatGoldPanel';
+import type { StatPriceRow, StatValueRow } from '../model/statValue';
 import { TYPE_COLOR } from './palette';
 import type { ItemValueRow } from '../model/itemValue';
 import { Panel } from './components/Panel';
@@ -81,6 +82,8 @@ interface Props {
   patchVersion?: string;
   /** What each stat is worth to this combo, per point and per thousand gold. */
   statValueRows?: StatValueRow[];
+  /** The shop's base gold value for every stat, for the reference table. */
+  statPriceRows?: StatPriceRow[];
   /**
    * Where playback stands: not started, running, or held.
    *
@@ -160,6 +163,20 @@ type ShapeView = 'total' | 'gantt' | 'burst';
  */
 type LedgerView = 'items' | 'stats';
 
+/**
+ * The reference window's pages: facts that do not depend on the build.
+ *
+ * The champion's own numbers, and what the shop charges for a point of each
+ * stat. Neither changes when the combo does, which is exactly what separates
+ * them from everything in the three windows above.
+ */
+type ReferenceView = 'champion' | 'gold';
+
+const REFERENCE_TITLES: Record<ReferenceView, string> = {
+  champion: 'Champion data',
+  gold: 'Stat gold value',
+};
+
 const LEDGER_TITLES: Record<LedgerView, string> = {
   items: 'Item value',
   stats: 'Stat value',
@@ -208,6 +225,7 @@ export function AnalysisPanel({
   itemValueRows,
   patchVersion,
   statValueRows,
+  statPriceRows,
   playState = 'idle',
   playhead,
   onTogglePlay,
@@ -221,6 +239,7 @@ export function AnalysisPanel({
   // anyone having to interpret a rising line.
   const [shape, setShape] = useState<ShapeView>('burst');
   const [ledger, setLedger] = useState<LedgerView>('items');
+  const [reference, setReference] = useState<ReferenceView>('champion');
 
   /**
    * Damage and non-damage events in one chronological list.
@@ -717,14 +736,34 @@ export function AnalysisPanel({
         * all" — and it is the one panel you read while *not* looking at a
         * result.
         */}
-      <Panel className="analysis-reference" title="Reference">
-        <FormulaInspector
-          module={module}
-          moduleCtx={moduleCtx}
-          ranks={ranks}
-          abilities={abilities}
-          gameDataStatus={gameDataStatus}
-        />
+      <Panel
+        className="analysis-reference"
+        title="Reference"
+        center={
+          <div className="view-tabs">
+            {(['champion', 'gold'] as ReferenceView[]).map((entry) => (
+              <button
+                key={entry}
+                className={`view-tab${reference === entry ? ' is-active' : ''}`}
+                aria-pressed={reference === entry}
+                onClick={() => setReference(entry)}
+              >
+                {REFERENCE_TITLES[entry]}
+              </button>
+            ))}
+          </div>
+        }
+      >
+        {reference === 'champion' && (
+          <FormulaInspector
+            module={module}
+            moduleCtx={moduleCtx}
+            ranks={ranks}
+            abilities={abilities}
+            gameDataStatus={gameDataStatus}
+          />
+        )}
+        {reference === 'gold' && <StatGoldPanel rows={statPriceRows ?? []} />}
       </Panel>
       </div>
     </div>
