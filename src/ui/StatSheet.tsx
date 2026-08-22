@@ -15,13 +15,18 @@
  *    question a stat block gets asked mid-combo: not "what is my attack speed"
  *    but "what did that step do to it".
  *
- * Nothing is behind a tab any more. The sidebar had the room, and the client shows
- * both blocks at once when you expand its panel — so both are here at once, one
- * under the other, with the app-only stats last. Reading a number no longer costs
- * a click, and the panel's height stopped depending on which page was open.
+ * Two tabs, and the first one holds two blocks.
+ *
+ * Stats is the block the HUD keeps on screen with the expanded block under it —
+ * the client shows both at once when you expand its panel, and the sidebar has the
+ * room, so neither of those costs a click. Extra is a tab because it is not part of
+ * the game's own panel at all: it holds the stats the client has no display for,
+ * and putting them under the two that mirror the client made the sidebar read as
+ * one long table of things that are not the same kind of thing.
  */
 
 import type { ChampionStats } from '../model/stats';
+import { useState } from 'react';
 import { imageUrls } from '../data/ddragon';
 
 /** Values the simulation owns rather than the build: shred, damage taken. */
@@ -46,6 +51,7 @@ interface Props {
 }
 
 type PageId = 'stats' | 'advanced' | 'extra';
+type TabId = 'stats' | 'extra';
 
 /**
  * The client's own two pages, and one for what it has no page for.
@@ -55,10 +61,20 @@ type PageId = 'stats' | 'advanced' | 'extra';
  * order, so both can be read against the client without translating. Extra holds
  * what neither block shows.
  */
-const PAGES: { id: PageId; label: string; title: string }[] = [
-  { id: 'stats', label: 'Stats', title: 'The block the HUD keeps on screen' },
-  { id: 'advanced', label: 'Advanced', title: 'The block above it when you expand the panel' },
-  { id: 'extra', label: 'Extra', title: 'What the client has no display for' },
+/** The tabs, and which pages each one shows. */
+const TABS: { id: TabId; label: string; title: string; pages: PageId[] }[] = [
+  {
+    id: 'stats',
+    label: 'Stats',
+    title: "The game's own two blocks: the HUD, and the panel behind it",
+    pages: ['stats', 'advanced'],
+  },
+  {
+    id: 'extra',
+    label: 'Extra',
+    title: 'What the client has no display for',
+    pages: ['extra'],
+  },
 ];
 
 /** The pages drawn as the game draws them: two columns of icon and number. */
@@ -183,22 +199,39 @@ interface HudLook {
 export function StatSheet({ stats, live, previous }: Props) {
   const now = { stats, live: live ?? {} };
 
+  const [tab, setTab] = useState<TabId>('stats');
+  const open = TABS.find((entry) => entry.id === tab) ?? TABS[0]!;
+
   return (
     <div className="stat-pages">
-      {PAGES.map((entry) => (
+      <div className="stat-tabs" role="tablist" aria-label="Stat pages">
+        {TABS.map((entry) => (
+          <button
+            key={entry.id}
+            role="tab"
+            aria-selected={tab === entry.id}
+            className={`stat-tab${tab === entry.id ? ' active' : ''}`}
+            onClick={() => setTab(entry.id)}
+            title={entry.title}
+          >
+            {entry.label}
+          </button>
+        ))}
+      </div>
+
+      {open.pages.map((page) => (
         <div
-          className={`stat-sheet${HUD_PAGES.has(entry.id) ? ' is-hud' : ''}`}
-          key={entry.id}
-          aria-label={entry.title}
+          className={`stat-sheet${HUD_PAGES.has(page) ? ' is-hud' : ''}`}
+          key={page}
         >
-          {HUD_PAGES.has(entry.id)
+          {HUD_PAGES.has(page)
             ? /*
                * The game's own box: two columns, a glyph where the label was. The
                * eight stats on each are the eight the client shows, in the client's
                * order, so the app can be held up next to it and read without
                * translating.
                */
-              buildRows(entry.id, now, previous ?? null).map((row) => (
+              buildRows(page, now, previous ?? null).map((row) => (
                 <div
                   className={`hud-stat${row.delta ? ' is-changed' : ''}`}
                   key={row.label}
@@ -220,7 +253,7 @@ export function StatSheet({ stats, live, previous }: Props) {
                   )}
                 </div>
               ))
-            : buildRows(entry.id, now, previous ?? null).map((row) => (
+            : buildRows(page, now, previous ?? null).map((row) => (
                 <div className={`stat-row${row.delta ? ' is-changed' : ''}`} key={row.label}>
                   <span className="stat-label">{row.label}</span>
                   {row.delta && (

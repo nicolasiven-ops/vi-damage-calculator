@@ -177,9 +177,17 @@ a {
    * measured — one ResizeObserver on the analysis panel, one custom property —
    * and the two side panels are held to it. Content stays top-aligned inside.
    */
+  /*
+   * A floor, not a height.
+   *
+   * The point is that the tops line up, and a minimum does that just as well. As
+   * a fixed height it was a promise the content could not keep: the stat sheet
+   * grew when both of the game's blocks went on one page, overflowed the panel,
+   * and painted over the items panel below it.
+   */
   .app-body[style*='--analysis-head'] .app-config > .config-slot:first-child > .panel,
   .app-body[style*='--analysis-head'] .app-config-target > .config-slot:first-child > .panel {
-    height: var(--analysis-head);
+    min-height: var(--analysis-head);
   }
 }
 
@@ -254,20 +262,29 @@ a {
 }
 
 /*
- * Centred in the header, independent of how wide the title and the actions are.
- * `position: absolute` rather than a flex spacer, so the button does not shift
- * when the title changes with the view.
+ * Centred in the header, and never broken in half.
+ *
+ * It was absolutely positioned so it would not shift when the title changed —
+ * which also capped its width at half the panel, and a five-tab strip hit that
+ * cap long before it ran out of room. Four tabs on one line and the fifth alone
+ * underneath is worse than either alternative.
+ *
+ * So it is a flex item with automatic side margins, which centres it in whatever
+ * the title and the actions leave, and `min-width: max-content`, which means it
+ * cannot be squeezed: when it will not fit beside the title, the header wraps and
+ * the strip takes the next line whole. The strip itself never wraps.
  */
 .panel-header {
   position: relative;
+  flex-wrap: wrap;
+  row-gap: var(--space-1);
 }
 
 .panel-center {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
   display: flex;
   gap: var(--space-2);
+  margin: 0 auto;
+  min-width: max-content;
 }
 
 .panel-title {

@@ -1754,13 +1754,15 @@
  * Five readings do not fit one line at every width, so the row wraps rather
  * than running out of its own header.
  */
+/*
+ * One line, always. The header above it wraps instead — see `.panel-center`.
+ */
 .view-tabs {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  flex-wrap: nowrap;
+  justify-content: center;
   gap: var(--space-1);
-  min-width: 0;
 }
 
 .view-tab {
