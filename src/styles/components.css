@@ -558,10 +558,19 @@
   box-shadow: var(--shadow-pop);
 }
 
+/*
+ * Below the card instead, for the case the strip is at the very top of the page
+ * and "above" means "inside the header".
+ */
+.combo-charge.floating.is-below {
+  transform: translate(-50%, 0);
+}
+
 .combo-charge {
   display: flex;
   flex-direction: row;
   align-items: center;
+  flex-wrap: nowrap;
   gap: var(--space-2);
   padding: 2px 6px;
   border: 1px solid var(--line);
@@ -616,16 +625,10 @@
   min-width: 0;
 }
 
-.combo-charge-label {
-  display: flex;
-  gap: 4px;
-  font-size: 10px;
-  white-space: nowrap;
-}
-
-.combo-charge-label > :not(.mono) {
-  color: var(--text-muted);
-}
+/*
+ * `.combo-charge-label` is gone: the control now carries a name span and a value
+ * span, so the label wrapper that used to hold both is nothing to style.
+ */
 
 .combo-strip .combo-card-tools {
   position: absolute;
@@ -786,18 +789,12 @@
   -webkit-box-orient: vertical;
 }
 
-.combo-charge {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.combo-charge-label {
-  font-size: 10.5px;
-  color: var(--text-secondary);
-  display: flex;
-  justify-content: space-between;
-}
+/*
+ * The charge control is laid out once, further up, as a single row. A second
+ * `.combo-charge` block stood here and set `flex-direction: column`, which — being
+ * later in the file — won the cascade and stacked the name, the rail and the
+ * number again no matter what the first block said.
+ */
 
 .combo-card-tools {
   display: flex;
@@ -3364,4 +3361,25 @@ code {
 }
 .change-log-table td .bad {
   color: var(--status-bad);
+}
+
+/* Name, rail and result on one line: the rail grows, the two labels do not. */
+.combo-charge-name {
+  flex: 0 0 auto;
+  font-size: 10.5px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+
+.combo-charge input[type='range'] {
+  flex: 1 1 auto;
+  min-width: 60px;
+}
+
+.combo-charge-value {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gold-200);
+  font-variant-numeric: tabular-nums;
 }

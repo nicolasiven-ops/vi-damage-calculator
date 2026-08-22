@@ -392,10 +392,12 @@ function SortableStep({
 
       {pinned && step.action.kind === 'ability' && step.chargeSeconds !== undefined && (
         <FloatingControl anchor={card}>
-          <span className="combo-charge-label">
-            <span>Charge</span>
-            <span className="mono">{step.chargeSeconds.toFixed(2)} s</span>
-          </span>
+          {/*
+            * Name, rail, result — in that order and on one line, because the
+            * number is what the rail is for. Stacked, as it was, the two were a
+            * caption and a control that happened to be near each other.
+            */}
+          <span className="combo-charge-name">Charge</span>
           <input
             type="range"
             min={0}
@@ -404,15 +406,13 @@ function SortableStep({
             value={step.chargeSeconds}
             onChange={(event) => onUpdate({ chargeSeconds: Number(event.target.value) })}
           />
+          <span className="combo-charge-value mono">{step.chargeSeconds.toFixed(2)} s</span>
         </FloatingControl>
       )}
 
       {pinned && step.action.kind === 'wait' && (
         <FloatingControl anchor={card}>
-          <span className="combo-charge-label">
-            <span>Duration</span>
-            <span className="mono">{step.action.seconds.toFixed(2)} s</span>
-          </span>
+          <span className="combo-charge-name">Duration</span>
           <input
             type="range"
             min={0.1}
@@ -423,6 +423,7 @@ function SortableStep({
               onUpdate({ action: { kind: 'wait', seconds: Number(event.target.value) } })
             }
           />
+          <span className="combo-charge-value mono">{step.action.seconds.toFixed(2)} s</span>
         </FloatingControl>
       )}
 
@@ -451,15 +452,39 @@ function FloatingControl({
   anchor: React.RefObject<HTMLElement | null>;
   children: React.ReactNode;
 }) {
-  const [spot, setSpot] = useState<{ left: number; top: number; width: number } | null>(null);
+  const [spot, setSpot] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    below: boolean;
+  } | null>(null);
 
   useLayoutEffect(() => {
     function place(): void {
       const element = anchor.current;
       if (!element) return;
       const box = element.getBoundingClientRect();
-      // The width comes from the card, so the two edges line up exactly.
-      setSpot({ left: box.left + box.width / 2, top: box.top - 6, width: box.width });
+
+      /*
+       * Above the card, unless there is no room above it.
+       *
+       * The strip is pinned to the top of the page, so on an unscrolled page the
+       * space above a card is the app header — and a control hanging into it is a
+       * control nobody can find. `HEADROOM` is the height this needs plus the gap;
+       * below that it flips under the card, where there is always room because the
+       * analysis is next.
+       */
+      const HEADROOM = 44;
+      const below = box.top < HEADROOM;
+
+      setSpot({
+        left: box.left + box.width / 2,
+        top: below ? box.bottom + 6 : box.top - 6,
+        // Wide enough that the name, the rail and the number fit on one line —
+        // the card alone is not, and a wrapped control is what this replaced.
+        width: Math.max(box.width, 210),
+        below,
+      });
     }
     place();
     // Capture phase: the strip's own scrolling does not bubble.
@@ -474,7 +499,7 @@ function FloatingControl({
   if (!spot) return null;
   return (
     <div
-      className="combo-charge floating"
+      className={`combo-charge floating${spot.below ? ' is-below' : ''}`}
       style={{ left: spot.left, top: spot.top, width: spot.width }}
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => event.stopPropagation()}
