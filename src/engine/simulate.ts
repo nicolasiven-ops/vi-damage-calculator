@@ -33,6 +33,7 @@ import type {
 } from './context';
 import { IGNITE, byLevel, smiteById } from '../model/summoners';
 import { effectiveResistance, mitigate } from './damage';
+import { DEFAULT_TIMINGS } from './types';
 import type {
   AbilityAvailability,
   AbilitySlot,
@@ -994,7 +995,22 @@ export function simulate(
      * she swung.
      */
     const stats = currentStats();
-    const windup = input.timings.attackWindup / Math.max(0.1, stats.totalAttackSpeed);
+    /*
+     * The champion's own wind-up where Riot publishes one.
+     *
+     * `timings.attackWindup` is a single figure standing in for every champion,
+     * and it is wrong for most of them: Vi's character record says 0.36 of a
+     * 1.6-second cycle, so 22.5 % rather than the 16.67 % the constant assumes.
+     * The constant stays as the fallback for a champion whose data has not
+     * loaded, and a value the player typed still wins — modelling a cancelled
+     * animation is a legitimate thing to want.
+     */
+    const published = moduleCtx.gameData?.attackWindupFraction ?? null;
+    const windupFraction =
+      input.timings.attackWindup !== DEFAULT_TIMINGS.attackWindup
+        ? input.timings.attackWindup
+        : (published ?? input.timings.attackWindup);
+    const windup = windupFraction / Math.max(0.1, stats.totalAttackSpeed);
     advance(windup);
 
     const modifier: BasicAttackModifier | null =

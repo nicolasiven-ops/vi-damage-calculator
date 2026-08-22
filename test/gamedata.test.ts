@@ -387,3 +387,28 @@ describe('statLookup', () => {
   });
 });
 
+
+describe("the champion's own attack timing", () => {
+  it("reads Vi's wind-up out of her character record", () => {
+    // Characters/Vi/CharacterRecords/Root.basicAttack ships
+    // mAttackCastTime 0.36 and mAttackTotalTime 1.6 in patch 16.16, so the
+    // share of the cycle before damage lands is 0.225 — a third longer than the
+    // 0.1667 the app assumed for every champion alike.
+    expect(GAME_DATA.attackWindupFraction).toBeCloseTo(0.36 / 1.6, 6);
+  });
+
+  it('refuses a value that cannot be a wind-up', () => {
+    const nonsense = parseChampionBin(
+      {
+        'Characters/Vi/CharacterRecords/Root': {
+          basicAttack: { mAttackCastTime: 9, mAttackTotalTime: 1 },
+        },
+      },
+      'Vi',
+      '16.16',
+    );
+    // Nine seconds of wind-up in a one-second cycle is a misread field, and
+    // using it would move every attack for a reason nobody could find later.
+    expect(nonsense.attackWindupFraction).toBeNull();
+  });
+});

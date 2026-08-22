@@ -172,6 +172,16 @@ export interface ChampionGameData {
   spells: Record<string, GameSpell>;
   /** `spell.calculation` keys that contained parts this parser could not read. */
   incomplete: string[];
+  /**
+   * The champion's own basic-attack timing, from its character record.
+   *
+   * Riot ships `mAttackCastTime` and `mAttackTotalTime` on `basicAttack`, and the
+   * share of the cycle that passes before damage lands is the first over the
+   * second — 0.36 / 1.6 = 0.225 for Vi. The app's own constant is 0.1667, a
+   * figure standing in for every champion because there was nowhere to read a
+   * real one. Null when the record is missing, so the caller can keep using it.
+   */
+  attackWindupFraction: number | null;
 }
 
 /* ------------------------------------------------------------ enum mappings */
@@ -487,12 +497,42 @@ export function parseChampionBin(raw: unknown, championId: string, patch: string
     };
   }
 
-  return { championId, patch, spells, incomplete };
+  return {
+    championId,
+    patch,
+    spells,
+    incomplete,
+    attackWindupFraction: readAttackWindup(records, championId),
+  };
 }
 
 /* ------------------------------------------------------------------ lookups */
 
 /** Case-insensitive spell lookup, so a casing change upstream stays survivable. */
+/**
+ * The share of an attack cycle spent winding up, from the character record.
+ *
+ * Riot's own two numbers, divided. Anything unreasonable is refused rather than
+ * clamped: a fraction outside a tenth to two-thirds is not a wind-up, it is a
+ * misread field, and using it would move every attack in the combo for no reason
+ * anybody could find later.
+ */
+function readAttackWindup(
+  records: Record<string, RawRecord>,
+  championId: string,
+): number | null {
+  const record = records[`Characters/${championId}/CharacterRecords/Root`] as
+    | { basicAttack?: { mAttackCastTime?: unknown; mAttackTotalTime?: unknown } }
+    | undefined;
+  const cast = record?.basicAttack?.mAttackCastTime;
+  const total = record?.basicAttack?.mAttackTotalTime;
+  if (typeof cast !== 'number' || typeof total !== 'number' || total <= 0) return null;
+
+  const fraction = cast / total;
+  if (fraction < 0.1 || fraction > 0.66) return null;
+  return fraction;
+}
+
 export function findSpell(data: ChampionGameData | null, key: string): GameSpell | null {
   if (!data) return null;
   const direct = data.spells[key];
