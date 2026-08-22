@@ -124,20 +124,34 @@ Wert fällt dann auf die Konstante zurück und sagt im Inspektor, warum.
 
 **Die Registry-Werte sind gepflegte Konstanten, keine Live-Daten.** Sie stehen
 gesammelt in `src/model/champions/vi.ts`, `src/model/runes.ts` und
-`src/model/itemEffects.ts` und sind gegen Patch 16.16 geprüft. Für Vi vergleicht
+`src/model/itemEffects.ts` plus `src/model/items/` und sind gegen Patch 16.16
+geprüft. Für Vi vergleicht
 `test/vi.test.ts` sie Zeile für Zeile mit den Spieldaten: ändert Riot eine Zahl,
 schlägt der Test fehl und nennt die betroffene Zeile.
 
 ### Was bewusst *nicht* behauptet wird
 
+- **Jedes Item, das der Rift-Shop aktuell verkauft, ist entschieden.** 57 mit
+  modelliertem Passiv, 47 begründet abgesagt, keines unbesehen — gezählt über die
+  104 fertigen Items mit Passive-Text, nicht über die 218 Shop-Einträge, von denen
+  114 Komponenten und Verbrauchsgüter sind. Der Zähler steht in
+  `src/model/itemDecisions.ts` und ein Test lässt ihn nicht rückwärts laufen.
 - Items ohne modelliertes Passiv sind in der UI als **„nur Werte"** markiert. Ihre
   Statuswerte zählen voll, ihr Passiv nicht — das steht dort, statt still zu fehlen.
+- Die Absagen begründen sich aus Eigenschaften *dieser* Simulation und nicht der
+  Items: ein Angreifer und ein Ziel, also fällt alles Verbündeten-seitige weg; das
+  Ziel wird nie geheilt, also haben Grievous Wounds nichts, worauf sie wirken;
+  Flächenschaden neben dem Ziel ist echter Schaden, der das Ziel nie erreicht.
 - Runen ohne Formel sind als **„nicht modelliert"** markiert und wählbar, wirken
   aber nicht.
 - Statuszeilen, die der Item-Parser nicht zuordnen konnte, werden als
   **„ungelesen"** ausgewiesen statt verworfen.
-- Animations- und Wirkzeiten veröffentlicht Riot nirgends maschinenlesbar. Sie
-  sind editierbare Annahmen im Panel *Simulation* und verschieben nur die
+- Der Angriffs-Windup kommt aus Riots Character Record, wo es einen gibt: Vis
+  `mAttackCastTime 0,36` von `mAttackTotalTime 1,6` sind 22,5 % des Zyklus, nicht
+  die 16,67 %, die vorher für jeden Champion einsprangen. Die Schätzung bleibt der
+  Rückfall, und ein selbst getippter Wert gewinnt weiter.
+- Die übrigen Animations- und Wirkzeiten veröffentlicht Riot nicht maschinenlesbar.
+  Sie sind editierbare Annahmen im Panel *Simulation* und verschieben nur die
   Zeitachse, nicht die Schadenssummen. Wo sie wirken, steht in der Zeitachse
   namentlich: „1,25 s Ladezeit + 0,25 s Sprint bis zum Ziel" erklärt, warum der
   erste Treffer einer voll geladenen Q erst nach 1,5 s landet.
