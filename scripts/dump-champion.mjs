@@ -129,7 +129,10 @@ for (const [key, record] of Object.entries(bin)) {
    */
   const dataValues = {};
   for (const value of spell.mDataValues ?? spell.DataValues ?? []) {
-    if (value?.mName) dataValues[value.mName] = value.mValues ?? [value.mValue ?? 0];
+    // The rename came with a shape change too: mName/mValues became name/values.
+    const name = value?.mName ?? value?.name;
+    if (!name) continue;
+    dataValues[name] = value.mValues ?? value.values ?? [value.mValue ?? value.value ?? 0];
   }
 
   const calculations = Object.entries(spell.mSpellCalculations ?? spell.SpellCalculations ?? {});
