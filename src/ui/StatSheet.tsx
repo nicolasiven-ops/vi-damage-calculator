@@ -22,6 +22,7 @@
 
 import { useState } from 'react';
 import type { ChampionStats } from '../model/stats';
+import { imageUrls } from '../data/ddragon';
 
 /** Values the simulation owns rather than the build: shred, damage taken. */
 export interface LiveStats {
@@ -138,73 +139,40 @@ export function unknownStats(overrides: Partial<ChampionStats>): ChampionStats {
 }
 
 /**
- * One glyph per HUD stat, in the game's own vocabulary.
+ * Riot's own icon per stat, by file name on the official wiki.
  *
- * Drawn rather than fetched: Riot publishes no HUD stat icons through any mirror,
- * and eight inline paths theme themselves and cannot fail to load. Each is a
- * 16×16 view box so they line up whatever the row height is.
+ * These are the icons the client draws in the panel this sheet copies, which is
+ * the whole point: the two can be read side by side without translating a legend.
+ * The client keeps them in a sprite atlas with no published coordinates, so the
+ * wiki's file copies under `Category:Champion stat assets` are the only
+ * addressable form — see `imageUrls.statIcon`.
+ *
+ * The files are the "colored" variants, which is what the in-game panel uses; the
+ * plain ones are for prose. Sizes vary between 32 and 72 pixels square and are
+ * drawn at 15, so every one of them has pixels to spare.
  */
-const ICONS: Record<string, JSX.Element> = {
-  // A sword, point up.
-  ad: (
-    <path d="M8 1.5 10 4v6.5H6V4L8 1.5Zm-2.4 10.5h4.8l-1.2 2.5H6.8l-1.2-2.5Z" />
-  ),
-  // A staff with a head on it.
-  ap: (
-    <path d="M11 2a2.2 2.2 0 1 1-1.7 3.6l-5 8.2-1.5-.9 5-8.2A2.2 2.2 0 0 1 11 2Z" />
-  ),
-  // A shield.
-  armor: <path d="M8 1.5 13.5 3v5.2c0 3-2.3 5.4-5.5 6.3-3.2-.9-5.5-3.3-5.5-6.3V3L8 1.5Z" />,
-  // A shield with a ring, the way magic resistance is drawn.
-  mr: (
-    <path d="M8 1.5 13.5 3v5.2c0 3-2.3 5.4-5.5 6.3-3.2-.9-5.5-3.3-5.5-6.3V3L8 1.5Zm0 3.2a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8Zm0 1.6a1.8 1.8 0 1 1 0 3.6 1.8 1.8 0 0 1 0-3.6Z" />
-  ),
-  // A clock hand sweeping: how often, not how hard.
-  attackSpeed: (
-    <path d="M8 1.6a6.4 6.4 0 1 0 6.3 7.5l-1.7-.3A4.7 4.7 0 1 1 8 3.3v2.3l3.4-2.6L8 .4v1.2Zm.8 3.1v3.6l2.8 1.7.8-1.3-2.2-1.3V4.7H8.8Z" />
-  ),
-  // An hourglass: what haste shortens.
-  haste: (
-    <path d="M4 1.6h8v1.2l-2.8 3.2 2.8 3.2v1.2H4V9.2l2.8-3.2L4 2.8V1.6Zm0 11.2h8v1.6H4v-1.6Z" />
-  ),
-  // A four-pointed spark.
-  crit: <path d="M8 .8 9.4 6 14 8l-4.6 2L8 15.2 6.6 10 2 8l4.6-2L8 .8Z" />,
-  // A boot.
-  moveSpeed: (
-    <path d="M3 3.2h3.2l.6 3.4 4.4 1.9c1.2.5 1.9 1.6 1.9 2.9v1.4H3V3.2Z" />
-  ),
-  // A drop, for the two regenerations.
-  regen: <path d="M8 1.2c2.6 3.2 4.4 5.6 4.4 7.8a4.4 4.4 0 0 1-8.8 0c0-2.2 1.8-4.6 4.4-7.8Z" />,
-  // A cross, the way healing is marked everywhere.
-  heal: <path d="M6.4 2h3.2v4.4H14v3.2H9.6V14H6.4V9.6H2V6.4h4.4V2Z" />,
-  // A shield with a bite out of it: armour that has been got through.
-  armorPen: (
-    <path d="M8 1.5 13.5 3v5.2c0 3-2.3 5.4-5.5 6.3-3.2-.9-5.5-3.3-5.5-6.3V3L8 1.5Zm2.9 3.1L5.2 10.3l1.7 1.7 5.7-5.7-1.7-1.7Z" />
-  ),
-  // The same idea through a ring, which is how magic resistance is drawn.
-  magicPen: (
-    <path d="M8 1.6a6.4 6.4 0 1 0 0 12.8A6.4 6.4 0 0 0 8 1.6Zm0 2a4.4 4.4 0 1 1 0 8.8 4.4 4.4 0 0 1 0-8.8Zm3.1 1 1.4 1.4-6.2 6.2-1.4-1.4 6.2-6.2Z" />
-  ),
-  // A blade over a drop: damage that comes back as health.
-  lifeSteal: (
-    <path d="M9.8 1.4 11.6 3 5.2 9.4 3.4 7.6l6.4-6.2Zm1.4 6.6c1.6 2 2.6 3.4 2.6 4.4a2.6 2.6 0 0 1-5.2 0c0-1 1-2.4 2.6-4.4Z" />
-  ),
-  // A drop with a ring: every kind of damage, not just the blade.
-  omnivamp: (
-    <path d="M8 1.4c2.4 3 4 5.2 4 7.2a4 4 0 0 1-8 0c0-2 1.6-4.2 4-7.2Zm0 3.6c-1.3 1.7-2.2 3-2.2 3.6a2.2 2.2 0 0 0 4.4 0c0-.6-.9-1.9-2.2-3.6Z" />
-  ),
-  // An arrow leaving the frame: how far the hand reaches.
-  range: <path d="M14 2v5.2h-2V5.4l-6.6 6.6H7.2v2H2V8.8h2v1.8L10.6 4H8.8V2H14Z" />,
-  // A knot: what tenacity holds together.
-  tenacity: (
-    <path d="M8 1.6a3.6 3.6 0 0 0-3.6 3.6v1.2H3.2V14h9.6V6.4h-1.2V5.2A3.6 3.6 0 0 0 8 1.6Zm0 1.8c1 0 1.8.8 1.8 1.8v1.2H6.2V5.2c0-1 .8-1.8 1.8-1.8Z" />
-  ),
-};
+const ICONS = {
+  ad: 'Attack_damage_colored_icon.png',
+  ap: 'Ability_power_colored_icon.png',
+  armor: 'Armor_colored_icon.png',
+  mr: 'Magic_resistance_colored_icon.png',
+  attackSpeed: 'Attack_speed_colored_icon.png',
+  haste: 'Ability_haste_colored_icon.png',
+  crit: 'Critical_strike_chance_colored_icon.png',
+  moveSpeed: 'Movement_speed_colored_icon.png',
+  regen: 'Health_regeneration_colored_icon.png',
+  heal: 'Heal_and_shield_power_colored_icon.png',
+  armorPen: 'Armor_penetration_colored_icon.png',
+  magicPen: 'Magic_penetration_colored_icon.png',
+  lifeSteal: 'Life_steal_colored_icon.png',
+  omnivamp: 'Omnivamp_colored_icon.png',
+  range: 'Range_colored_icon.png',
+  tenacity: 'Tenacity_colored_icon.png',
+} as const;
 
-/** Which glyph and which colour a row wears. Rows without one get neither. */
+/** Which icon a row wears. Rows without one get none — that is the Extra page. */
 interface HudLook {
   icon: keyof typeof ICONS;
-  tone: string;
 }
 
 export function StatSheet({ stats, live, previous }: Props) {
@@ -251,14 +219,12 @@ export function StatSheet({ stats, live, previous }: Props) {
                     title={row.title ?? row.label}
                   >
                     {row.look && (
-                      <svg
+                      <img
                         className="hud-icon"
-                        viewBox="0 0 16 16"
+                        src={imageUrls.statIcon(ICONS[row.look.icon])}
+                        alt=""
                         aria-hidden="true"
-                        style={{ fill: row.look.tone }}
-                      >
-                        {ICONS[row.look.icon]}
-                      </svg>
+                      />
                     )}
                     <span className="hud-value mono">{row.value}</span>
                     {row.delta && (
@@ -359,28 +325,28 @@ function buildRows(page: PageId, now: Reading, previous: StatComparison | null):
     int,
     undefined,
     {
-      look: { icon: 'ad', tone: 'var(--ad-tone, #f0a659)' },
+      look: { icon: 'ad' },
       title: known(stats.baseAttackDamage)
         ? `Attack Damage · ${int(stats.baseAttackDamage)} base + ${int(stats.bonusAttackDamage)} bonus`
         : 'Attack Damage',
     },
   );
   const abilityPower = row('Ability Power', (r) => r.stats.abilityPower, int, undefined, {
-    look: { icon: 'ap', tone: 'var(--ap-tone, #8f7bf5)' },
+    look: { icon: 'ap' },
   });
   // No footnote about shred or penetration: the value is what the target has
   // right now, the arrow says it moved, and the timeline says what moved it.
   const armor = row('Armor', armorPick, flex, undefined, {
-    look: { icon: 'armor', tone: 'var(--armor-tone, #e0c060)' },
+    look: { icon: 'armor' },
   });
   const magicResist = row('Magic Resistance', mrPick, flex, undefined, {
-    look: { icon: 'mr', tone: 'var(--mr-tone, #5fd0c8)' },
+    look: { icon: 'mr' },
   });
   const attackSpeed = row('Attack Speed', (r) => r.stats.totalAttackSpeed, three, undefined, {
-    look: { icon: 'attackSpeed', tone: 'var(--as-tone, #d9e05f)' },
+    look: { icon: 'attackSpeed' },
   });
   const abilityHaste = row('Ability Haste', (r) => r.stats.abilityHaste, int, undefined, {
-    look: { icon: 'haste', tone: 'var(--haste-tone, #7fb6f5)' },
+    look: { icon: 'haste' },
   });
   /*
    * Both halves in the value, in the order they are bought: how often, then how
@@ -396,10 +362,10 @@ function buildRows(page: PageId, now: Reading, previous: StatComparison | null):
       known(stats.critMultiplier)
         ? `${pct(value)} | ×${stats.critMultiplier.toFixed(2)}`
         : pct(value),
-    { look: { icon: 'crit', tone: 'var(--crit-tone, #f06868)' } },
+    { look: { icon: 'crit' } },
   );
   const moveSpeed = row('Move Speed', (r) => r.stats.moveSpeed, int, undefined, {
-    look: { icon: 'moveSpeed', tone: 'var(--ms-tone, #b9c6d8)' },
+    look: { icon: 'moveSpeed' },
   });
   /*
    * No health row, and no mana row either. Neither block in the client has one —
@@ -437,12 +403,12 @@ function buildRows(page: PageId, now: Reading, previous: StatComparison | null):
           one,
           (value) => `${one(value)} | ${one(stats.manaRegen)}`,
           {
-            look: { icon: 'regen', tone: 'var(--regen-tone, #6fd08a)' },
+            look: { icon: 'regen' },
             title: 'Health and resource regeneration, per 5 seconds',
           },
         ),
         row('Heal & Shield Power', (r) => r.stats.healShieldPower, pct, undefined, {
-          look: { icon: 'heal', tone: 'var(--heal-tone, #7fe0a8)' },
+          look: { icon: 'heal' },
         }),
         row(
           'Armor Penetration',
@@ -450,7 +416,7 @@ function buildRows(page: PageId, now: Reading, previous: StatComparison | null):
           int,
           (value) => `${int(value)} | ${pct(stats.armorPenPercent)}`,
           {
-            look: { icon: 'armorPen', tone: 'var(--armorpen-tone, #e08a5f)' },
+            look: { icon: 'armorPen' },
             title: 'Lethality and percentage armor penetration',
           },
         ),
@@ -460,21 +426,21 @@ function buildRows(page: PageId, now: Reading, previous: StatComparison | null):
           int,
           (value) => `${int(value)} | ${pct(stats.magicPenPercent)}`,
           {
-            look: { icon: 'magicPen', tone: 'var(--magicpen-tone, #a98ff0)' },
+            look: { icon: 'magicPen' },
             title: 'Flat and percentage magic penetration',
           },
         ),
         row('Life Steal', (r) => r.stats.lifesteal, pct, undefined, {
-          look: { icon: 'lifeSteal', tone: 'var(--lifesteal-tone, #e06868)' },
+          look: { icon: 'lifeSteal' },
         }),
         row('Omnivamp', (r) => r.stats.omnivamp, pct, undefined, {
-          look: { icon: 'omnivamp', tone: 'var(--omnivamp-tone, #c05f8f)' },
+          look: { icon: 'omnivamp' },
         }),
         row('Attack Range', (r) => r.stats.attackRange, int, undefined, {
-          look: { icon: 'range', tone: 'var(--range-tone, #9fd8e0)' },
+          look: { icon: 'range' },
         }),
         row('Tenacity', (r) => r.stats.tenacity, pct, undefined, {
-          look: { icon: 'tenacity', tone: 'var(--tenacity-tone, #d0b070)' },
+          look: { icon: 'tenacity' },
         }),
       ];
 

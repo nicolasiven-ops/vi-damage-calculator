@@ -141,6 +141,8 @@ export async function fetchSummoners(
 }
 
 const CDRAGON = 'https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default';
+/** The official wiki, which is the only place Riot's stat icons exist as files. */
+const WIKI = 'https://wiki.leagueoflegends.com';
 
 export const imageUrls = {
   /**
@@ -161,4 +163,13 @@ export const imageUrls = {
   championLoading: (championId: string) => `${CDN}/cdn/img/champion/loading/${championId}_0.jpg`,
   /** Rune icons are versionless in Data Dragon. */
   rune: (iconPath: string) => `${CDN}/cdn/img/${iconPath}`,
+  /**
+   * Stat icons — the ones the client puts in its own stats panel.
+   *
+   * Riot ships these inside a sprite atlas with no published coordinates, so
+   * neither Data Dragon nor CommunityDragon has them as files. The official wiki
+   * does, under `Category:Champion stat assets`, and serves them with permissive
+   * CORS. Same arrangement as every other icon in this app: linked, not copied.
+   */
+  statIcon: (file: string) => `${WIKI}/en-us/images/${file}`,
 };

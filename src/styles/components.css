@@ -3478,11 +3478,18 @@ code {
   background: var(--surface-1);
 }
 
+/*
+ * Riot's own icons, at fifteen pixels.
+ *
+ * They arrive between 32 and 72 pixels square, so there is nothing to sharpen —
+ * only room to spare. No filter and no tint: the colour is part of what makes
+ * them recognisable, and it is the same colour the client uses.
+ */
 .hud-icon {
-  width: 14px;
-  height: 14px;
-  flex: 0 0 14px;
-  opacity: 0.9;
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+  object-fit: contain;
 }
 
 .hud-value {
