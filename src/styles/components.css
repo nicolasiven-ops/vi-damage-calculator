@@ -3298,3 +3298,28 @@ code {
   text-decoration: line-through;
   text-decoration-color: rgba(224, 90, 90, 0.6);
 }
+
+/* the change log: every row is a build you can go back to */
+.change-restore {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--text-1);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-bottom: 1px dashed transparent;
+}
+.change-restore:hover {
+  color: var(--gold-200);
+  border-bottom-color: var(--gold-300);
+}
+.value-bar-fill.is-down {
+  background: var(--status-bad);
+}
+.change-log-table td .good {
+  color: var(--status-good);
+}
+.change-log-table td .bad {
+  color: var(--status-bad);
+}

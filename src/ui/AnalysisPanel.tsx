@@ -36,6 +36,8 @@ import { DpsChart } from './DpsChart';
 import { ItemValuePanel } from './ItemValuePanel';
 import { StatValuePanel } from './StatValuePanel';
 import { StatGoldPanel } from './StatGoldPanel';
+import { ChangeLogPanel } from './ChangeLogPanel';
+import type { ChangeLogEntry } from '../state/changeLog';
 import type { StatPriceRow, StatValueRow } from '../model/statValue';
 import { TYPE_COLOR } from './palette';
 import type { ItemValueRow } from '../model/itemValue';
@@ -84,6 +86,9 @@ interface Props {
   statValueRows?: StatValueRow[];
   /** The shop's base gold value for every stat, for the reference table. */
   statPriceRows?: StatPriceRow[];
+  /** What changed in this session, newest first, and what it did. */
+  changeLog?: ChangeLogEntry[];
+  onRestoreBuild?: (id: number) => void;
   /**
    * Where playback stands: not started, running, or held.
    *
@@ -155,13 +160,15 @@ type ResultView = 'timeline' | 'details' | 'detailed' | 'sources' | 'formulas';
 type ShapeView = 'total' | 'gantt' | 'burst';
 
 /**
- * The ledger's two readings, both about gold.
+ * The ledger's three readings: what the gold did, what it would do, what you did.
  *
- * What the gold you already spent is doing, and what the next thousand would do.
- * The formula reference moved out into its own window: it is not a record of
- * this build, it is where the numbers come from at all.
+ * The first two are about gold — what the money already spent is doing, and what
+ * the next thousand would buy. The third is the session itself: every change you
+ * made and what it moved, which is the only one of the three that remembers
+ * anything. The formula reference moved out into its own window; it is not a
+ * record of this build, it is where the numbers come from at all.
  */
-type LedgerView = 'items' | 'stats';
+type LedgerView = 'items' | 'stats' | 'changes';
 
 /**
  * The reference window's pages: facts that do not depend on the build.
@@ -180,6 +187,7 @@ const REFERENCE_TITLES: Record<ReferenceView, string> = {
 const LEDGER_TITLES: Record<LedgerView, string> = {
   items: 'Item value',
   stats: 'Stat value',
+  changes: 'Changes',
 };
 
 const SHAPE_TITLES: Record<ShapeView, string> = {
@@ -226,6 +234,8 @@ export function AnalysisPanel({
   patchVersion,
   statValueRows,
   statPriceRows,
+  changeLog,
+  onRestoreBuild,
   playState = 'idle',
   playhead,
   onTogglePlay,
@@ -704,7 +714,7 @@ export function AnalysisPanel({
         title="Ledger"
         center={
           <div className="view-tabs">
-            {(['items', 'stats'] as LedgerView[]).map((entry) => (
+            {(['items', 'stats', 'changes'] as LedgerView[]).map((entry) => (
               <button
                 key={entry}
                 className={`view-tab${ledger === entry ? ' is-active' : ''}`}
@@ -726,6 +736,10 @@ export function AnalysisPanel({
         )}
 
         {ledger === 'stats' && <StatValuePanel rows={statValueRows ?? []} />}
+
+        {ledger === 'changes' && (
+          <ChangeLogPanel entries={changeLog ?? []} onRestore={onRestoreBuild} />
+        )}
       </Panel>
 
       {/*

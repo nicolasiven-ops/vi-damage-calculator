@@ -10,6 +10,7 @@ import { runeStats } from './model/runes';
 import { emptyStats, resolveChampionStats, sumStats } from './model/stats';
 import { resolveBonusStats, runBuild } from './state/runBuild';
 import { itemValues, type ItemValueRow } from './model/itemValue';
+import { EMPTY_CHANGE_LOG, buildOf, recordChange } from './state/changeLog';
 import {
   statGoldRates,
   statPriceTable,
@@ -466,6 +467,39 @@ export default function App() {
     }
     return out;
   }, [analysis]);
+
+  /**
+   * The log of what changed and what it did.
+   *
+   * Filled from an effect rather than from the controls: every edit in this app
+   * goes through `patchBuild`, but the *result* of an edit is only known after the
+   * simulation has run, so the entry is written when the pair (build, damage)
+   * moves. `recordChange` returns the same object when nothing moved, which is
+   * what keeps this from looping.
+   */
+  const [changeLog, setChangeLog] = useState(EMPTY_CHANGE_LOG);
+  const lastRun = useRef<{ build: BuildState; damage: number; killed: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!analysis) return;
+    const current = {
+      build,
+      damage: analysis.totalMitigated,
+      killed: analysis.killTime !== null,
+    };
+    const previous = lastRun.current;
+    lastRun.current = current;
+    if (!previous) return;
+
+    setChangeLog((log) =>
+      recordChange({
+        log,
+        previous,
+        current,
+        nameOf: (itemId) => itemById.get(itemId)?.name ?? itemId,
+      }),
+    );
+  }, [analysis, build, itemById]);
 
   const abilities = useMemo(
     () => resolveAbilityNames(VI_MODULE.abilities, moduleCtx),
@@ -961,6 +995,11 @@ export default function App() {
             itemValueRows={itemValueRows}
             statValueRows={statValueRows}
             statPriceRows={statPriceRows}
+            changeLog={changeLog.entries}
+            onRestoreBuild={(id) => {
+              const restored = buildOf(changeLog, id);
+              if (restored) setBuild(restored);
+            }}
             patchVersion={bundle?.version ?? ""}
             linkedStepUid={linkedStepUid}
             pinnedStepUid={pinnedStepUid}

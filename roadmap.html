@@ -34,7 +34,6 @@
           <li><a href="#sweep">Against more than one target</a></li>
           <li><a href="#ttk">Who is it enough against</a></li>
           <li><a href="#target">A target that builds itself</a></li>
-          <li><a href="#log">What you changed, and what it did</a></li>
           <li class="lab-nav-break">Making the numbers readable</li>
           <li><a href="#cmd">Typing a combo</a></li>
           <li><a href="#spread">The crit spread</a></li>
@@ -89,6 +88,16 @@
           </p>
           <div class="lab-stage plain">
             <ul class="lab-scrap">
+              <li>
+                <b>What you changed, and what it did</b>
+                <span>Was LOG, and workshop 36 before that.</span>
+                <em>The Ledger's third page: every change this session, newest first, with the
+                damage it moved and the verdict if it flipped — and a click that puts that
+                build back. The label is derived by comparing the two builds rather than
+                recorded at the click, so an edit made from anywhere gets an entry and no
+                control has to know the log exists. Restoring is what makes it more than a
+                diary: a log you can walk backwards is an undo with reasons attached.</em>
+              </li>
               <li>
                 <b>What a stat is worth against what it costs</b>
                 <span>Was workshop 37.</span>
@@ -544,39 +553,6 @@
             CommunityDragon's <code>/latest</code> follows the live patch rather than the
             one selected in the app, so anything read from there has to be pinned or
             labelled with the patch it actually came from.
-          </p>
-        </section>
-
-        <!-- ================================================= The decision log -->
-        <section class="lab-section" id="log">
-          <div class="lab-section-head">
-            <span class="lab-num">LOG</span>
-            <h2>What you changed, and what it did</h2>
-            <div class="lab-cost">
-              <span class="lab-pill ready">no new engine</span>
-              <span class="lab-pill">small</span>
-            </div>
-          </div>
-          <p class="lab-why">
-            A running list, newest first: <em>Serrated Dirk in → +118</em>,
-            <em>Q to rank 5 → +43</em>, <em>target armour 60 → 90 → −204</em>. Theorycrafting
-            is a sequence of small experiments, and right now every one of them is lost the
-            moment the next one starts — the number on screen is the current build's, and
-            what the last four changes bought is in nobody's head after ten minutes.
-          </p>
-          <p class="lab-why">
-            The label is derived from the two states rather than recorded at the click, so a
-            change made from anywhere gets an entry and no control has to know about the log.
-            That work is done: <code>src/state/changes.ts</code> compares two builds and says
-            what moved, in words — items as a multiset so re-ordering slots is not a change,
-            ranks per slot, the combo's shape, every target field.
-          </p>
-          <p class="lab-caption">
-            <strong>What it needs.</strong> The panel: the Ledger's third page, one row per
-            change with the delta and a click that puts that build back. Restoring is the
-            half that makes it more than a diary — a log you can walk backwards is an undo
-            with reasons attached. Entries live in memory only; a session that survives a
-            reload is a different feature and not obviously a better one.
           </p>
         </section>
 
