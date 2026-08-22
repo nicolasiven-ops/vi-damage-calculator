@@ -256,7 +256,10 @@ export function DpsChart({ analysis, playhead, linkedStepUid, pinnedStepUid, onP
    * The hits, folded to one entry per instant.
    *
    * Same rule as the running total's markers: what lands together is one point,
-   * because two circles on the same pixel are one circle with a lie in it.
+   * because two circles on the same pixel are one circle with a lie in it. What
+   * the point keeps is its parts — the count decides how the ring is drawn and
+   * the list is what the tooltip reads out, so "one point, three instances" is
+   * visible rather than implied.
    */
   const instants = useMemo(() => {
     const out: {
@@ -269,6 +272,8 @@ export function DpsChart({ analysis, playhead, linkedStepUid, pinnedStepUid, onP
       stepUid?: string;
       /** Arrived on its own clock rather than on a press. Drawn hollow. */
       delayed?: boolean;
+      /** Every instance in this instant, in the order they were dealt. */
+      parts: { label: string; damage: number }[];
     }[] = [];
     for (const point of analysis.curve) {
       const hit = point.instance;
@@ -279,6 +284,7 @@ export function DpsChart({ analysis, playhead, linkedStepUid, pinnedStepUid, onP
       if (last && Math.abs(hit.time - last.time) < 0.005) {
         last.damage += hit.mitigated;
         last.label = `${last.label}, ${hit.sourceLabel}`;
+        last.parts.push({ label: hit.sourceLabel, damage: hit.mitigated });
         /*
          * One press landing on the same instant as a tick makes the point a
          * press: hollow is a statement about where the damage came from, and
@@ -300,6 +306,7 @@ export function DpsChart({ analysis, playhead, linkedStepUid, pinnedStepUid, onP
         label: hit.sourceLabel,
         color: TYPE_COLOR[hit.type],
         sourceId: hit.sourceId,
+        parts: [{ label: hit.sourceLabel, damage: hit.mitigated }],
         ...(hit.delayed === true ? { delayed: true } : {}),
         ...(hit.delayed !== true && hit.stepUid ? { stepUid: hit.stepUid } : {}),
       });
@@ -525,20 +532,53 @@ export function DpsChart({ analysis, playhead, linkedStepUid, pinnedStepUid, onP
              * whether anybody pressed anything.
              */
             const radius = instant.delayed ? 3 : linked || pinned ? 6 : 2.5 + share * 2.5;
+            /*
+             * One arc per instance, with a gap between them.
+             *
+             * A closed ring is one instance; a ring in three pieces is three. The
+             * gap is a fixed fraction of the circumference rather than a fixed
+             * length, so it stays readable whether the circle is three pixels or
+             * six — and a point with a dozen instances degrades into a dotted ring
+             * instead of a solid one, which still reads as "a lot at once".
+             */
+            const parts = instant.parts.length;
+            /*
+             * A point that stands for more than one instance is drawn at least
+             * large enough to show that. Sizing by damage alone put a two-instance
+             * point at two and a half pixels, where the gaps closed up and the
+             * count was a claim nobody could check.
+             */
+            const drawn = parts > 1 ? Math.max(radius, 4) : radius;
+            const circumference = 2 * Math.PI * drawn;
+            const gap = Math.max(0.9, circumference * 0.06);
+            const dash = parts > 1 ? `${circumference / parts - gap} ${gap}` : undefined;
             return (
               <g key={instant.id} className="dps-hit">
+                {/*
+                  * One line per instance, then the sum. The same reading the
+                  * formula inspector gives, at the moment being pointed at.
+                  */}
                 <title>
-                  {formatSeconds(instant.time)} s · {instant.label} ·{' '}
-                  {Math.round(instant.damage).toLocaleString('en-US')} damage
+                  {`${formatSeconds(instant.time)} s\n`}
+                  {instant.parts
+                    .map(
+                      (part) =>
+                        `${part.label} · ${Math.round(part.damage).toLocaleString('en-US')}`,
+                    )
+                    .join('\n')}
+                  {instant.parts.length > 1
+                    ? `\n= ${Math.round(instant.damage).toLocaleString('en-US')} damage`
+                    : ' damage'}
                 </title>
                 <circle
                   cx={x(instant.time)}
                   cy={y(rateAt(instant.time))}
-                  r={radius}
+                  r={drawn}
                   fill={instant.delayed ? 'none' : 'var(--surface-1)'}
                   stroke={linked || pinned ? 'var(--gold-300)' : instant.color}
                   strokeWidth={instant.delayed ? 1.25 : linked || pinned ? 3 : 2}
                   opacity={instant.delayed ? 0.75 : 1}
+                  {...(dash ? { strokeDasharray: dash } : {})}
                 />
               </g>
             );
