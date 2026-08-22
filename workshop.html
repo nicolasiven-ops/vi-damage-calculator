@@ -25,13 +25,9 @@
         <h1 class="lab-nav-title">Workshop</h1>
         <span class="lab-nav-sub">Where a feature is argued out</span>
         <ol>
-          <li><a href="#close">What I would build first</a></li>
           <li><a href="#pin">Hold a build</a></li>
-          <li><a href="#ehp">The target shape</a></li>
           <li><a href="#react">What the target does</a></li>
-          <li><a href="#log">The decision log</a></li>
           <li class="lab-nav-break">Taken further</li>
-          <li><a href="#worth">A stat against what it costs</a></li>
           <li class="lab-nav-break">Off the bench</li>
           <li><a href="#scrapyard">Scrapyard</a></li>
           <li><a href="#scrapped">What was scrapped</a></li>
@@ -90,52 +86,6 @@
           </p>
         </section>
 
-        <!-- ====================================== 34 Effective health profile -->
-        <section class="lab-section" id="ehp">
-          <div class="lab-section-head">
-            <span class="lab-num">34</span>
-            <h2>The target's shape, not its health</h2>
-            <div class="lab-cost"><span class="lab-pill ready">data available</span></div>
-          </div>
-          <p class="lab-why">
-            Effective health was a tile and it was cut, because one number against
-            "this damage mix" answered nothing. The useful version is the profile:
-            how much this target is worth against pure physical, pure magic, pure
-            true damage and against your actual mix. That is what tells you whether
-            the answer is a different item or a different champion.
-          </p>
-          <div class="lab-stage plain">
-            <div class="lab-bars wide">
-              <div class="lab-bar">
-                <span class="lab-bar-label">vs physical</span>
-                <span class="lab-bar-track"><span style="width: 96%"></span></span>
-                <span class="lab-bar-value mono">4,032</span>
-              </div>
-              <div class="lab-bar">
-                <span class="lab-bar-label">vs magic</span>
-                <span class="lab-bar-track"><span style="width: 71%"></span></span>
-                <span class="lab-bar-value mono">2,982</span>
-              </div>
-              <div class="lab-bar">
-                <span class="lab-bar-label">vs true</span>
-                <span class="lab-bar-track"><span style="width: 50%"></span></span>
-                <span class="lab-bar-value mono">2,100</span>
-              </div>
-              <div class="lab-bar is-current">
-                <span class="lab-bar-label">vs your mix</span>
-                <span class="lab-bar-track"><span class="pos" style="width: 93%"></span></span>
-                <span class="lab-bar-value mono">3,894</span>
-              </div>
-            </div>
-          </div>
-          <p class="lab-caption">
-            Reading it: this target is 92% armour and 8% everything else, so your
-            physical combo is fighting its strongest side. Magic damage would be worth
-            a third more per point. <strong>Implementation:</strong> the mitigation
-            chain already computes this; it needs four calls instead of one.
-          </p>
-        </section>
-
         <!-- ============================================ 35 Reaction windows -->
         <section class="lab-section" id="react">
           <div class="lab-section-head">
@@ -173,254 +123,6 @@
           </p>
         </section>
 
-        <!-- ============================================== 36 The decision log -->
-        <section class="lab-section" id="log">
-          <div class="lab-section-head">
-            <span class="lab-num">36</span>
-            <h2>What you changed, and what it did</h2>
-            <div class="lab-cost"><span class="lab-pill ready">data available</span></div>
-          </div>
-          <p class="lab-why">
-            Half an hour into a session nobody remembers which of eleven changes was
-            the good one. The tool watches every change already — it re-simulates on
-            each of them. Keeping the deltas turns fiddling into a record, and the
-            record is the actual output of an analysis session.
-          </p>
-          <div class="lab-stage plain">
-            <div class="log">
-              <div class="log-row">
-                <span class="log-time mono">−12 min</span>
-                <span class="log-what">Slot 2: <strong>Umbral Glaive</strong></span>
-                <span class="log-delta mono pos">+124</span>
-              </div>
-              <div class="log-row">
-                <span class="log-time mono">−9 min</span>
-                <span class="log-what">Keystone: <strong>Hail of Blades</strong></span>
-                <span class="log-delta mono pos">+96</span>
-              </div>
-              <div class="log-row is-bad">
-                <span class="log-time mono">−6 min</span>
-                <span class="log-what">Combo: moved <strong>R</strong> before the autos</span>
-                <span class="log-delta mono neg">−72</span>
-              </div>
-              <div class="log-row">
-                <span class="log-time mono">−4 min</span>
-                <span class="log-what">W rank 4 → 5</span>
-                <span class="log-delta mono pos">+31</span>
-              </div>
-              <div class="log-foot">
-                <button class="btn subtle">Undo the −72</button>
-                <span class="mono">net +179 this session</span>
-              </div>
-            </div>
-          </div>
-          <p class="lab-caption">
-            The undo button is the point: a log you can act on beats a log you can
-            read. <strong>Implementation:</strong> a ring buffer of
-            <code>{ label, build, totalMitigated }</code> pushed on every state change
-            the app already funnels through one setter, coalesced so a dragged slider
-            is one entry rather than forty.
-          </p>
-        </section>
-
-        <!-- ====================================================== Closing -->
-        <section class="lab-section lab-close" id="close">
-          <div class="lab-section-head">
-            <span class="lab-num">★</span>
-            <h2>What I would build first</h2>
-          </div>
-          <ol>
-            <li>
-              <strong>The timeline (01).</strong> It needs no new calculation — only a
-              different form for data that is already there — and it is the thing that
-              sets this calculator apart from every other one. After today's rebuild
-              it finally has something to show, with cooldowns and idle time as well.
-            </li>
-            <li>
-              <strong>Health bar and availability bar (03, 02).</strong> Both small,
-              both immediately understandable, both built from values that already
-              exist. Together they answer “is it enough?” and “what can I do next?”
-              without a single glance at a table.
-            </li>
-            <li>
-              <strong>The mitigation chain (04).</strong> It makes the most careful
-              logic in the project visible and explains every number that otherwise
-              looks arbitrary.
-            </li>
-            <li>
-              <strong>Then the analyses that run the engine repeatedly
-              (05, 06, 07, 09).</strong> Technically all the same pattern: vary a
-              parameter, simulate again, show the difference. Once that pattern is in
-              place, they are four tools for the price of one.
-            </li>
-            <li>
-              <strong>Duel and command line last (11, 10).</strong> The duel needs a
-              second champion — the actual work sits there, not in the view.
-            </li>
-          </ol>
-        </section>
-
-        <!-- ============================= 37 Gold worth vs gold price -->
-        <section class="lab-section" id="worth">
-          <div class="lab-section-head">
-            <span class="lab-num">37</span>
-            <h2>What a stat is worth against what it costs</h2>
-            <div class="lab-cost">
-              <span class="lab-pill ready">data available</span>
-              <span class="lab-pill needs">invented numbers</span>
-            </div>
-          </div>
-          <p class="lab-why">
-            Sections <a href="#deriv">16</a> and <a href="#gold">17</a> are halves of
-            one tool. Sixteen measures what a stat <em>does</em> for this combo;
-            seventeen divides damage by gold. Put them together and the question
-            stops being &ldquo;which stat is strongest&rdquo; &mdash; that one has an
-            easy, useless answer &mdash; and becomes <strong>which stat is underpriced
-            for the combo I actually press</strong>. The shop sells stats at a fixed
-            rate. Your combo does not value them at that rate. The gap between the two
-            is the whole game of building.
-          </p>
-          <p class="lab-why">
-            The rate does not have to be looked up, either. Riot prices every stat
-            through its cheapest single-stat component, and those prices are in the
-            patch data the app already downloads: a Long Sword is 350&nbsp;g for
-            10&nbsp;AD, so AD costs 35&nbsp;g a point <em>on this patch</em>, and the
-            number moves when Riot moves it. Nothing here needs a hardcoded table.
-          </p>
-          <div class="lab-stage plain">
-            <table class="worth-table">
-              <thead>
-                <tr>
-                  <th>Stat</th>
-                  <th class="num">+10 does</th>
-                  <th class="num">costs</th>
-                  <th class="num">per 1,000&nbsp;g</th>
-                  <th class="num">vs shop rate</th>
-                  <th>priced by</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr class="is-best">
-                  <th>Bonus AD</th>
-                  <td class="num">+41</td>
-                  <td class="num">350&nbsp;g</td>
-                  <td class="num">117</td>
-                  <td class="num pos">+38%</td>
-                  <td>Long Sword</td>
-                </tr>
-                <tr>
-                  <th>Armor penetration</th>
-                  <td class="num">+29</td>
-                  <td class="num">&mdash;</td>
-                  <td class="num">&mdash;</td>
-                  <td class="num">&mdash;</td>
-                  <td>no single-stat component</td>
-                </tr>
-                <tr>
-                  <th>Lethality</th>
-                  <td class="num">+22</td>
-                  <td class="num">600&nbsp;g</td>
-                  <td class="num">37</td>
-                  <td class="num neg">&minus;56%</td>
-                  <td>Serrated Dirk, per 10 lethality</td>
-                </tr>
-                <tr>
-                  <th>Attack speed</th>
-                  <td class="num">+9</td>
-                  <td class="num">300&nbsp;g</td>
-                  <td class="num">30</td>
-                  <td class="num neg">&minus;64%</td>
-                  <td>Dagger, 10%</td>
-                </tr>
-                <tr>
-                  <th>Ability power</th>
-                  <td class="num">+4</td>
-                  <td class="num">435&nbsp;g</td>
-                  <td class="num">9</td>
-                  <td class="num neg">&minus;89%</td>
-                  <td>Amplifying Tome, per 20 AP</td>
-                </tr>
-                <tr class="is-dead">
-                  <th>Ability haste</th>
-                  <td class="num">0</td>
-                  <td class="num">&mdash;</td>
-                  <td class="num">0</td>
-                  <td class="num">&mdash;</td>
-                  <td>nothing in this combo repeats</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <p class="lab-caption">
-            &ldquo;Per 1,000&nbsp;g&rdquo; is damage this combo gains for a thousand
-            gold spent on that stat alone. &ldquo;vs shop rate&rdquo; compares it to
-            the build&rsquo;s average &mdash; above the line the stat is underpriced
-            <em>for you</em>, below it you are paying retail for something your combo
-            barely uses. Lethality reading &minus;56% against 90 armour is the kind of
-            answer nobody guesses right.
-          </p>
-
-          <h3 class="lab-sub">Where it goes from there</h3>
-          <div class="lab-grid-2">
-            <div class="lab-stage plain">
-              <b class="lab-mini-title">The next item, ranked</b>
-              <p class="lab-mini">
-                Every stat has a measured worth; an item is a bundle of stats with a
-                price on it. Multiply and sum and you have the honest answer to the
-                only question a shop screen ever asks: <em>what should I buy
-                next?</em> &mdash; ranked by damage per gold, over the build that is
-                actually on screen.
-              </p>
-              <ul class="lab-mini-list">
-                <li><b>Serrated Dirk</b> <span class="mono">+63 per 1,000 g</span></li>
-                <li><b>Noonquiver</b> <span class="mono">+51</span></li>
-                <li><b>Caulfield&rsquo;s Warhammer</b> <span class="mono">+44</span></li>
-              </ul>
-            </div>
-            <div class="lab-stage plain">
-              <b class="lab-mini-title">Six slots, not infinite gold</b>
-              <p class="lab-mini">
-                Gold is one constraint and slots are the other. The same table sorted
-                by damage per <em>slot</em> is a different order, and late in a game it
-                is the order that matters: a 3,000&nbsp;g item that beats a
-                1,300&nbsp;g one per slot is the right buy even though it loses per
-                gold.
-              </p>
-            </div>
-            <div class="lab-stage plain">
-              <b class="lab-mini-title">The curve, not the point</b>
-              <p class="lab-mini">
-                A derivative is one point on a curve. Sweeping a stat from +0 to +100
-                shows where it bends &mdash; where crit overtakes AD, where penetration
-                stops paying because the target has no armour left to remove.
-                Break-even points are more useful than rankings: they survive the next
-                item.
-              </p>
-            </div>
-            <div class="lab-stage plain">
-              <b class="lab-mini-title">Shop-efficient versus combo-efficient</b>
-              <p class="lab-mini">
-                Two numbers per item, on two axes. The classic gold-efficiency figure
-                says whether an item is worth its price <em>in the abstract</em>; the
-                measured one says whether it is worth it <em>to this combo</em>. The
-                interesting items are the ones the two disagree about &mdash; and those
-                are exactly the ones a build guide cannot tell you about.
-              </p>
-            </div>
-          </div>
-          <p class="lab-caption">
-            <strong>Implementation.</strong> The derivatives are one
-            <code>simulate</code> per stat, which the app already does in
-            milliseconds. The prices come out of <code>item.json</code>: filter to
-            items whose stat block has exactly one entry, divide price by amount, keep
-            the cheapest per stat. Stats with no single-stat component &mdash; armour
-            penetration, omnivamp &mdash; have no shop rate, and the table should say
-            so rather than invent one. The item ranking is the same loop over the
-            purchasable set, and the sweep is the same loop with a range instead of a
-            nudge.
-          </p>
-        </section>
-
         <!-- ================================================ Scrapyard -->
         <section class="lab-section" id="scrapyard">
           <div class="lab-section-head">
@@ -444,6 +146,20 @@
           </p>
           <div class="lab-stage plain">
             <ul class="lab-scrap">
+              <li>
+                <b>The target's shape, not its health (34)</b>
+                <span>Report the target as effective health against each damage type —
+                health times the resistance multiplier — so a tank's 3,000 health at 200
+                armour reads as the 9,000 physical health it really is, and the two
+                numbers sit beside each other as a shape.</span>
+                <em>Out. Effective health is a derived number that answers a question the
+                verdict tile already answers directly ("survives with 412"), and expressing
+                a target as two numbers invites comparing them, which is exactly the
+                comparison that misleads: a combo is not half physical and half magic in
+                the proportion the shape suggests. Watch for it coming back as "effective
+                HP", an EHP column, a resistance-adjusted health bar, or a
+                physical-versus-magic shape of any kind.</em>
+              </li>
               <li>
                 <b>How much of this number is assumed (29)</b>
                 <span>A confidence readout: what share of the damage came from Riot's own
