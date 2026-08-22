@@ -14,10 +14,14 @@
 
 import type { AbilitySlot } from '../engine/types';
 import type { BuildState } from './build';
+import { resolveSkills } from '../model/skills';
 
 const SLOTS: AbilitySlot[] = ['P', 'Q', 'W', 'E', 'R'];
 
 const num = (value: number): string => Math.round(value).toLocaleString('en-US');
+
+/** Vi's own maximums, for reading an order back into ranks. */
+const RANK_CAPS: Partial<Record<AbilitySlot, number>> = { Q: 5, W: 5, E: 5, R: 3 };
 
 export function describeBuildChange(
   before: BuildState,
@@ -28,9 +32,18 @@ export function describeBuildChange(
 
   if (before.level !== after.level) parts.push(`level ${before.level} → ${after.level}`);
 
+  /*
+   * Ranks are read from the order and the level, the same way the app reads them,
+   * so the log records what the run actually used — a point held back by a level
+   * change shows up as the rank falling, which is exactly what happened.
+   */
+  const ranksOf = (build: BuildState) =>
+    resolveSkills(build.skillOrder, build.level, RANK_CAPS).ranks;
+  const ranksBefore = ranksOf(before);
+  const ranksAfter = ranksOf(after);
   for (const slot of SLOTS) {
-    const from = before.ranks[slot] ?? 0;
-    const to = after.ranks[slot] ?? 0;
+    const from = ranksBefore[slot] ?? 0;
+    const to = ranksAfter[slot] ?? 0;
     if (from !== to) parts.push(`${slot} rank ${from} → ${to}`);
   }
 

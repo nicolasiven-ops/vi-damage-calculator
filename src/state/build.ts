@@ -8,6 +8,7 @@
 import { DEFAULT_TIMINGS, type ComboStep, type CritMode, type TargetConfig, type TimingConfig } from '../engine/types';
 import type { AbilitySlot } from '../engine/types';
 import type { StatBlock } from '../model/stats';
+import { DEFAULT_ORDER, SKILLABLE, orderFromRanks } from '../model/skills';
 
 /**
  * Items and runes: one side of the fight, kitted out.
@@ -105,7 +106,15 @@ export interface TargetState {
 export interface BuildState extends TargetState, LoadoutState {
   championId: string;
   level: number;
-  ranks: Record<AbilitySlot, number>;
+  /**
+   * The order the skill points went in, one entry per point.
+   *
+   * Ranks are read off this and the level rather than stored — see
+   * `model/skills.ts`. Storing the order is what makes "you have eleven points at
+   * level eleven" enforceable and what lets the points past the budget grey out in
+   * the order they were taken instead of vanishing.
+   */
+  skillOrder: AbilitySlot[];
 
   combo: ComboStep[];
   /**
@@ -152,7 +161,12 @@ export function defaultBuild(): BuildState {
   return {
     championId: 'Vi',
     level: 11,
-    ranks: { P: 1, Q: 5, W: 4, E: 3, R: 2 },
+    /*
+     * Eleven points at level eleven, which the old default was not: Q5 W4 E3 R2 is
+     * fourteen. A calculator whose opening position cannot exist in a game is one
+     * nobody can check against the game.
+     */
+    skillOrder: DEFAULT_ORDER.slice(0, 11),
     itemIds: ['', '', '', '', '', ''],
     keystoneId: null,
     primaryTreeId: DOMINATION,
@@ -215,6 +229,22 @@ export function saveBuild(build: BuildState): void {
 }
 
 /**
+ * The skill order out of stored state, whatever shape that state is in.
+ *
+ * Three cases: a stored order (use it), a stored rank block from before orders
+ * existed (invent an order that reproduces it), or neither (the default).
+ */
+function storedOrder(stored: Partial<BuildState> & { ranks?: Record<string, number> }): AbilitySlot[] {
+  if (Array.isArray(stored.skillOrder)) {
+    return stored.skillOrder.filter((slot): slot is AbilitySlot => SKILLABLE.includes(slot));
+  }
+  if (stored.ranks && typeof stored.ranks === 'object') {
+    return orderFromRanks(stored.ranks as Partial<Record<AbilitySlot, number>>);
+  }
+  return DEFAULT_ORDER.slice(0, 11);
+}
+
+/**
  * Merge stored state onto the defaults so a build saved by an older version
  * never leaves a required field undefined.
  */
@@ -226,7 +256,13 @@ function mergeBuild(base: BuildState, stored: Partial<BuildState>): BuildState {
   return {
     ...base,
     ...stored,
-    ranks: { ...base.ranks, ...(stored.ranks ?? {}) },
+    /*
+     * A build saved before orders existed carries five rank numbers instead. They
+     * are turned into a plausible order rather than dropped — see
+     * `orderFromRanks` — so an old build opens with the ranks it was saved with,
+     * as long as the level pays for them.
+     */
+    skillOrder: storedOrder(stored),
     itemIds: normaliseSlots(stored.itemIds, 6, ''),
     primaryRuneIds: normaliseSlots(stored.primaryRuneIds, 3, null),
     secondaryRuneIds: normaliseSlots(stored.secondaryRuneIds, 2, null),

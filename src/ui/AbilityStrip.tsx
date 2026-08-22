@@ -3,8 +3,15 @@
  *
  * Clicking an icon puts a point in it and cycles back to zero past the last rank
  * — five for the basics, three for the ultimate — which is the same gesture as
- * levelling a skill in game, minus the level requirement this app has no reason
- * to enforce.
+ * levelling a skill in game. It now spends from a budget: one point per level, so
+ * a click that cannot be paid for is refused and says so in the tooltip. Right
+ * click takes a single point back, which the cycle cannot do once an ability is
+ * halfway up.
+ *
+ * Points skilled past what the level pays for are drawn as hollow pips rather
+ * than dropped. Drag the level down and the last points taken go grey in the order
+ * they were taken; drag it back up and they come back, which is why the order is
+ * worth storing.
  *
  * It replaced a stacked list of five rows with names and separate pip strips.
  * That list was 222 px of sidebar for information the row says in 70, and the
@@ -20,6 +27,11 @@ export interface AbilityTile {
   /** 1 or less marks a passive: no points to spend, so no pips. */
   maxRank: number;
   rank: number;
+  /**
+   * Ranks skilled but not paid for at this level, drawn hollow behind the filled
+   * pips. Zero for every tile when the level covers the whole order.
+   */
+  held?: number;
   /**
    * What the simulation says about this ability at the focused moment.
    *
@@ -41,29 +53,64 @@ interface Props {
    * The target's abilities are shown because they say who you are fighting, but
    * nothing it does is simulated — so there is nothing to set.
    */
-  onRankChange?: (slot: AbilitySlot | 'P', rank: number) => void;
+  onSkillUp?: (slot: AbilitySlot) => void;
+  /** One point back, from a right click. */
+  onSkillDown?: (slot: AbilitySlot) => void;
+  /** Every point back, which is what clicking past the last rank does. */
+  onSkillClear?: (slot: AbilitySlot) => void;
+  /** Points spent and available, for refusing a click that cannot be paid for. */
+  points?: { spent: number; available: number };
 }
 
-export function AbilityStrip({ tiles, onRankChange }: Props) {
+export function AbilityStrip({
+  tiles,
+  onSkillUp,
+  onSkillDown,
+  onSkillClear,
+  points,
+}: Props) {
+  const broke = points ? points.spent >= points.available : false;
   return (
     <div className="ability-strip">
       {tiles.map((tile) => {
         const passive = tile.maxRank <= 1;
-        const editable = Boolean(onRankChange) && !passive;
+        const editable = Boolean(onSkillUp) && !passive;
+        const held = tile.held ?? 0;
+        const atMax = tile.rank + held >= tile.maxRank;
         // Past the last rank it starts over, so one control both adds and clears.
-        const next = (tile.rank + 1) % (tile.maxRank + 1);
+        const affordable = !broke;
         return (
           <button
             key={tile.slot}
             className={`ability-tile slot-${tile.slot.toLowerCase()}${editable ? '' : ' readonly'}`}
-            onClick={editable ? () => onRankChange?.(tile.slot, next) : undefined}
+            onClick={
+              editable
+                ? () => {
+                    const slot = tile.slot as AbilitySlot;
+                    if (atMax) onSkillClear?.(slot);
+                    else if (affordable) onSkillUp?.(slot);
+                  }
+                : undefined
+            }
+            onContextMenu={
+              editable
+                ? (event) => {
+                    event.preventDefault();
+                    onSkillDown?.(tile.slot as AbilitySlot);
+                  }
+                : undefined
+            }
             disabled={!editable}
             title={
               passive
                 ? `${tile.name} — passive`
-                : editable
-                  ? `${tile.name} — rank ${tile.rank} of ${tile.maxRank}`
-                  : `${tile.name} — not simulated`
+                : !editable
+                  ? `${tile.name} — not simulated`
+                  : atMax
+                    ? `${tile.name} — rank ${tile.rank} of ${tile.maxRank}. Click to take every point back.`
+                    : affordable
+                      ? `${tile.name} — rank ${tile.rank} of ${tile.maxRank}. Click for a point, right click to take one back.`
+                      : `${tile.name} — rank ${tile.rank} of ${tile.maxRank}. No points left at this level.`
             }
             aria-label={
               passive ? `${tile.name}, passive` : `${tile.name}, rank ${tile.rank} of ${tile.maxRank}`
@@ -123,11 +170,19 @@ export function AbilityStrip({ tiles, onRankChange }: Props) {
               )}
             </span>
             {/* The passive keeps an empty rail so all five tiles are one height. */}
+            {/*
+              * Three states per pip, not two: paid for, skilled but not paid for
+              * at this level, and empty. The middle one is the point of the whole
+              * thing — it says "you took this, the level does not cover it" rather
+              * than quietly forgetting the decision.
+              */}
             <span className={`ability-pips${passive ? ' none' : ''}`}>
               {Array.from({ length: passive ? 1 : tile.maxRank }, (_, index) => (
                 <span
                   key={index}
-                  className={`rank-pip${index < tile.rank ? ' filled' : ''}`}
+                  className={`rank-pip${
+                    index < tile.rank ? ' filled' : index < tile.rank + held ? ' held' : ''
+                  }`}
                 />
               ))}
             </span>

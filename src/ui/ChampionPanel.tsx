@@ -30,7 +30,11 @@ interface Props {
   /** Cooldowns and charges at the focused moment, keyed by slot. */
   readiness?: Record<string, AbilityTile['readiness']>;
   onLevelChange: (level: number) => void;
-  onRankChange: (slot: AbilitySlot, rank: number) => void;
+  /** Points spent, available, and the ones the level does not cover. */
+  points: { spent: number; available: number; held: { slot: AbilitySlot; rank: number }[] };
+  onSkillUp: (slot: AbilitySlot) => void;
+  onSkillDown: (slot: AbilitySlot) => void;
+  onSkillClear: (slot: AbilitySlot) => void;
 }
 
 export function ChampionPanel({
@@ -45,7 +49,10 @@ export function ChampionPanel({
   previous,
   readiness,
   onLevelChange,
-  onRankChange,
+  points,
+  onSkillUp,
+  onSkillDown,
+  onSkillClear,
 }: Props) {
   return (
     // The level belongs to its slider, not to a badge in the far corner that
@@ -62,7 +69,20 @@ export function ChampionPanel({
         <div className="champion-head-body">
           <span className="champion-title">{detail?.title ?? 'the Piltover Enforcer'}</span>
           <label className="field">
-            <span className="field-label">Champion level {level}</span>
+            <span className="field-label">
+              Champion level {level}
+              {/*
+                * The budget, next to the thing that sets it. One point per level,
+                * so this line is the whole rule — and when points are held back it
+                * says how many, because the hollow pips alone do not add up.
+                */}
+              <span className="skill-points mono">
+                {points.spent}/{points.available} pts
+                {points.held.length > 0 && (
+                  <span className="skill-held"> · {points.held.length} held back</span>
+                )}
+              </span>
+            </span>
             <input
               type="range"
               min={1}
@@ -81,9 +101,13 @@ export function ChampionPanel({
           icon: spellIcon(detail, ability, version),
           maxRank: ability.maxRank,
           rank: ranks[ability.slot] ?? 0,
+          held: points.held.filter((entry) => entry.slot === ability.slot).length,
           readiness: readiness?.[ability.slot],
         }))}
-        onRankChange={(slot, rank) => onRankChange(slot as AbilitySlot, rank)}
+        points={{ spent: points.spent, available: points.available }}
+        onSkillUp={onSkillUp}
+        onSkillDown={onSkillDown}
+        onSkillClear={onSkillClear}
       />
 
       <hr className="divider" />

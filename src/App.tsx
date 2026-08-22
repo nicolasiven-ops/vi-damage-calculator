@@ -14,6 +14,7 @@ import {
   withPublishedGrowth,
 } from './model/stats';
 import { prepareRun, resolveBonusStats, runBuild } from './state/runBuild';
+import { clearSkill, resolveSkills, skillDown, skillUp } from './model/skills';
 import { itemValues, type ItemValueRow } from './model/itemValue';
 import { EMPTY_CHANGE_LOG, buildOf, recordChange } from './state/changeLog';
 import { solveFastestKill, type SolverAction, type SolverResult } from './model/comboSolver';
@@ -230,6 +231,26 @@ export default function App() {
     [bundle, items],
   );
 
+  /**
+   * What the skill order comes to at this level.
+   *
+   * Ranks are read here and nowhere else, so there is one answer to "what rank is
+   * W" and it is always one the level can pay for. The maximums come from the
+   * champion's own metadata rather than a constant, because a champion is allowed
+   * to disagree — Udyr has six ranks, Jayce one.
+   */
+  const maxRanks = useMemo(() => {
+    const caps: Partial<Record<AbilitySlot, number>> = {};
+    for (const ability of VI_MODULE.abilities) caps[ability.slot] = ability.maxRank;
+    return caps;
+  }, []);
+
+  const skills = useMemo(
+    () => resolveSkills(build.skillOrder, build.level, maxRanks),
+    [build.skillOrder, build.level, maxRanks],
+  );
+  const ranks = skills.ranks;
+
   /*
    * Data Dragon's numbers, with the attack-damage growth it no longer ships put
    * back from Riot's own character record — see `withPublishedGrowth`.
@@ -346,7 +367,7 @@ export default function App() {
         attacker: {
           championId: build.championId,
           level: build.level,
-          ranks: build.ranks,
+          ranks,
           itemIds: activeItemIds(build),
           runeIds: activeRuneIds(build),
           shardIds: activeShardIds(build),
@@ -385,7 +406,7 @@ export default function App() {
     const inputs = {
       baseStats,
       level: build.level,
-      ranks: build.ranks,
+      ranks,
       itemIds: ids,
       runeIds: activeRuneIds(build),
       shardIds: activeShardIds(build),
@@ -441,7 +462,7 @@ export default function App() {
     const inputs = {
       baseStats,
       level: build.level,
-      ranks: build.ranks,
+      ranks,
       itemIds: activeItemIds(build),
       runeIds: activeRuneIds(build),
       shardIds: activeShardIds(build),
@@ -683,7 +704,7 @@ export default function App() {
         attacker: {
           championId: build.championId,
           level: build.level,
-          ranks: build.ranks,
+          ranks,
           itemIds: activeItemIds(build),
           runeIds: activeRuneIds(build),
           shardIds: activeShardIds(build),
@@ -707,8 +728,8 @@ export default function App() {
      * numbers per patch, so the diff is a comparison of two descriptions rather
      * than a guess about what Riot touched.
      */
-    const nowValues = VI_MODULE.describeValues?.(moduleCtx, build.ranks) ?? [];
-    const thenValues = VI_MODULE.describeValues?.(beforeCtx, build.ranks) ?? [];
+    const nowValues = VI_MODULE.describeValues?.(moduleCtx, ranks) ?? [];
+    const thenValues = VI_MODULE.describeValues?.(beforeCtx, ranks) ?? [];
     const changes = nowValues
       .map((entry) => {
         const older = thenValues.find(
@@ -773,7 +794,7 @@ export default function App() {
 
     for (const ability of abilities) {
       if (!ability.castable) continue;
-      if ((build.ranks[ability.slot] ?? 0) < 1) continue;
+      if ((ranks[ability.slot] ?? 0) < 1) continue;
 
       const charge = ability.chargeable?.maxSeconds;
       if (charge === undefined) {
@@ -837,7 +858,7 @@ export default function App() {
     const inputs = {
       baseStats,
       level: build.level,
-      ranks: build.ranks,
+      ranks,
       itemIds: activeItemIds(build),
       runeIds: activeRuneIds(build),
       shardIds: activeShardIds(build),
@@ -967,7 +988,7 @@ export default function App() {
           abilities={abilities}
           spellIcons={spellIcons}
           summoners={summonerChips}
-          learnedRanks={build.ranks}
+          learnedRanks={ranks}
           onChange={updateCombo}
           durationSeconds={analysis?.duration}
           linkedStepUid={linkedStepUid}
@@ -1013,7 +1034,7 @@ export default function App() {
               version={bundle?.version ?? ''}
               championName={VI_MODULE.displayName}
               level={build.level}
-              ranks={build.ranks}
+              ranks={ranks}
               abilities={abilities}
               stats={moment.attacker}
               readiness={Object.fromEntries(
@@ -1025,8 +1046,21 @@ export default function App() {
               live={{ shield: moment.shieldGained }}
               previous={moment.previous ? { stats: moment.previous.attacker } : null}
               onLevelChange={(level) => patchBuild({ level })}
-              onRankChange={(slot, rank) =>
-                patchBuild({ ranks: { ...build.ranks, [slot]: Math.max(0, rank) } })
+              /*
+               * One point per click, and past the last rank it clears the ability
+               * — the same gesture as before, now spending from a budget. The
+               * strip refuses what cannot be paid for and says why, rather than
+               * silently doing nothing.
+               */
+              points={{ spent: skills.spent, available: skills.available, held: skills.held }}
+              onSkillUp={(slot) =>
+                patchBuild({ skillOrder: skillUp(build.skillOrder, build.level, slot, maxRanks) })
+              }
+              onSkillDown={(slot) =>
+                patchBuild({ skillOrder: skillDown(build.skillOrder, slot) })
+              }
+              onSkillClear={(slot) =>
+                patchBuild({ skillOrder: clearSkill(build.skillOrder, slot) })
               }
             />
             )}
@@ -1128,7 +1162,7 @@ export default function App() {
             module={VI_MODULE}
             moduleCtx={moduleCtx}
             abilities={abilities}
-            ranks={build.ranks}
+            ranks={ranks}
             combo={build.combo}
             gameDataStatus={champion.gameDataStatus}
             itemValueRows={itemValueRows}

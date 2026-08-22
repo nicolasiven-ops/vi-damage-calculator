@@ -3510,3 +3510,27 @@ code {
 .hud-stat.is-changed {
   background: var(--surface-2);
 }
+
+/*
+ * A point that was taken but is not paid for at this level.
+ *
+ * Hollow rather than absent: the decision is still in the build, it just does not
+ * apply until the level covers it again. Same outline as an empty pip with the
+ * ability's own colour behind it at a fraction, so it reads as "yours, not active"
+ * rather than as a third rank of something.
+ */
+.rank-pip.held {
+  background: currentColor;
+  opacity: 0.28;
+}
+
+.skill-points {
+  margin-left: 6px;
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0;
+}
+
+.skill-held {
+  color: var(--status-warn, #d9a441);
+}
