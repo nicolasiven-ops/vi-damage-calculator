@@ -108,6 +108,16 @@ export interface BuildState extends TargetState, LoadoutState {
   ranks: Record<AbilitySlot, number>;
 
   combo: ComboStep[];
+  /**
+   * The health the attacker goes in with, as a fraction of maximum.
+   *
+   * The mirror of the target's own figure, and it belongs to the same kind of
+   * question: an all-in from full health and an all-in at a quarter are different
+   * fights, and two items read it (Sterak's Lifeline, Overlord's Retribution).
+   * Nothing takes health off the attacker here, so it is an input rather than a
+   * result — until the other side fights back.
+   */
+  attackerHealthPercent: number;
   critMode: CritMode;
   timings: TimingConfig;
   manualStats: Partial<StatBlock>;
@@ -165,6 +175,7 @@ export function defaultBuild(): BuildState {
     customPresetId: '',
     targetLoadout: emptyLoadout(),
     // The classic Vi engage: charged Q in, ult, then E-weave for the W proc.
+    attackerHealthPercent: 1,
     combo: [
       step({ kind: 'ability', slot: 'Q' }, 1.25),
       step({ kind: 'attack' }),

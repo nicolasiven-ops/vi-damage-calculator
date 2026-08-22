@@ -21,6 +21,8 @@ interface Props {
    */
   side: 'attacker' | 'target';
   critMode: CritMode;
+  /** The attacker's own health, as a fraction — the attacker side's own figure. */
+  attackerHealthPercent?: number;
   timings: TimingConfig;
   /**
    * The target's situational state, which belongs to the moment rather than to
@@ -32,6 +34,7 @@ interface Props {
     critMode?: CritMode;
     timings?: TimingConfig;
     target?: TargetConfig;
+    attackerHealthPercent?: number;
   }) => void;
 }
 
@@ -46,7 +49,14 @@ const CRIT_LABELS: Record<CritMode, string> = {
   never: 'Never',
 };
 
-export function SettingsPanel({ side, critMode, timings, target, onChange }: Props) {
+export function SettingsPanel({
+  side,
+  critMode,
+  timings,
+  target,
+  attackerHealthPercent = 1,
+  onChange,
+}: Props) {
   if (side === 'target') {
     return (
       <Panel title="Simulation" tight>
@@ -57,6 +67,34 @@ export function SettingsPanel({ side, critMode, timings, target, onChange }: Pro
 
   return (
     <Panel title="Simulation" tight>
+      {/*
+        * How hurt the attacker already is.
+        *
+        * The mirror of the target's own field, in the same place on the other
+        * side. It changes no damage on its own — nothing here hits back — but a
+        * lifeline and a missing-health ramp read it, and it is the question a
+        * player actually asks before an all-in.
+        */}
+      <div className="field-row three">
+        <label className="field">
+          <span className="field-hint">Own health</span>
+          <div className="input-with-suffix">
+            <input
+              type="number"
+              min={1}
+              max={100}
+              value={Math.round(attackerHealthPercent * 100)}
+              onChange={(event) =>
+                onChange({
+                  attackerHealthPercent: clamp(Number(event.target.value) / 100, 0.01, 1),
+                })
+              }
+            />
+            <span className="input-suffix">%</span>
+          </div>
+        </label>
+      </div>
+
       <div className="field">
         <span className="field-label">Critical strikes</span>
         <div className="segmented">

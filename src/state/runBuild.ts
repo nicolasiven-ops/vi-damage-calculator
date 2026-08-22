@@ -38,6 +38,8 @@ export interface BuildInputs {
   shardIds: number[];
   summonerIds: string[];
   manualStats: Partial<StatBlock>;
+  /** The attacker's own health going in, as a fraction of maximum. */
+  attackerHealthPercent?: number;
   championId: string;
   combo: ComboStep[];
   timings: TimingConfig;
@@ -113,6 +115,9 @@ export function runBuild(
         shardIds: inputs.shardIds,
         summonerIds: inputs.summonerIds,
         manualStats: inputs.manualStats,
+        ...(inputs.attackerHealthPercent !== undefined
+          ? { currentHealthPercent: inputs.attackerHealthPercent }
+          : {}),
       },
       championBaseStats: inputs.baseStats,
       attackerStats: stats,

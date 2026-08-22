@@ -332,6 +332,9 @@ export default function App() {
           shardIds: activeShardIds(build),
           summonerIds: activeSummonerIds(build),
           manualStats: build.manualStats,
+          // How hurt Vi already is: an input, read by a lifeline and a
+          // missing-health ramp.
+          currentHealthPercent: build.attackerHealthPercent,
         },
         championBaseStats: baseStats,
         attackerStats: stats,
@@ -368,6 +371,7 @@ export default function App() {
       shardIds: activeShardIds(build),
       summonerIds: activeSummonerIds(build),
       manualStats: build.manualStats,
+      attackerHealthPercent: build.attackerHealthPercent,
       championId: build.championId,
       combo: build.combo,
       timings: build.timings,
@@ -423,6 +427,7 @@ export default function App() {
       shardIds: activeShardIds(build),
       summonerIds: activeSummonerIds(build),
       manualStats: build.manualStats,
+      attackerHealthPercent: build.attackerHealthPercent,
       championId: build.championId,
       combo: build.combo,
       timings: build.timings,
@@ -875,6 +880,7 @@ export default function App() {
             <SettingsPanel
               side="attacker"
               critMode={build.critMode}
+              attackerHealthPercent={build.attackerHealthPercent}
               timings={build.timings}
               target={build.target}
               onChange={patchBuild}
