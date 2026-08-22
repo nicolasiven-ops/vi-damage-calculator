@@ -3541,3 +3541,14 @@ code {
 .skill-held {
   color: var(--status-warn, #d9a441);
 }
+
+/*
+ * The blocks, stacked.
+ *
+ * A gap rather than a rule between them, which is how the client separates its two
+ * boxes — and it keeps the two-column grids from reading as one twelve-row table.
+ */
+.stat-pages {
+  display: grid;
+  gap: var(--space-3);
+}

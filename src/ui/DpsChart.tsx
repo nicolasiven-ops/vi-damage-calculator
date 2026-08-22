@@ -267,6 +267,8 @@ export function DpsChart({ analysis, playhead, linkedStepUid, pinnedStepUid, onP
       color: string;
       sourceId: string;
       stepUid?: string;
+      /** Arrived on its own clock rather than on a press. Drawn hollow. */
+      delayed?: boolean;
     }[] = [];
     for (const point of analysis.curve) {
       const hit = point.instance;
@@ -274,17 +276,23 @@ export function DpsChart({ analysis, playhead, linkedStepUid, pinnedStepUid, onP
       // Simultaneous hits are one instant, and a repeat of the same effect on
       // the same step is one effect — see the note in DamageChart: Ignite's five
       // ticks are one Ignite, not five dots scattered over the combo.
-      /*
-       * Same rule as the running total: a dot marks a press, so a tick that
-       * arrived on its own clock folds into the one before it. Its hill is still
-       * on the curve — that is where a burn belongs, as shape rather than as a
-       * point.
-       */
-      if (last && (Math.abs(hit.time - last.time) < 0.005 || hit.delayed === true)) {
+      if (last && Math.abs(hit.time - last.time) < 0.005) {
         last.damage += hit.mitigated;
-        if (hit.delayed !== true) last.label = `${last.label}, ${hit.sourceLabel}`;
+        last.label = `${last.label}, ${hit.sourceLabel}`;
+        /*
+         * One press landing on the same instant as a tick makes the point a
+         * press: hollow is a statement about where the damage came from, and
+         * "nobody pressed anything here" stops being true the moment somebody did.
+         */
+        if (hit.delayed !== true) delete last.delayed;
         continue;
       }
+      /*
+       * A tick that arrived on its own clock keeps its own point, and keeps it
+       * apart: no step, so hovering it names the burn rather than the press that
+       * lit it, and clicking it selects nothing. That distinction is the whole
+       * repair — the ghost point was a *press-shaped* dot with a burn behind it.
+       */
       out.push({
         id: hit.id,
         time: hit.time,
@@ -292,7 +300,8 @@ export function DpsChart({ analysis, playhead, linkedStepUid, pinnedStepUid, onP
         label: hit.sourceLabel,
         color: TYPE_COLOR[hit.type],
         sourceId: hit.sourceId,
-        ...(hit.stepUid ? { stepUid: hit.stepUid } : {}),
+        ...(hit.delayed === true ? { delayed: true } : {}),
+        ...(hit.delayed !== true && hit.stepUid ? { stepUid: hit.stepUid } : {}),
       });
     }
     return out;
@@ -509,7 +518,13 @@ export function DpsChart({ analysis, playhead, linkedStepUid, pinnedStepUid, onP
              */
             const share = instant.damage / Math.max(1, biggestHit);
             if (instant.damage < analysis.totalMitigated * 0.005) return null;
-            const radius = linked || pinned ? 6 : 2.5 + share * 2.5;
+            /*
+             * A tick is drawn smaller and hollow, whatever it hit for. Sizing it
+             * by damage would put a burn tick and an ability on the same footing,
+             * and the difference being asked about here is not how big it was but
+             * whether anybody pressed anything.
+             */
+            const radius = instant.delayed ? 3 : linked || pinned ? 6 : 2.5 + share * 2.5;
             return (
               <g key={instant.id} className="dps-hit">
                 <title>
@@ -520,9 +535,10 @@ export function DpsChart({ analysis, playhead, linkedStepUid, pinnedStepUid, onP
                   cx={x(instant.time)}
                   cy={y(rateAt(instant.time))}
                   r={radius}
-                  fill="var(--surface-1)"
+                  fill={instant.delayed ? 'none' : 'var(--surface-1)'}
                   stroke={linked || pinned ? 'var(--gold-300)' : instant.color}
-                  strokeWidth={linked || pinned ? 3 : 2}
+                  strokeWidth={instant.delayed ? 1.25 : linked || pinned ? 3 : 2}
+                  opacity={instant.delayed ? 0.75 : 1}
                 />
               </g>
             );

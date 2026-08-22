@@ -15,12 +15,12 @@
  *    question a stat block gets asked mid-combo: not "what is my attack speed"
  *    but "what did that step do to it".
  *
- * All four pages are always rendered, stacked in one grid cell with the inactive
- * ones hidden. That is what makes the panel as tall as its tallest page and keeps
- * it there: clicking through the tabs moves nothing below it.
+ * Nothing is behind a tab any more. The sidebar had the room, and the client shows
+ * both blocks at once when you expand its panel — so both are here at once, one
+ * under the other, with the app-only stats last. Reading a number no longer costs
+ * a click, and the panel's height stopped depending on which page was open.
  */
 
-import { useState } from 'react';
 import type { ChampionStats } from '../model/stats';
 import { imageUrls } from '../data/ddragon';
 
@@ -156,7 +156,12 @@ const ICONS = {
   ap: 'Ability_power_colored_icon.png',
   armor: 'Armor_colored_icon.png',
   mr: 'Magic_resistance_colored_icon.png',
-  attackSpeed: 'Attack_speed_colored_icon.png',
+  /*
+   * The `_old` file, deliberately. The wiki's suffix is about a game redesign, not
+   * about which upload is better: the file without it is a 32-pixel copy that goes
+   * soft at this size, and this one is 72 like every other colored icon here.
+   */
+  attackSpeed: 'Attack_speed_colored_icon_old.png',
   haste: 'Ability_haste_colored_icon.png',
   crit: 'Critical_strike_chance_colored_icon.png',
   moveSpeed: 'Movement_speed_colored_icon.png',
@@ -176,84 +181,58 @@ interface HudLook {
 }
 
 export function StatSheet({ stats, live, previous }: Props) {
-  const [page, setPage] = useState<PageId>('stats');
   const now = { stats, live: live ?? {} };
 
   return (
     <div className="stat-pages">
-      <div className="stat-tabs" role="tablist" aria-label="Stat pages">
-        {PAGES.map((entry) => (
-          <button
-            key={entry.id}
-            role="tab"
-            aria-selected={page === entry.id}
-            className={`stat-tab${page === entry.id ? ' active' : ''}`}
-            onClick={() => setPage(entry.id)}
-            title={entry.title}
-          >
-            {entry.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="stat-stack">
-        {PAGES.map((entry) => (
-          <div
-            className={`stat-sheet${HUD_PAGES.has(entry.id) ? ' is-hud' : ''}`}
-            key={entry.id}
-            role="tabpanel"
-            aria-hidden={page !== entry.id}
-            data-active={page === entry.id}
-          >
-            {HUD_PAGES.has(entry.id)
-              ? /*
-                 * The game's own box: two columns, a glyph where the label was.
-                 * The eight stats here are the eight the HUD shows, in the HUD's
-                 * order, so the app can be held up next to the client and read
-                 * without translating.
-                 */
-                buildRows(entry.id, now, previous ?? null).map((row) => (
-                  <div
-                    className={`hud-stat${row.delta ? ' is-changed' : ''}`}
-                    key={row.label}
-                    title={row.title ?? row.label}
-                  >
-                    {row.look && (
-                      <img
-                        className="hud-icon"
-                        src={imageUrls.statIcon(ICONS[row.look.icon])}
-                        alt=""
-                        aria-hidden="true"
-                      />
-                    )}
-                    <span className="hud-value mono">{row.value}</span>
-                    {row.delta && (
-                      <span className={`hud-delta mono ${row.delta.direction}`}>
-                        {row.delta.direction === 'up' ? '▲' : '▼'} {row.delta.text}
-                      </span>
-                    )}
-                  </div>
-                ))
-              : buildRows(entry.id, now, previous ?? null).map((row) => (
-                  <div className={`stat-row${row.delta ? ' is-changed' : ''}`} key={row.label}>
-                    <span className="stat-label">{row.label}</span>
-                    {row.delta && (
-                      <span className={`stat-delta mono ${row.delta.direction}`}>
-                        {row.delta.direction === 'up' ? '▲' : '▼'} {row.delta.text}
-                      </span>
-                    )}
-                    <span className="stat-value mono">{row.value}</span>
-                  </div>
-                ))}
-          </div>
-        ))}
-      </div>
-
-      {/*
-       * No list of what is ticking. Every buff and shred worth reading is
-       * already in the numbers above and on the timeline below, so the list
-       * restated them in a third place and grew the panel to do it.
-       */}
+      {PAGES.map((entry) => (
+        <div
+          className={`stat-sheet${HUD_PAGES.has(entry.id) ? ' is-hud' : ''}`}
+          key={entry.id}
+          aria-label={entry.title}
+        >
+          {HUD_PAGES.has(entry.id)
+            ? /*
+               * The game's own box: two columns, a glyph where the label was. The
+               * eight stats on each are the eight the client shows, in the client's
+               * order, so the app can be held up next to it and read without
+               * translating.
+               */
+              buildRows(entry.id, now, previous ?? null).map((row) => (
+                <div
+                  className={`hud-stat${row.delta ? ' is-changed' : ''}`}
+                  key={row.label}
+                  title={row.title ?? row.label}
+                >
+                  {row.look && (
+                    <img
+                      className="hud-icon"
+                      src={imageUrls.statIcon(ICONS[row.look.icon])}
+                      alt=""
+                      aria-hidden="true"
+                    />
+                  )}
+                  <span className="hud-value mono">{row.value}</span>
+                  {row.delta && (
+                    <span className={`hud-delta mono ${row.delta.direction}`}>
+                      {row.delta.direction === 'up' ? '▲' : '▼'} {row.delta.text}
+                    </span>
+                  )}
+                </div>
+              ))
+            : buildRows(entry.id, now, previous ?? null).map((row) => (
+                <div className={`stat-row${row.delta ? ' is-changed' : ''}`} key={row.label}>
+                  <span className="stat-label">{row.label}</span>
+                  {row.delta && (
+                    <span className={`stat-delta mono ${row.delta.direction}`}>
+                      {row.delta.direction === 'up' ? '▲' : '▼'} {row.delta.text}
+                    </span>
+                  )}
+                  <span className="stat-value mono">{row.value}</span>
+                </div>
+              ))}
+        </div>
+      ))}
     </div>
   );
 }
