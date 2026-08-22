@@ -6,7 +6,7 @@
     <title>Workshop — Damage Calculator</title>
     <meta
       name="description"
-      content="Proposals for analysis tools in the damage calculator: timeline, mitigation chain, time-to-kill, item contributions, thresholds."
+      content="Ideas for turning a damage calculator into a duel simulator: two champions, both acting, and an honest answer to who wins."
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -25,9 +25,10 @@
         <h1 class="lab-nav-title">Workshop</h1>
         <span class="lab-nav-sub">Where a feature is argued out</span>
         <ol>
+          <li><a href="#duel">Why the duel is the point</a></li>
+          <li class="lab-nav-break">Still proposals</li>
           <li><a href="#pin">Hold a build</a></li>
           <li><a href="#react">What the target does</a></li>
-          <li class="lab-nav-break">Taken further</li>
           <li class="lab-nav-break">Off the bench</li>
           <li><a href="#scrapyard">Scrapyard</a></li>
           <li><a href="#scrapped">What was scrapped</a></li>
@@ -42,14 +43,79 @@
       <!-- --------------------------------------------------------- Content -->
       <main class="lab-body">
         <header class="lab-hero">
-          <h1>Ideas for the calculator</h1>
+          <h1>Ideas for the duel</h1>
           <p>
-            Proposals, what got built out of them, and what was scrapped — each with
-            the reason. Numbers in the mock-ups are real where the app already computes
-            them and marked <span class="lab-pill needs">invented numbers</span> where
-            they are not.
+            The calculator answers "how much damage" exactly, and that question is nearly
+            spent. What is left is the one every player actually asks: <strong>do I win this
+            fight?</strong> Everything proposed here is either a step towards two champions
+            fighting honestly, or a tool that only means something once they do.
+          </p>
+          <p>
+            Numbers in the mock-ups are real where the app already computes them and marked
+            <span class="lab-pill needs">invented numbers</span> where they are not. What is
+            scrapped stays on the page with its reason — see the
+            <a href="#scrapyard">scrapyard</a>.
           </p>
         </header>
+
+        <!-- ==================================================== The duel -->
+        <section class="lab-section" id="duel">
+          <div class="lab-section-head">
+            <span class="lab-num">◆</span>
+            <h2>Why the duel is the whole point</h2>
+            <div class="lab-cost">
+              <span class="lab-pill needs">the vision</span>
+            </div>
+          </div>
+          <p class="lab-why">
+            A dummy that never moves has taught this project everything it can. The engine
+            resolves Riot's own formulas, spends mana, tracks charges, shreds resistances,
+            stops at the kill and audits every number back to the file it came from — and
+            all of that describes <em>one side of a fight that has two</em>. The moment the
+            other side acts, the same machinery answers questions nobody else can:
+          </p>
+          <div class="lab-stage plain">
+            <ul class="lab-scrap">
+              <li>
+                <b>Do I win it, and with what left</b>
+                <span>Two combos on one clock, both health bars falling, the fight ending
+                when one of them empties.</span>
+                <em>"Vi kills Ahri with 214 health left" is a sentence about a real
+                situation. "Vi deals 1,873" is a sentence about a spreadsheet.</em>
+              </li>
+              <li>
+                <b>When it stops being true</b>
+                <span>The same two champions at level 9 and at level 11, before and after
+                one item, with and without the summoner she just used.</span>
+                <em>A matchup is not a fact, it is a curve — and the interesting part is
+                where it crosses.</em>
+              </li>
+              <li>
+                <b>Why it went the way it did</b>
+                <span>The one press, the one cooldown, the one roll that decided it, found
+                by changing exactly that and running again.</span>
+                <em>The engine already measures by taking things out and re-running; a duel
+                gives it something worth taking out.</em>
+              </li>
+            </ul>
+          </div>
+          <p class="lab-why">
+            The honest part is what a duel <strong>cannot</strong> be. Positions, dodges,
+            wave states, and what the other player was thinking are not in any published
+            file, and a simulation that pretends otherwise is a game with the fun removed.
+            So the model has to be explicit about its stance: the duel is a *stated
+            scenario* — both sides commit, distances are a single number, and every dial a
+            player would set is a dial rather than a guess.
+          </p>
+          <p class="lab-caption">
+            <strong>What it needs, in order.</strong> Two combatants where the engine now has
+            an attacker and a target: health on both sides, damage flowing in both
+            directions, and a clock that both rotations share. Then a second champion's kit
+            modelled the way Vi's is. Then the answer stops being a number and becomes an
+            outcome — which is the point at which every idea in the groups below has
+            something real to stand on.
+          </p>
+        </section>
 
                                                                                                                                                                                                                                                                         <!-- =========================================== 33 Two builds, one pin -->
         <section class="lab-section" id="pin">
