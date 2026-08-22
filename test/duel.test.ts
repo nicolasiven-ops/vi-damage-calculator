@@ -10,6 +10,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { duel, type DuelSide } from '../src/engine/duel';
+import { repeatPlan } from '../src/state/runDuel';
 import type { IncomingHit, SimulationResult } from '../src/engine/types';
 
 /**
@@ -120,5 +121,30 @@ describe('a duel is two runs feeding each other', () => {
     expect(result.winner).toBeNull();
     expect(result.healthA).toBe(970);
     expect(result.healthB).toBe(970);
+  });
+});
+
+describe('the plan continues', () => {
+  it('repeats the typed combo without changing its order', () => {
+    const combo = [
+      { uid: 'a', action: { kind: 'ability', slot: 'Q' } },
+      { uid: 'b', action: { kind: 'attack' } },
+    ] as never[];
+
+    const plan = repeatPlan(combo, 10, (index) => `dup-${index}`);
+
+    // The opening is exactly what was typed, uids and all.
+    expect(plan.slice(0, 2)).toEqual(combo);
+    expect(plan.length).toBeGreaterThan(combo.length);
+    // And every round after it is the same order again.
+    const kinds = plan.map((step) => (step as { action: { kind: string } }).action.kind);
+    expect(kinds.slice(0, 4)).toEqual(['ability', 'attack', 'ability', 'attack']);
+    // New presses need new ids, or the timeline cannot tell them apart.
+    expect(new Set(plan.map((step) => (step as { uid: string }).uid)).size).toBe(plan.length);
+  });
+
+  it('leaves an empty combo empty', () => {
+    // Nothing typed is a real answer: she stands there, and the duel says so.
+    expect(repeatPlan([], 10, (index) => `dup-${index}`)).toEqual([]);
   });
 });

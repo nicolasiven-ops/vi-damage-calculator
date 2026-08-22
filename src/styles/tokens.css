@@ -47,7 +47,17 @@
   --line: #1f3a52;
   --line-soft: #17293c;
 
-  /* Status */
+  /*
+   * Status.
+   *
+   * The bad one is `--status-danger`. Thirteen rules across the app had been
+   * asking for `--status-bad`, which never existed — and a CSS variable that does
+   * not exist fails quietly: the property is dropped and the value inherits. On
+   * text that reads as "not red enough to notice"; on the duel's enemy line it
+   * meant `stroke` inherited nothing and Shyvana's health simply had no line.
+   * There is no way to make a missing variable loud, so the name is written down
+   * here once and used everywhere.
+   */
   --status-good: #0ac8b9;
   --status-warn: #d9a441;
   --status-danger: #e04b4b;

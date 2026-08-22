@@ -14,7 +14,13 @@ import {
   withPublishedGrowth,
 } from './model/stats';
 import { prepareRun, resolveBonusStats, runBuild } from './state/runBuild';
-import { attackPlan, rotationPlan, runDuel, type DuelCombatant } from './state/runDuel';
+import {
+  attackPlan,
+  repeatPlan,
+  rotationPlan,
+  runDuel,
+  type DuelCombatant,
+} from './state/runDuel';
 import { JUNGLER_MODULES } from './model/champions/junglers';
 
 /**
@@ -429,6 +435,12 @@ export default function App() {
       : attackPlan(15, (index) => `enemy-${index}`);
   }, [enemyModule, enemyRanks]);
 
+  /** Vi's plan for a duel: what was typed, repeated for as long as the fight lasts. */
+  const viDuelCombo = useMemo(
+    () => repeatPlan(build.combo, 15, (index) => `vi-duel-${index}`),
+    [build.combo],
+  );
+
   const duelOutcome = useMemo(() => {
     const enemyChampion = bundle?.champions[build.targetChampionId];
     if (!baseStats || !stats || !targetStats || !enemyChampion) return null;
@@ -448,7 +460,11 @@ export default function App() {
       summonerIds: activeSummonerIds(build),
       manualStats: build.manualStats,
       healthPercent: build.attackerHealthPercent,
-      combo: build.combo,
+      /*
+       * Her own plan, continued rather than replaced: a duel does not stop when
+       * the typed presses run out — see `repeatPlan`.
+       */
+      combo: viDuelCombo,
       module: VI_MODULE,
       moduleCtx,
     };
@@ -496,6 +512,7 @@ export default function App() {
     targetStats,
     targetBonusStats,
     moduleCtx,
+    viDuelCombo,
     enemyModule,
     enemyRanks,
     enemyData,
@@ -515,7 +532,7 @@ export default function App() {
         level: build.level,
         health: stats.maxHealth * build.attackerHealthPercent,
         items: activeItemIds(build).length,
-        presses: build.combo.length,
+        presses: viDuelCombo.length,
       },
       enemy: {
         level: build.target.level,

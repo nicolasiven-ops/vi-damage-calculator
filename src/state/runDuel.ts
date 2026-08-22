@@ -146,6 +146,40 @@ export function runDuel(inputs: DuelInputs): DuelOutcome | null {
 }
 
 /**
+ * The typed combo, then the typed combo again, for as long as the fight lasts.
+ *
+ * A combo is a plan for an opening, and a duel does not end when the plan runs
+ * out — that was the bug behind "nothing happens": Vi finished five presses at
+ * 5.5 s and then stood still for nine seconds while the other side kept swinging.
+ * Nobody plays that way. So the plan repeats, and the engine refuses by name
+ * whatever is still on cooldown, which is exactly what a player pressing the same
+ * rotation again would experience.
+ *
+ * The typed order is never changed, only continued. What the user wrote is still
+ * the opening, and the duel view says the repeat is happening.
+ */
+export function repeatPlan(
+  combo: ComboStep[],
+  seconds: number,
+  uid: (index: number) => string,
+): ComboStep[] {
+  if (combo.length === 0) return combo;
+  /*
+   * Enough rounds to cover the horizon even if every press were instant. Extra
+   * presses cost nothing: the driver cuts the timeline at the kill, and anything
+   * past that never happened.
+   */
+  const rounds = Math.max(1, Math.ceil(seconds / Math.max(0.5, combo.length * 0.5)));
+  const out: ComboStep[] = [...combo];
+  for (let round = 1; round < rounds; round += 1) {
+    combo.forEach((step, index) => {
+      out.push({ ...step, uid: uid(round * combo.length + index) });
+    });
+  }
+  return out;
+}
+
+/**
  * What a champion with a kit does: press everything, attack in between, repeat.
  *
  * Not a policy with any judgement in it — a real jungler holds the ultimate, waits

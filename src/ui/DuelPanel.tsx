@@ -203,6 +203,11 @@ export function DuelPanel({ outcome, viName, enemyName, enemyGap, sides, blocked
           Nobody moves: no range, no kiting, no dash spent escaping. Both stand in
           each other&apos;s face for the whole fight.
         </li>
+        <li>
+          Both sides keep going: the typed combo repeats as cooldowns allow, and the
+          other side presses what it has and attacks in between. A duel does not end
+          because a plan ran out.
+        </li>
         {enemyGap && <li>{enemyGap}</li>}
         <li>
           Settled after {outcome.passes} {outcome.passes === 1 ? 'pass' : 'passes'}

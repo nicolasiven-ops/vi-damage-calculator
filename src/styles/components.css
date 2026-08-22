@@ -776,7 +776,7 @@
 
 .combo-card.is-unlearned .combo-label::after {
   content: ' · not learned';
-  color: var(--status-bad);
+  color: var(--status-danger);
   font-size: 10px;
 }
 
@@ -1214,7 +1214,7 @@
 }
 
 .stat-delta.down {
-  color: var(--status-bad);
+  color: var(--status-danger);
 }
 
 .stat-row.is-changed {
@@ -3041,7 +3041,7 @@ code {
 
 .btn.play.running {
   border-color: rgba(208, 70, 60, 0.6);
-  color: var(--status-bad);
+  color: var(--status-danger);
   background: linear-gradient(180deg, rgba(208, 70, 60, 0.18), transparent);
 }
 
@@ -3110,7 +3110,7 @@ code {
 }
 
 .patch-delta.down {
-  color: var(--status-bad);
+  color: var(--status-danger);
 }
 
 .patch-verdict {
@@ -3123,7 +3123,7 @@ code {
 }
 
 .patch-verdict.bad {
-  color: var(--status-bad);
+  color: var(--status-danger);
 }
 
 .patch-changes {
@@ -3404,7 +3404,7 @@ code {
   background: linear-gradient(180deg, rgba(224, 90, 90, 0.12), transparent);
 }
 .combo-strip .combo-card.is-refused .combo-label {
-  color: var(--status-bad);
+  color: var(--status-danger);
   text-decoration: line-through;
   text-decoration-color: rgba(224, 90, 90, 0.6);
 }
@@ -3425,13 +3425,13 @@ code {
   border-bottom-color: var(--gold-300);
 }
 .value-bar-fill.is-down {
-  background: var(--status-bad);
+  background: var(--status-danger);
 }
 .change-log-table td .good {
   color: var(--status-good);
 }
 .change-log-table td .bad {
-  color: var(--status-bad);
+  color: var(--status-danger);
 }
 
 /* Rail and result on one line: the rail takes what the number does not need. */
@@ -3479,7 +3479,7 @@ code {
 .solve-none {
   margin: 0;
   font-size: 10.5px;
-  color: var(--status-bad);
+  color: var(--status-danger);
   text-align: right;
 }
 
@@ -3540,7 +3540,7 @@ code {
 }
 
 .hud-delta.down {
-  color: var(--status-bad);
+  color: var(--status-danger);
 }
 
 .hud-stat.is-changed {
@@ -3660,7 +3660,7 @@ code {
 }
 
 .duel-line.enemy {
-  stroke: var(--status-bad);
+  stroke: var(--status-danger);
 }
 
 .duel-end {
@@ -3689,7 +3689,7 @@ code {
 }
 
 .duel-key.enemy::before {
-  background: var(--status-bad);
+  background: var(--status-danger);
 }
 
 /*
@@ -3743,7 +3743,7 @@ code {
 }
 
 .duel-side.enemy strong {
-  color: var(--status-bad);
+  color: var(--status-danger);
 }
 
 .duel-versus {
