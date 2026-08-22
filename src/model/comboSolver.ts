@@ -124,6 +124,16 @@ export interface SolveArgs {
   run: SolverRunner;
   /** The health the target starts the fight with, for scoring. */
   startingHealth: number;
+  /**
+   * Presses the search must keep, in front of everything it tries.
+   *
+   * "Finish what I typed" is a different question from "what should I press",
+   * and it is the more common one: a player has an opener they like and wants to
+   * know what closes it. Every candidate is then the prefix plus a tail, so the
+   * prefix's own cooldowns, mana and buffs are already spent when the search
+   * starts choosing.
+   */
+  prefix?: ComboStep[];
   limits?: Partial<SolverLimits>;
   /** Makes the uids; injected so results are reproducible in tests. */
   uid?: (index: number) => string;
@@ -138,9 +148,44 @@ export function solveFastestKill(args: SolveArgs): SolverResult {
   let hitLimit = false;
 
   const found: SolverCandidate[] = [];
-  let frontier: Node[] = [
-    { steps: [], labels: [], time: 0, remaining: args.startingHealth, damage: 0 },
-  ];
+  const prefix = args.prefix ?? [];
+
+  /*
+   * The starting position: nothing pressed, or everything the caller insists on.
+   *
+   * A prefix that already kills is the answer — there is nothing to search for,
+   * and appending presses to a corpse would only make the list longer.
+   */
+  let root: Node = { steps: prefix, labels: [], time: 0, remaining: args.startingHealth, damage: 0 };
+  if (prefix.length > 0) {
+    const start = args.run(prefix);
+    simulations += 1;
+    if (start) {
+      root = {
+        steps: prefix,
+        labels: ['(as typed)'],
+        time: start.duration,
+        remaining: Math.max(0, start.targetHpRemaining),
+        damage: start.totalMitigated,
+      };
+      if (start.killTime !== null) {
+        return {
+          best: {
+            steps: prefix,
+            labels: ['(as typed)'],
+            killTime: start.killTime,
+            damage: start.totalMitigated,
+            remaining: 0,
+          },
+          runnersUp: [],
+          simulations,
+          hitLimit: false,
+        };
+      }
+    }
+  }
+
+  let frontier: Node[] = [root];
 
   for (let depth = 0; depth < limits.maxSteps; depth += 1) {
     const next: Node[] = [];

@@ -112,3 +112,54 @@ describe('the fastest-kill search', () => {
     expect([...times].sort((a, b) => a - b)).toEqual(times);
   });
 });
+
+describe('completing a combo that is already typed', () => {
+  const table = {
+    slow: { damage: 100, seconds: 1 },
+    fast: { damage: 60, seconds: 0.4 },
+  };
+
+  it('keeps the typed presses in front of everything it tries', () => {
+    const typed: ComboStep[] = [
+      { uid: 'typed-1#slow', action: { kind: 'attack' } },
+      { uid: 'typed-2#slow', action: { kind: 'attack' } },
+    ];
+
+    const result = solveFastestKill({
+      actions: [labelled('slow', 'Slow'), labelled('fast', 'Fast')],
+      run: runnerFor(table, 260),
+      startingHealth: 260,
+      prefix: typed,
+      limits: { maxSteps: 4, beam: 20, maxSimulations: 800, horizonSeconds: 10 },
+    });
+
+    expect(result.best).not.toBeNull();
+    // The two typed presses are still the first two, unchanged.
+    expect(result.best!.steps.slice(0, 2).map((step) => step.uid)).toEqual([
+      'typed-1#slow',
+      'typed-2#slow',
+    ]);
+    // 200 damage from the prefix, 60 more finishes it: one fast press at 2.4 s.
+    expect(result.best!.killTime).toBeCloseTo(2.4, 6);
+  });
+
+  it('answers with the typed combo itself when that already kills', () => {
+    const typed: ComboStep[] = [
+      { uid: 'typed-1#slow', action: { kind: 'attack' } },
+      { uid: 'typed-2#slow', action: { kind: 'attack' } },
+    ];
+
+    const result = solveFastestKill({
+      actions: [labelled('fast', 'Fast')],
+      run: runnerFor(table, 150),
+      startingHealth: 150,
+      prefix: typed,
+      limits: { maxSteps: 4, beam: 20, maxSimulations: 800, horizonSeconds: 10 },
+    });
+
+    // Nothing to search for: appending presses to a corpse only makes the list
+    // longer, so the prefix comes back as the answer.
+    expect(result.best!.steps).toHaveLength(2);
+    expect(result.simulations).toBe(1);
+  });
+});

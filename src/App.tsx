@@ -813,7 +813,7 @@ export default function App() {
    * fastest is fastest by the app's own arithmetic — there is no second model to
    * disagree with.
    */
-  const solveCombo = useCallback((): SolverResult => {
+  const solveCombo = useCallback((keepTyped: boolean): SolverResult => {
     if (!baseStats) {
       return { best: null, runnersUp: [], simulations: 0, hitLimit: false };
     }
@@ -846,6 +846,7 @@ export default function App() {
       actions: solverActions,
       startingHealth: effectiveTarget.maxHealth * effectiveTarget.currentHealthPercent,
       run,
+      ...(keepTyped ? { prefix: build.combo } : {}),
     });
   }, [baseStats, build, effectiveTarget, itemById, moduleCtx, solverActions]);
 
@@ -960,10 +961,11 @@ export default function App() {
           modes={
             <ComboModes
               disabled={!baseStats}
-              onSolve={solveCombo}
-              onApply={(result, index) => {
-                const pick = index === 0 ? result.best : result.runnersUp[index - 1];
-                if (pick) patchBuild({ combo: pick.steps });
+              onSolve={() => solveCombo(false)}
+              onComplete={() => solveCombo(true)}
+              typedLength={build.combo.length}
+              onApply={(result) => {
+                if (result.best) patchBuild({ combo: result.best.steps });
               }}
             />
           }

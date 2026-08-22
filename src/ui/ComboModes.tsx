@@ -1,96 +1,84 @@
 /**
  * Ways to ask for a combo instead of typing one.
  *
- * It sits above the target's sidebar, which is where it belongs: every mode here
- * is a question about *that* target — how fast it can be killed, what order does
- * it soonest. The strip in the middle stays what it always was, a plan you can
- * edit; this writes into it and then gets out of the way.
+ * It sits above the target's sidebar, which is where it belongs: both modes are
+ * questions about *that* target. What they produce goes straight into the strip,
+ * and what it then does is the middle of the screen's job — so nothing is
+ * reported here beyond the fact that a search found nothing, which is the one
+ * outcome a silent button would look broken for.
  *
- * The result is shown with its runners-up on purpose. A solver that answers with
- * one line is an oracle, and an oracle cannot be checked: the second-best order
- * and the seconds between them are what make the first one believable.
+ * Two modes, and the difference is what the search may touch. "Fastest kill"
+ * starts from nothing and answers "what should I press". "Complete combo" keeps
+ * every press already in the strip and answers the more common question: I have
+ * an opener I like, what closes it?
  */
 
 import { useState } from 'react';
 import type { SolverResult } from '../model/comboSolver';
 
 interface Props {
-  /** Runs the search and returns what it found. Null while nothing has run. */
+  /** Searches from nothing. */
   onSolve: () => SolverResult;
-  /** Puts a found order into the strip. */
-  onApply: (result: SolverResult, index: number) => void;
-  /** Disabled while there is nothing to solve against. */
+  /** Searches from what is already in the strip. */
+  onComplete: () => SolverResult;
+  /** Puts the winning order into the strip. */
+  onApply: (result: SolverResult) => void;
+  /** How many presses are in the strip, to tell "nothing to add" from "nothing happened". */
+  typedLength: number;
   disabled?: boolean;
 }
 
-const seconds = (value: number): string => `${value.toFixed(2)} s`;
+export function ComboModes({ onSolve, onComplete, onApply, typedLength, disabled }: Props) {
+  const [busy, setBusy] = useState<'solve' | 'complete' | null>(null);
+  const [note, setNote] = useState<string | null>(null);
 
-export function ComboModes({ onSolve, onApply, disabled }: Props) {
-  const [result, setResult] = useState<SolverResult | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  function solve(): void {
-    if (disabled) return;
-    setBusy(true);
+  function search(which: 'solve' | 'complete'): void {
+    if (disabled || busy) return;
+    setBusy(which);
+    setNote(null);
     /*
-     * A turn of the event loop before the search, so the button can render its
-     * own "searching" state first: the search is synchronous and holds the
-     * thread for a few thousand simulations.
-     *
-     * A timeout rather than an animation frame, and that is not a detail — a
-     * frame callback never fires in a tab nobody is looking at, so a search
-     * started and then backgrounded would hang on "Searching …" forever.
+     * A turn of the event loop first, so the button can render its own state: the
+     * search is synchronous and holds the thread for a few thousand simulations.
+     * A timeout rather than an animation frame — a frame callback never fires in
+     * a tab nobody is looking at, and a backgrounded search would hang on
+     * "Searching …" forever.
      */
     setTimeout(() => {
-      const found = onSolve();
-      setResult(found);
-      setBusy(false);
-      if (found.best) onApply(found, 0);
+      const found = which === 'solve' ? onSolve() : onComplete();
+      setBusy(null);
+      if (!found.best) {
+        setNote('Nothing in reach kills this target.');
+        return;
+      }
+      /*
+       * A completion that hands back exactly what was typed means the combo
+       * already kills. Nothing changes in the strip, so without a word here the
+       * button is indistinguishable from a broken one.
+       */
+      if (which === 'complete' && found.best.steps.length === typedLength) {
+        setNote('Already kills — nothing to add.');
+        return;
+      }
+      onApply(found);
     }, 0);
   }
 
   return (
     <div className="combo-modes">
-      <button className="btn solve" onClick={solve} disabled={disabled || busy}>
-        {busy ? 'Searching …' : 'Fastest kill'}
+      <button className="btn solve" onClick={() => search('solve')} disabled={disabled || !!busy}>
+        {busy === 'solve' ? 'Searching …' : 'Fastest kill'}
       </button>
 
-      {result && !busy && (
-        <div className="solve-result">
-          {result.best ? (
-            <>
-              <div className="solve-best">
-                <span className="mono strong">{seconds(result.best.killTime ?? 0)}</span>
-                <span className="solve-order">{result.best.labels.join(' → ')}</span>
-              </div>
+      <button
+        className="btn solve"
+        onClick={() => search('complete')}
+        disabled={disabled || !!busy}
+        title="Keep what is in the strip and add the fastest ending to it"
+      >
+        {busy === 'complete' ? 'Searching …' : 'Complete combo for fastest kill'}
+      </button>
 
-              {result.runnersUp.length > 0 && (
-                <ul className="solve-others">
-                  {result.runnersUp.slice(0, 3).map((entry, index) => (
-                    <li key={entry.labels.join('>')}>
-                      <button className="solve-apply" onClick={() => onApply(result, index + 1)}>
-                        <span className="mono">
-                          +{((entry.killTime ?? 0) - (result.best!.killTime ?? 0)).toFixed(2)} s
-                        </span>
-                        <span className="solve-order">{entry.labels.join(' → ')}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </>
-          ) : (
-            <p className="field-hint">
-              Nothing in reach kills this target inside the search window.
-            </p>
-          )}
-
-          <p className="solve-foot mono">
-            {result.simulations.toLocaleString('en-US')} runs
-            {result.hitLimit ? ' · stopped at the budget' : ''}
-          </p>
-        </div>
-      )}
+      {note && !busy && <p className="solve-none">{note}</p>}
     </div>
   );
 }
