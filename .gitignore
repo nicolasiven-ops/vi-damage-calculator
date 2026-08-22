@@ -8,3 +8,5 @@ coverage/
 test/*bench*.test.ts
 test/_*.tmp.test.ts
 test/*probe*.test.ts
+open.json
+skips.json
