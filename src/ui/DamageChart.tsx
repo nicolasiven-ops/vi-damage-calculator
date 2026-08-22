@@ -168,12 +168,31 @@ export function DamageChart({
       const total = running.physical + running.magic + running.true;
       const last = result[result.length - 1]!;
 
-      // Fold a simultaneous hit into the step that is already there, so the
-      // curve keeps one reachable point per instant.
+      /*
+       * Fold into the point already there when a new marker would be a lie.
+       *
+       * Three cases. A simultaneous hit is one instant. A rise under a pixel is
+       * indistinguishable from its neighbour. And — the one that took four
+       * reports to find — a *repeat of the same effect on the same step* is one
+       * effect: Ignite ticks five times over five seconds, and the engine
+       * rightly credits every tick to the step that cast it, so five markers
+       * appeared scattered across the combo, each one pointing back at the first
+       * step. One Ignite, one marker; the ticks are still in the tooltip and
+       * every point of their damage is still in the curve.
+       *
+       * Two basic attacks are not this case: same source, different steps.
+       */
+      const previousHit = last.instances[last.instances.length - 1];
+      const sameEffectSameStep =
+        !!previousHit &&
+        previousHit.sourceId === point.instance.sourceId &&
+        previousHit.stepUid === point.instance.stepUid;
+
       if (
         result.length > 1 &&
         (Math.abs(point.instance.time - last.time) < SAME_INSTANT ||
-          total - last.total < invisibleRise)
+          total - last.total < invisibleRise ||
+          sameEffectSameStep)
       ) {
         last.totals = totals;
         last.total = total;

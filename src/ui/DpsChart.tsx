@@ -265,14 +265,20 @@ export function DpsChart({ analysis, playhead, linkedStepUid, pinnedStepUid, onP
       damage: number;
       label: string;
       color: string;
+      sourceId: string;
       stepUid?: string;
     }[] = [];
     for (const point of analysis.curve) {
       const hit = point.instance;
       const last = out[out.length - 1];
-      if (last && Math.abs(hit.time - last.time) < 0.005) {
+      // Simultaneous hits are one instant, and a repeat of the same effect on
+      // the same step is one effect — see the note in DamageChart: Ignite's five
+      // ticks are one Ignite, not five dots scattered over the combo.
+      const sameEffectSameStep =
+        !!last && last.sourceId === hit.sourceId && last.stepUid === hit.stepUid;
+      if (last && (Math.abs(hit.time - last.time) < 0.005 || sameEffectSameStep)) {
         last.damage += hit.mitigated;
-        last.label = `${last.label}, ${hit.sourceLabel}`;
+        if (!sameEffectSameStep) last.label = `${last.label}, ${hit.sourceLabel}`;
         continue;
       }
       out.push({
@@ -281,6 +287,7 @@ export function DpsChart({ analysis, playhead, linkedStepUid, pinnedStepUid, onP
         damage: hit.mitigated,
         label: hit.sourceLabel,
         color: TYPE_COLOR[hit.type],
+        sourceId: hit.sourceId,
         ...(hit.stepUid ? { stepUid: hit.stepUid } : {}),
       });
     }
@@ -361,7 +368,24 @@ export function DpsChart({ analysis, playhead, linkedStepUid, pinnedStepUid, onP
             setCursorTime(xToTime((event.clientX - rect.left) * ratio, width, window));
           }}
           onMouseLeave={() => setCursorTime(null)}
-          onClick={() => onPinStep?.(null)}
+          onClick={(event) => {
+            /*
+             * The click is resolved from where it landed on the time axis, not
+             * from which shape happened to be under the pointer. Per-shape hit
+             * testing left the plot full of dead spots — grid lines, the axis,
+             * the playhead, a hit marker without a step all swallowed a click —
+             * and a graph you can only click in some places reads as broken.
+             */
+            const rect = event.currentTarget.getBoundingClientRect();
+            const ratio = width / rect.width;
+            const time = xToTime((event.clientX - rect.left) * ratio, width, window);
+            const owner = segments.find(
+              (segment) =>
+                time >= (segment.points[0]?.time ?? 0) - 0.0005 &&
+                time <= (segment.points[segment.points.length - 1]?.time ?? 0) + 0.0005,
+            );
+            onPinStep?.(owner?.stepUid ?? null);
+          }}
         >
           {/* value grid */}
           {yTicks.map((tick, index) => {
@@ -404,11 +428,6 @@ export function DpsChart({ analysis, playhead, linkedStepUid, pinnedStepUid, onP
             return (
               <g
                 key={`${segment.label}-${index}`}
-                onClick={(event) => {
-                  if (!segment.stepUid) return;
-                  event.stopPropagation();
-                  onPinStep?.(segment.stepUid);
-                }}
                 className={segment.stepUid ? 'dps-segment is-clickable' : 'dps-segment'}
               >
                 <title>{segment.label}</title>
@@ -488,15 +507,7 @@ export function DpsChart({ analysis, playhead, linkedStepUid, pinnedStepUid, onP
             if (instant.damage < analysis.totalMitigated * 0.005) return null;
             const radius = linked || pinned ? 6 : 2.5 + share * 2.5;
             return (
-              <g
-                key={instant.id}
-                onClick={(event) => {
-                  if (!instant.stepUid) return;
-                  event.stopPropagation();
-                  onPinStep?.(instant.stepUid);
-                }}
-                className={instant.stepUid ? 'dps-hit is-clickable' : 'dps-hit'}
-              >
+              <g key={instant.id} className="dps-hit">
                 <title>
                   {formatSeconds(instant.time)} s · {instant.label} ·{' '}
                   {Math.round(instant.damage).toLocaleString('en-US')} damage
@@ -548,13 +559,6 @@ export function DpsChart({ analysis, playhead, linkedStepUid, pinnedStepUid, onP
         </svg>
       </div>
 
-      <figcaption className="chart-caption">
-        Damage per second at each moment · every hit is its own hill, {SIGMA.toFixed(2)} s wide · the
-        area under the curve is the {Math.round(analysis.totalMitigated).toLocaleString('en-US')}{' '}
-        damage dealt, coloured by the combo step that owns each stretch · peak {Math.round(peak.rate).toLocaleString('en-US')} dps at{' '}
-        {formatSeconds(peak.time)} s
-        {pinnedStepUid ? ' · click a stretch to follow its step' : ''}
-      </figcaption>
     </figure>
   );
 }

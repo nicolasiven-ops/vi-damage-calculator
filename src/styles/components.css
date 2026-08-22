@@ -3274,3 +3274,16 @@ code {
 .dps-segment.is-clickable:hover .dps-band-hit {
   fill-opacity: 0.07;
 }
+
+/* nothing inside the burst plot competes for the click: the svg resolves it */
+.dps-hit,
+.chart-playhead,
+.chart-crosshair,
+.chart-grid,
+.chart-axis,
+.chart-tick {
+  pointer-events: none;
+}
+.dps-segment.is-clickable {
+  cursor: pointer;
+}
