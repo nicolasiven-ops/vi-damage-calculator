@@ -182,17 +182,20 @@ export function DamageChart({
        *
        * Two basic attacks are not this case: same source, different steps.
        */
-      const previousHit = last.instances[last.instances.length - 1];
-      const sameEffectSameStep =
-        !!previousHit &&
-        previousHit.sourceId === point.instance.sourceId &&
-        previousHit.stepUid === point.instance.stepUid;
-
+      /*
+       * Damage that arrived on its own clock has no marker of its own.
+       *
+       * A burn tick is real damage at a real time, and it is still in this
+       * point's instance list and in the total — but the dot on this curve means
+       * "a moment you can point at", and every other dot is a press. One
+       * appearing between two presses, four seconds after the hit that lit the
+       * burn, reads as a bug however right the number is.
+       */
       if (
         result.length > 1 &&
         (Math.abs(point.instance.time - last.time) < SAME_INSTANT ||
           total - last.total < invisibleRise ||
-          sameEffectSameStep)
+          point.instance.delayed === true)
       ) {
         last.totals = totals;
         last.total = total;

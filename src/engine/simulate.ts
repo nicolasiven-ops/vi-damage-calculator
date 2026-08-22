@@ -627,7 +627,8 @@ export function simulate(
       const owner = currentStepUid;
       scheduled.push({
         at: time + Math.max(0, afterSeconds),
-        run: () => attributedTo(owner, () => applyDamage(damage)),
+        // Marked as arriving on its own clock: see DamageInstance.delayed.
+        run: () => attributedTo(owner, () => applyDamage({ ...damage, delayed: true })),
       });
     },
 
@@ -908,6 +909,7 @@ export function simulate(
       raw: result.raw,
       mitigated: result.mitigated,
       crit: (args.canCrit ?? false) && input.critMode === 'always',
+      ...(args.delayed ? { delayed: true } : {}),
       targetHpAfter: targetCurrentHealth,
       build: args.build,
       reduction: result.steps,

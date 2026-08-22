@@ -48,6 +48,16 @@ export interface DamageInstance {
   /** Damage actually dealt after resistances and reductions. */
   mitigated: number;
   crit: boolean;
+  /**
+   * True when this arrived on its own clock rather than at a press.
+   *
+   * A burn tick, an Ignite tick, a delayed detonation: dealt through
+   * `ctx.scheduleDamage`, and credited to the step that started it because that
+   * is where it came from. Views that mark *moments* — the dot on a curve you can
+   * click — skip these, because a dot that appears between two presses with
+   * nothing behind it reads as a bug even when the number is right.
+   */
+  delayed?: boolean;
   /** Target health remaining after this instance. */
   targetHpAfter: number;
   notes: string[];

@@ -274,11 +274,15 @@ export function DpsChart({ analysis, playhead, linkedStepUid, pinnedStepUid, onP
       // Simultaneous hits are one instant, and a repeat of the same effect on
       // the same step is one effect — see the note in DamageChart: Ignite's five
       // ticks are one Ignite, not five dots scattered over the combo.
-      const sameEffectSameStep =
-        !!last && last.sourceId === hit.sourceId && last.stepUid === hit.stepUid;
-      if (last && (Math.abs(hit.time - last.time) < 0.005 || sameEffectSameStep)) {
+      /*
+       * Same rule as the running total: a dot marks a press, so a tick that
+       * arrived on its own clock folds into the one before it. Its hill is still
+       * on the curve — that is where a burn belongs, as shape rather than as a
+       * point.
+       */
+      if (last && (Math.abs(hit.time - last.time) < 0.005 || hit.delayed === true)) {
         last.damage += hit.mitigated;
-        if (!sameEffectSameStep) last.label = `${last.label}, ${hit.sourceLabel}`;
+        if (hit.delayed !== true) last.label = `${last.label}, ${hit.sourceLabel}`;
         continue;
       }
       out.push({

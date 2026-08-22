@@ -2827,72 +2827,114 @@ code {
   color: var(--gold-300);
 }
 
-/* The two lines: build-up, then reduction. */
-.hit-line {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 5px 8px;
+/*
+ * The derivation, as a column of arithmetic.
+ *
+ * Three columns: the operator, what the line *is* (the formula, or the resistance
+ * and how it got there), and the running value on the right. Read down the right
+ * edge and you have the number's whole history; read a line across and you have
+ * the reason it changed.
+ *
+ * It replaced two wrapped flex lines that put every term on one row. Those fitted
+ * more into less height and hid the arithmetic: the coefficient lived in a
+ * tooltip, and a multiplier stood next to a resistance without saying how the two
+ * were related.
+ */
+.hit-calc {
+  display: grid;
+  gap: 1px;
   font-size: 12.5px;
   padding: 6px 8px;
   border-radius: var(--radius);
   background: var(--surface-void, rgba(4, 8, 16, 0.5));
-}
-
-.hit-build {
   box-shadow: inset 2px 0 0 var(--gold-500);
 }
 
-.hit-reduce {
-  box-shadow: inset 2px 0 0 var(--series-physical);
-}
-
-.hit-term {
-  display: inline-flex;
+.hit-row {
+  display: grid;
+  grid-template-columns: 3.6em 1fr auto;
   align-items: baseline;
-  gap: 5px;
-}
-
-.hit-term em {
-  font-style: normal;
-  font-weight: 600;
-  color: var(--text-primary);
-  border-bottom: 1px dotted var(--line);
-  cursor: help;
+  gap: 8px;
+  padding: 1px 0;
 }
 
 .hit-op {
-  font-family: var(--font-sans, inherit);
-  font-size: 10.5px;
+  font-family: var(--font-mono);
+  font-size: 11px;
   color: var(--text-muted);
+  text-align: right;
 }
 
-.hit-eq {
-  margin-left: auto;
+.hit-formula {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  min-width: 0;
+}
+
+/*
+ * A term says what it is and, where there is one, the arithmetic behind it:
+ * "bonus AD" next to "150% of 0". The detail is not a tooltip — it is the reason
+ * the number on the right is what it is.
+ */
+.hit-formula {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.hit-term-detail {
+  color: var(--text-muted);
+  font-size: 10.5px;
+}
+
+.hit-value {
+  font-family: var(--font-mono);
   font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The raw total: the line where the building stops and the taking-apart starts. */
+.hit-row.is-sum {
+  margin-top: 3px;
+  padding-top: 4px;
+  border-top: 1px solid var(--line);
+}
+
+.hit-row.is-sum .hit-formula,
+.hit-row.is-sum .hit-value {
   color: var(--gold-100);
 }
 
-.hit-result {
+/* And the number that actually moved the health bar. */
+.hit-row.is-total {
+  margin-top: 3px;
+  padding-top: 5px;
+  border-top: 1px solid var(--line);
+}
+
+.hit-row.is-total .hit-formula {
   display: flex;
   align-items: baseline;
-  gap: var(--space-2);
-}
-
-.hit-eq-final {
-  font-family: var(--font-mono);
+  gap: 8px;
   color: var(--text-muted);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
-.hit-result .mono {
-  font-size: 20px;
-  font-weight: 600;
+.hit-row.is-total .hit-value {
+  font-size: 19px;
   color: var(--series-true);
 }
 
 .hit-lost {
   margin-left: auto;
   font-size: 10.5px;
+  letter-spacing: 0;
+  text-transform: none;
   color: var(--text-muted);
 }
 

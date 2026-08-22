@@ -19,6 +19,13 @@ import type {
 } from './types';
 
 export interface DealDamageArgs {
+  /**
+   * Set by the scheduler, not by callers: this instance arrived on its own clock.
+   *
+   * `scheduleDamage` sets it, and views that mark clickable moments skip those
+   * instances — a dot between two presses with nothing behind it reads as a bug.
+   */
+  delayed?: boolean;
   sourceId: string;
   sourceLabel: string;
   sourceKind: SourceKind;
