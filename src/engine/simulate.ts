@@ -31,7 +31,7 @@ import type {
   DealDamageArgs,
   SimContext,
 } from './context';
-import { IGNITE, byLevel, smiteById, summonerCooldown } from '../model/summoners';
+import { IGNITE, byLevel, smiteById, summonerLabel, summonerTiming } from '../model/summoners';
 import { effectiveResistance, mitigate } from './damage';
 import { DEFAULT_TIMINGS } from './types';
 import type {
@@ -143,6 +143,21 @@ function describeCastTiming(timing: CastTiming): string {
   return parts.length > 1 ? `${listed} = ${seconds(timing.seconds)} s` : listed;
 }
 
+/**
+ * What a summoner spell's availability is made of.
+ *
+ * Three numbers rather than one, because a charge and a cooldown are different
+ * things: `freeAt` is when the static cooldown lets go, `left` is how many casts
+ * are stored, and `nextChargeAt` is when a spent one comes back. A spell can have
+ * a charge in hand and still be unavailable, which is exactly Smite's case
+ * inside a fight.
+ */
+interface SummonerCastState {
+  left: number;
+  nextChargeAt: number;
+  freeAt: number;
+}
+
 export function simulate(
   input: SimulationInput,
   module: ChampionModule,
@@ -246,7 +261,7 @@ export function simulate(
    * inside a second and the engine allowed all four. A combo nobody would type
    * never showed it.
    */
-  const summonerCharges = new Map<string, { left: number; readyAt: number }>();
+  const summonerCharges = new Map<string, SummonerCastState>();
   /**
    * How long the running cooldown actually is, per slot.
    *
@@ -1475,25 +1490,45 @@ export function simulate(
    * combo" true and "Smite four times" false.
    */
   function summonerReady(id: string): { ok: true } | { ok: false; why: string } {
-    const model = summonerCooldown(id);
-    if (!model) return { ok: true };
+    const timing = summonerTiming(id);
+    if (!timing) return { ok: true };
 
-    const state = summonerCharges.get(id) ?? { left: model.charges, readyAt: 0 };
-    while (state.left < model.charges && time >= state.readyAt) {
+    const state = summonerCharges.get(id) ?? { left: timing.charges, nextChargeAt: 0, freeAt: 0 };
+
+    // Charges trickle back on their own clock, whether or not anything is cast.
+    while (state.left < timing.charges && time >= state.nextChargeAt) {
       state.left += 1;
-      state.readyAt = state.left < model.charges ? state.readyAt + model.seconds : 0;
+      state.nextChargeAt =
+        state.left < timing.charges ? state.nextChargeAt + timing.rechargeSeconds : 0;
+    }
+    summonerCharges.set(id, state);
+
+    /*
+     * The static cooldown first, because it is the one that decides a fight. Two
+     * charges do not mean two casts back to back: every cast puts the spell down
+     * for its cooldown regardless, and for Smite that is fifteen seconds — longer
+     * than any combo. This is why "Smite, Smite" is not an opener.
+     */
+    if (time < state.freeAt - 0.0005) {
+      return {
+        ok: false,
+        why: `${seconds(state.freeAt - time)} s of the ${timing.betweenCasts} s between casts left`,
+      };
     }
 
     if (state.left <= 0) {
-      summonerCharges.set(id, state);
+      const back = Math.max(0, state.nextChargeAt - time);
       return {
         ok: false,
-        why: `${seconds(Math.max(0, state.readyAt - time))} s of its ${model.seconds} s cooldown left`,
+        why: `no charge left — the next one is ${seconds(back)} s away`,
       };
     }
 
     state.left -= 1;
-    if (state.readyAt <= time) state.readyAt = time + model.seconds;
+    if (state.left === timing.charges - 1 && state.nextChargeAt <= time) {
+      state.nextChargeAt = time + timing.rechargeSeconds;
+    }
+    state.freeAt = time + timing.betweenCasts;
     summonerCharges.set(id, state);
     return { ok: true };
   }
@@ -1505,7 +1540,7 @@ export function simulate(
      */
     const ready = summonerReady(summonerId);
     if (!ready.ok) {
-      refuse(`${summonerId} is on cooldown — ${ready.why} — step skipped.`);
+      refuse(`${summonerLabel(summonerId)} is not up — ${ready.why} — step skipped.`);
       return;
     }
 

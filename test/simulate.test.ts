@@ -1084,13 +1084,15 @@ describe('what became of every press', () => {
 });
 
 describe('summoner spells have a cooldown', () => {
-  it('refuses the third Smite in a row, and names the cooldown', () => {
-    // Data Dragon: Smite is 15 s with two charges, so two casts inside a combo
-    // are legal and the third is not. The combo solver found this by pressing
-    // Smite four times in a second and being allowed all four.
+  it('refuses the second Smite in a row, and names what is blocking it', () => {
+    /*
+     * Smite stores two charges, and a charge is not a cast: every cast puts the
+     * spell down for fifteen seconds regardless, which is longer than any combo.
+     * So "Smite, Smite" is one Smite and a refusal — the solver proposed it as an
+     * opener until the engine started saying so.
+     */
     const result = run(
       [
-        step({ kind: 'summoner', summonerId: 'SummonerSmite' }),
         step({ kind: 'summoner', summonerId: 'SummonerSmite' }),
         step({ kind: 'summoner', summonerId: 'SummonerSmite' }),
       ],
@@ -1098,8 +1100,43 @@ describe('summoner spells have a cooldown', () => {
     );
 
     const smites = result.instances.filter((entry) => entry.sourceKind === 'summoner');
-    expect(smites).toHaveLength(2);
-    expect(result.stepFates[2]!.fate).toBe('refused');
-    expect(result.stepFates[2]!.why).toContain('cooldown');
+    expect(smites).toHaveLength(1);
+    expect(result.stepFates[1]!.fate).toBe('refused');
+    expect(result.stepFates[1]!.why).toContain('between casts');
+    // The charge is not what is missing, and the sentence must not claim it is.
+    expect(result.stepFates[1]!.why).not.toContain('charge');
+  });
+
+  it('allows the second charge once the fifteen seconds are up', () => {
+    const result = run(
+      [
+        step({ kind: 'summoner', summonerId: 'SummonerSmite' }),
+        step({ kind: 'wait', seconds: 15 }),
+        step({ kind: 'summoner', summonerId: 'SummonerSmite' }),
+      ],
+      { target: { ...TARGET, unitType: 'monster', maxHealth: 9000 } },
+    );
+
+    expect(result.instances.filter((entry) => entry.sourceKind === 'summoner')).toHaveLength(2);
+    expect(result.stepFates[2]!.fate).toBe('landed');
+  });
+
+  it('refuses a third cast even after the wait, because the charge is spent', () => {
+    // Two casts is all it holds, and the spent charge takes 90 s to return —
+    // a different sentence from the one about the cooldown between casts.
+    const result = run(
+      [
+        step({ kind: 'summoner', summonerId: 'SummonerSmite' }),
+        step({ kind: 'wait', seconds: 15 }),
+        step({ kind: 'summoner', summonerId: 'SummonerSmite' }),
+        step({ kind: 'wait', seconds: 15 }),
+        step({ kind: 'summoner', summonerId: 'SummonerSmite' }),
+      ],
+      { target: { ...TARGET, unitType: 'monster', maxHealth: 9000 } },
+    );
+
+    expect(result.instances.filter((entry) => entry.sourceKind === 'summoner')).toHaveLength(2);
+    expect(result.stepFates[4]!.fate).toBe('refused');
+    expect(result.stepFates[4]!.why).toContain('no charge left');
   });
 });

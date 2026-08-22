@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { activeSummonerIds, emptyLoadout } from '../src/state/build';
-import { isSummonerSimulated, summonerCooldown, summonerGap } from '../src/model/summoners';
+import { isSummonerSimulated, summonerGap, summonerTiming } from '../src/model/summoners';
 
 describe('summoner selection', () => {
   it('keeps slot order and drops empty slots', () => {
@@ -31,17 +31,33 @@ describe('summoner selection', () => {
   });
 });
 
-describe('summoner cooldowns', () => {
-  it('match what Data Dragon publishes for patch 16.16', () => {
-    // summoner.json: SummonerSmite cooldownBurn 15, maxammo 2;
-    // SummonerDot cooldownBurn 180, maxammo -1 (which is one cast).
-    expect(summonerCooldown('SummonerSmite')).toEqual({ seconds: 15, charges: 2 });
-    expect(summonerCooldown('SummonerDot')).toEqual({ seconds: 180, charges: 1 });
+describe('summoner timings', () => {
+  it('keep the cooldown between casts apart from the recharge', () => {
+    // summoner.json for 16.16: SummonerSmite cooldown 15, maxammo 2. The 90 s
+    // recharge is the wiki's — Data Dragon ships no such field.
+    expect(summonerTiming('SummonerSmite')).toEqual({
+      betweenCasts: 15,
+      rechargeSeconds: 90,
+      charges: 2,
+    });
+    expect(summonerTiming('SummonerDot')).toEqual({
+      betweenCasts: 180,
+      rechargeSeconds: 180,
+      charges: 1,
+    });
     // The upgraded Smites are the same spell with a pet attached.
-    expect(summonerCooldown('SummonerSmiteAvatarOffensive')?.charges).toBe(2);
+    expect(summonerTiming('SummonerSmiteAvatarOffensive')?.betweenCasts).toBe(15);
+  });
+
+  it('puts the cooldown between casts far outside any combo', () => {
+    // The point of the number: holding two charges is not two casts in a fight.
+    // If this ever drops below ten seconds, the horizon the solver searches, then
+    // "Smite, Smite" becomes a legal opener again and this test is the warning.
+    const timing = summonerTiming('SummonerSmiteAvatarOffensive')!;
+    expect(timing.betweenCasts).toBeGreaterThan(10);
   });
 
   it('says nothing about a spell this app does not simulate', () => {
-    expect(summonerCooldown('SummonerFlash')).toBeNull();
+    expect(summonerTiming('SummonerFlash')).toBeNull();
   });
 });

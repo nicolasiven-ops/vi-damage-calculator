@@ -127,26 +127,46 @@ export const SMITES: SmiteModel[] = [
 /**
  * How long a summoner spell is gone for, and how many casts it holds.
  *
- * Data Dragon's own `cooldownBurn` and `maxammo` for patch 16.16: Smite is 15 s
- * with two charges, Ignite 180 s with one. `maxammo: -1` in the file means "no
- * ammo", which is one charge.
+ * Two different numbers, and confusing them is what let the solver Smite twice
+ * inside half a second:
  *
- * Kept here rather than read from the bundle because the engine takes a build,
- * not a patch: the simulation is handed ids and has to know what they cost in
- * time. When a patch moves these, `test/summoners.test.ts` compares them with the
- * file and fails.
+ *  - `betweenCasts` is the cooldown after every cast, and it applies even with a
+ *    charge in hand. Fifteen seconds for Smite — longer than any combo, which is
+ *    why a second Smite is not a thing you can do in a duel no matter how many
+ *    charges you walked in with.
+ *  - `rechargeSeconds` is how long a spent charge takes to come back. Ninety
+ *    seconds for Smite, which is a jungle clear, not a fight.
+ *
+ * Data Dragon has the first (`cooldown: 15`) and the charge count
+ * (`maxammo: 2`) and nothing else — it ships no recharge field at all, so the
+ * 90 s is the wiki's, like the Smite damage above it.
  */
-export const SUMMONER_COOLDOWNS: Record<string, { seconds: number; charges: number }> = {
-  SummonerDot: { seconds: 180, charges: 1 },
-  SummonerSmite: { seconds: 15, charges: 2 },
-  SummonerSmiteAvatarOffensive: { seconds: 15, charges: 2 },
-  SummonerSmiteAvatarDefensive: { seconds: 15, charges: 2 },
-  SummonerSmiteAvatarUtility: { seconds: 15, charges: 2 },
+export interface SummonerTiming {
+  /** Cooldown after each cast, charges or not. */
+  betweenCasts: number;
+  /** Seconds a spent charge takes to return. */
+  rechargeSeconds: number;
+  /** Casts it can store. */
+  charges: number;
+}
+
+export const SUMMONER_TIMINGS: Record<string, SummonerTiming> = {
+  SummonerDot: { betweenCasts: 180, rechargeSeconds: 180, charges: 1 },
+  SummonerSmite: { betweenCasts: 15, rechargeSeconds: 90, charges: 2 },
+  SummonerSmiteAvatarOffensive: { betweenCasts: 15, rechargeSeconds: 90, charges: 2 },
+  SummonerSmiteAvatarDefensive: { betweenCasts: 15, rechargeSeconds: 90, charges: 2 },
+  SummonerSmiteAvatarUtility: { betweenCasts: 15, rechargeSeconds: 90, charges: 2 },
 };
 
-/** The cooldown for a spell, or null when this app does not model the spell. */
-export function summonerCooldown(id: string): { seconds: number; charges: number } | null {
-  return SUMMONER_COOLDOWNS[id] ?? null;
+/** The timing for a spell, or null when this app does not model the spell. */
+export function summonerTiming(id: string): SummonerTiming | null {
+  return SUMMONER_TIMINGS[id] ?? null;
+}
+
+/** How a spell reads in a refusal: its own name rather than its Riot id. */
+export function summonerLabel(id: string): string {
+  if (id === IGNITE.id) return IGNITE.label;
+  return smiteById(id)?.label ?? id;
 }
 
 export function smiteById(id: string): SmiteModel | undefined {
