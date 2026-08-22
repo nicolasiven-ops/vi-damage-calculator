@@ -109,3 +109,45 @@ describe('mitigate', () => {
     expect(result.mitigated).toBe(0);
   });
 });
+
+describe('magic resistance reduction', () => {
+  it('reaches the mitigation the same way armour reduction does', () => {
+    // The magic side of the pipeline was hard-coded to zero reduction until
+    // Bloodletter's Curse needed it, so this pins the symmetry: 30% off 100
+    // magic resist leaves 70, and 100 / (100 + 70) of the damage gets through.
+    const plain = mitigate({
+      raw: 100,
+      type: 'magic',
+      armor: { base: 0, flatReduction: 0, percentReduction: 0, percentPenetration: 0, flatPenetration: 0 },
+      magicResist: {
+        base: 100,
+        flatReduction: 0,
+        percentReduction: 0,
+        percentPenetration: 0,
+        flatPenetration: 0,
+      },
+      percentDamageReduction: 0,
+      flatDamageReduction: 0,
+      amplification: 0,
+    });
+    const shredded = mitigate({
+      raw: 100,
+      type: 'magic',
+      armor: { base: 0, flatReduction: 0, percentReduction: 0, percentPenetration: 0, flatPenetration: 0 },
+      magicResist: {
+        base: 100,
+        flatReduction: 0,
+        percentReduction: 0.3,
+        percentPenetration: 0,
+        flatPenetration: 0,
+      },
+      percentDamageReduction: 0,
+      flatDamageReduction: 0,
+      amplification: 0,
+    });
+
+    expect(plain.mitigated).toBeCloseTo(50, 6);
+    expect(shredded.mitigated).toBeCloseTo((100 * 100) / 170, 6);
+    expect(shredded.mitigated).toBeGreaterThan(plain.mitigated);
+  });
+});
