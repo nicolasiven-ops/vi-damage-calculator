@@ -225,6 +225,32 @@ export function statAtLevel(base: number, perLevel: number, level: number): numb
   return base + perLevel * growthMultiplier(level);
 }
 
+/**
+ * Data Dragon's base stats with the growth it stopped shipping put back.
+ *
+ * `attackdamageperlevel` is zero for every champion in Data Dragon as of 16.16.1 —
+ * summary file and per-champion file alike — so a level 11 Vi came out with the
+ * attack damage of a level 1 Vi: 63 where the game says 94, and every total that
+ * reads attack damage was short by the difference.
+ *
+ * Riot does ship the number, in the champion's own character record
+ * (`damagePerLevelModifiable`), which is the same file this app already reads its
+ * ability formulas out of. So the fix is not a maintained constant but a better
+ * source, and it is applied here — once, on the way in — so that everything
+ * downstream keeps reading one stat block.
+ *
+ * The published value only fills a gap: a non-zero Data Dragon value is left
+ * alone, because the day Riot starts shipping it again is not the day this app
+ * should start ignoring it.
+ */
+export function withPublishedGrowth(
+  stats: DDragonChampionStats,
+  attackDamagePerLevel: number | null,
+): DDragonChampionStats {
+  if (stats.attackdamageperlevel > 0 || attackDamagePerLevel === null) return stats;
+  return { ...stats, attackdamageperlevel: attackDamagePerLevel };
+}
+
 /** Riot's hard cap on total attack speed. */
 export const ATTACK_SPEED_CAP = 2.5;
 

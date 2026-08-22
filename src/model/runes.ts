@@ -10,7 +10,12 @@
  * says so out loud. A rune that silently does nothing would be the worst of
  * both worlds.
  *
- * Last reviewed against patch 26.16.
+ * Every number below was last read against Riot's own `longDesc` for patch
+ * 16.16.1, rune by rune. That check is the only defence there is: the prose is
+ * the only place Riot publishes these values, so a rune whose numbers changed two
+ * seasons ago goes on computing quietly until somebody compares the app with the
+ * game. Sudden Impact was granting seven lethality here long after it stopped
+ * granting any.
  */
 
 import type { ChampionStats, StatBlock } from './stats';
@@ -113,7 +118,8 @@ const ELECTROCUTE: RuneDefinition = {
         hits += 1;
         if (hits < 3) return;
 
-        const amount = adaptiveAmount(ctx.stats, byLevel(30, 180, ctx.stats.level), 0.4, 0.25);
+        // "Damage: 70 - 240 (+0.1 bonus AD, +0.05 AP)" — 16.16.1.
+        const amount = adaptiveAmount(ctx.stats, byLevel(70, 240, ctx.stats.level), 0.1, 0.05);
         ctx.dealDamage({
           sourceId: 'rune:8112',
           sourceLabel: 'Electrocute',
@@ -123,7 +129,8 @@ const ELECTROCUTE: RuneDefinition = {
           notes: ['3 hits within 3s'],
         });
         procced = true;
-        readyAt = ctx.time + byLevel(25, 20, ctx.stats.level);
+        // "Cooldown: 20s" — flat now, not 25 falling to 20 with level.
+        readyAt = ctx.time + 20;
       },
     };
   },
@@ -246,14 +253,15 @@ const DARK_HARVEST: RuneDefinition = {
   id: 8128,
   name: 'Dark Harvest',
   modelled: true,
-  note: 'Triggers as soon as the target drops below 50% health. Souls are not collected across the combo — the starting value is configurable via the soul count.',
+  note: 'Triggers as soon as the target drops below 50% health. Counted with no souls collected — one target grants none, and each soul is worth 11 more in a real game.',
   createRuntime() {
     let readyAt = 0;
     return {
       onHitLanded(ctx, hit) {
         if (ctx.time < readyAt) return;
         if (hit.targetHealthPercentAfter > 0.5 || hit.targetHealthPercentAfter <= 0) return;
-        const amount = adaptiveAmount(ctx.stats, 20, 0.25, 0.15);
+        // "30 (+11 damage per soul) (+0.1 bonus AD) (+0.05 AP)" — 16.16.1.
+        const amount = adaptiveAmount(ctx.stats, 30, 0.1, 0.05);
         ctx.dealDamage({
           sourceId: 'rune:8128',
           sourceLabel: 'Dark Harvest',
@@ -262,7 +270,8 @@ const DARK_HARVEST: RuneDefinition = {
           amount,
           notes: ['target below 50% health', 'calculated without collected souls'],
         });
-        readyAt = ctx.time + 40;
+        // "Cooldown: 35s (resets to 1.0s on takedown)" — the reset needs a kill.
+        readyAt = ctx.time + 35;
       },
     };
   },
@@ -272,7 +281,7 @@ const PRESS_THE_ATTACK: RuneDefinition = {
   id: 8005,
   name: 'Press the Attack',
   modelled: true,
-  note: '3 consecutive basic attacks on the same champion; afterwards 8% increased damage from all sources for 6s.',
+  note: '3 consecutive basic attacks on the same champion; afterwards the target takes 8% more damage from every source. Riot ends that when you leave combat, which no combo does, so it holds for the rest of the fight.',
   createRuntime() {
     let attacks = 0;
     let procced = false;
@@ -289,14 +298,20 @@ const PRESS_THE_ATTACK: RuneDefinition = {
           sourceLabel: 'Press the Attack',
           sourceKind: 'rune',
           type: adaptiveType(ctx.stats),
-          amount: byLevel(40, 180, ctx.stats.level),
+          // "40 - 160 bonus adaptive damage (based on level)" — 16.16.1.
+          amount: byLevel(40, 160, ctx.stats.level),
           notes: ['3rd consecutive basic attack'],
         });
         procced = true;
-        ampUntil = ctx.time + 6;
+        /*
+         * "amplifies your damage dealt by 8% until you leave combat with
+         * champions" — there is no leaving combat inside a combo, so the window is
+         * the rest of the fight rather than the six seconds this used to say.
+         */
+        ampUntil = Infinity;
         ctx.applyTargetAmplification({
           percent: 0.08,
-          durationSeconds: 6,
+          durationSeconds: 999,
           label: 'Press the Attack · target takes +8% damage',
         });
       },
@@ -308,7 +323,7 @@ const CONQUEROR: RuneDefinition = {
   id: 8010,
   name: 'Conqueror',
   modelled: true,
-  note: 'Melee champions gain 2 stacks per hit, up to 12. Stacks build up over the course of the combo.',
+  note: 'Melee champions gain 2 stacks per hit, up to 12, each worth 1.8–4 adaptive force by level. Stacks last 5s. The heal at full stacks is not modelled — nothing damages Vi here.',
   createRuntime() {
     let stacks = 0;
     return {
@@ -317,10 +332,12 @@ const CONQUEROR: RuneDefinition = {
         const before = stacks;
         stacks = Math.min(12, stacks + 2);
         if (stacks === before) return;
-        const perStack = byLevel(1.8, 4.2, ctx.stats.level);
+        // "gaining 1.8-4 Adaptive Force per stack" — 4, not 4.2.
+        const perStack = byLevel(1.8, 4, ctx.stats.level);
         ctx.applyTemporaryStats({
           stats: { attackDamage: perStack * 2 },
-          durationSeconds: 6,
+          // "grant 2 stacks of Conqueror for 5s".
+          durationSeconds: 5,
           label: `Conqueror · ${stacks}/12 stacks (+${(perStack * stacks).toFixed(0)} AD)`,
         });
       },
@@ -358,20 +375,64 @@ const CHEAP_SHOT: RuneDefinition = {
   },
 };
 
+/**
+ * Sudden Impact — a proc, not a stat line.
+ *
+ * It granted 7 lethality and 6 magic penetration once, and this app went on
+ * granting them long after Riot replaced the whole rune. Today: "Damaging basic
+ * attacks and abilities deal a bonus 20 - 80 True Damage based on level to enemy
+ * champions after using a dash, leap, blink, teleport, or when leaving stealth for
+ * 4s. Cooldown: 10s."
+ *
+ * For Vi the trigger is her own kit: Vault Breaker dashes, and Cease and Desist
+ * charges to the target. The window opens on the dash's *impact* rather than its
+ * cast, which is the closest moment the simulation exposes and the conservative
+ * end of it — in the game the dash starts a fraction earlier, so anything counted
+ * as inside the window really is. The impact that opens the window is itself
+ * eligible, which is how the rune behaves: the dash comes first.
+ *
+ * Flash is a blink and would arm it too. Nothing about Flash reaches a damage
+ * number here, so it does not.
+ */
 const SUDDEN_IMPACT: RuneDefinition = {
   id: 8143,
   name: 'Sudden Impact',
   modelled: true,
-  note: 'Vi\'s Q and R are dashes, so this is permanently up. Counted as constant lethality and magic penetration.',
-  stats: () => ({ lethality: 7, magicPenFlat: 6 }),
-};
+  note:
+    'Q and R are dashes, so they arm it: the next attack or ability within 4s deals ' +
+    '20–80 true damage by level, then 10s of cooldown. Flash would arm it too, but ' +
+    'nothing about Flash reaches a number here.',
+  createRuntime() {
+    const WINDOW_SECONDS = 4;
+    const COOLDOWN_SECONDS = 10;
+    /** The abilities that move Vi. W is a passive and E is a punch. */
+    const DASHES = new Set(['Q', 'R']);
 
-const EYEBALL_COLLECTION: RuneDefinition = {
-  id: 8138,
-  name: 'Eyeball Collection',
-  modelled: true,
-  note: 'Counted as fully stacked (+6 adaptive force).',
-  stats: () => ({ attackDamage: 6 }),
+    let dashedAt = -Infinity;
+    let readyAt = 0;
+    return {
+      onHitLanded(ctx, hit) {
+        if (ctx.target.unitType !== 'champion') return;
+        if (DASHES.has(hit.sourceId)) dashedAt = ctx.time;
+
+        if (ctx.time < readyAt) return;
+        if (ctx.time - dashedAt > WINDOW_SECONDS) return;
+        // Basic attacks and abilities only: not the item riders that follow them.
+        if (!hit.isAbilityDamage && hit.sourceKind !== 'attack') return;
+        if (hit.mitigated <= 0) return;
+
+        ctx.dealDamage({
+          sourceId: 'rune:8143',
+          sourceLabel: 'Sudden Impact',
+          sourceKind: 'rune',
+          type: 'true',
+          amount: byLevel(20, 80, ctx.stats.level),
+          notes: ['within 4s of a dash'],
+        });
+        readyAt = ctx.time + COOLDOWN_SECONDS;
+      },
+    };
+  },
 };
 
 const COUP_DE_GRACE: RuneDefinition = {
@@ -386,29 +447,46 @@ const CUT_DOWN: RuneDefinition = {
   id: 8017,
   name: 'Cut Down',
   modelled: true,
-  note: 'Up to +8%, depending on how much more maximum health the target has.',
-  amplify: (ctx) => {
-    const ratio = ctx.targetMaxHealth / Math.max(1, ctx.stats.maxHealth);
-    if (ratio <= 1.0) return 0;
-    // Scales linearly from 0% at equal health to 8% at +100% health.
-    return Math.min(0.08, ((ratio - 1) / 1.0) * 0.08);
-  },
+  /*
+   * "Deal 8% more damage to champions who have more than 60% health" — 16.16.1.
+   *
+   * It used to scale with how much more maximum health the target had, which is
+   * what this modelled: a flat threshold on the target's *current* health now
+   * replaces it, and the two disagree in opposite directions over a combo.
+   */
+  note: '+8% while the target is above 60% of its own health. It used to scale with the target maximum health; Riot replaced that with a threshold.',
+  amplify: (ctx) => (ctx.targetCurrentHealth / Math.max(1, ctx.targetMaxHealth) > 0.6 ? 0.08 : 0),
 };
 
+/**
+ * Last Stand — Vi's own health, which the app now has.
+ *
+ * "Deal 5% - 11% increased damage to champions while you are below 60% health.
+ * Max damage gained at 30% health." It was counted as zero here on the grounds
+ * that Vi was always at full health; the sidebar has had an own-health control
+ * since, so the rune can simply be read off it.
+ */
 const LAST_STAND: RuneDefinition = {
   id: 8299,
   name: 'Last Stand',
   modelled: true,
-  note: 'Depends on Vi\'s own health — calculated at full health here, so it has no effect.',
-  amplify: () => 0,
+  note: '+5% below 60% of your own health, rising to +11% at 30% and below. Read from the own-health setting.',
+  amplify: (ctx) => {
+    const share = ctx.attackerCurrentHealth / Math.max(1, ctx.attackerMaxHealth);
+    if (share >= 0.6) return 0;
+    if (share <= 0.3) return 0.11;
+    // Linear between the two thresholds, which is how Riot's tooltip reads.
+    return 0.05 + (0.11 - 0.05) * ((0.6 - share) / 0.3);
+  },
 };
 
 const LEGEND_ALACRITY: RuneDefinition = {
   id: 9104,
   name: 'Legend: Alacrity',
   modelled: true,
-  note: 'Counted as fully stacked (+15% attack speed).',
-  stats: () => ({ attackSpeed: 0.15 }),
+  // "3% attack speed plus an additional 1.5% for every Legend stack (max 10)".
+  note: 'Counted as fully stacked: 3% + 10 × 1.5% = +18% attack speed.',
+  stats: () => ({ attackSpeed: 0.18 }),
 };
 
 /**
@@ -433,20 +511,27 @@ const TRANSCENDENCE: RuneDefinition = {
   id: 8210,
   name: 'Transcendence',
   modelled: true,
-  note: '+10 ability haste from level 10 onwards (from level 5: +5).',
-  stats: ({ level }) => ({ abilityHaste: level >= 10 ? 10 : level >= 5 ? 5 : 0 }),
+  // "Level 5: +5 Ability Haste · Level 8: +5 Ability Haste" — 8, not 10. The
+  // level 11 tier refunds cooldown on a takedown, which a duel does not produce.
+  note: '+5 ability haste at level 5, +10 from level 8. The takedown refund at level 11 needs a kill, so it never fires here.',
+  stats: ({ level }) => ({ abilityHaste: level >= 8 ? 10 : level >= 5 ? 5 : 0 }),
 };
 
 const GATHERING_STORM: RuneDefinition = {
   id: 8236,
   name: 'Gathering Storm',
   modelled: true,
-  note: 'Grows every 10 minutes. Calculated here from the game time assumed in the settings.',
+  note: 'Grows every 10 minutes. A combo has no clock, so the time is taken as two minutes per level — level 11 reads as 22 minutes, one step in.',
   stats: ({ level }) => {
-    // Approximate game time from level: roughly 2 minutes per level.
-    const tenMinuteBlocks = Math.floor((level * 2) / 10);
-    const adaptive = [0, 8, 24, 48, 80, 120][Math.min(5, tenMinuteBlocks)] ?? 0;
-    return { attackDamage: adaptive * 0.6 };
+    /*
+     * Riot publishes both halves of every step: "10 min: +8 AP or 5 AD, 20 min:
+     * +24 AP or 14 AD, 30 min: +48 AP or 29 AD…". The attack-damage column is used
+     * directly rather than derived from the ability-power one — 8 × 0.6 is 4.8, and
+     * the published number is 5.
+     */
+    const AD_BY_STEP = [0, 5, 14, 29, 48, 72, 101];
+    const steps = Math.floor((level * 2) / 10);
+    return { attackDamage: AD_BY_STEP[Math.min(AD_BY_STEP.length - 1, steps)] ?? 0 };
   },
 };
 
@@ -454,8 +539,16 @@ const ABSOLUTE_FOCUS: RuneDefinition = {
   id: 8233,
   name: 'Absolute Focus',
   modelled: true,
-  note: 'Requires Vi to be above 70% health — always active here.',
-  stats: ({ level }) => ({ attackDamage: byLevel(1.8, 18, level) * 0.6 }),
+  /*
+   * "gain an adaptive bonus of up to 18 Attack Damage or 30 Ability Power (based
+   * on level). Grants 1.8 Attack Damage or 3 Ability Power at level 1."
+   *
+   * Riot states the attack-damage end itself, so there is no adaptive-force
+   * conversion left to apply — multiplying 18 by 0.6 counted the rune at 60% of
+   * what it grants.
+   */
+  note: 'Requires Vi above 70% of her own health: +1.8 attack damage at level 1, +18 at level 18.',
+  stats: ({ level }) => ({ attackDamage: byLevel(1.8, 18, level) }),
 };
 
 /* ---------------------------------------------------------------- stat shards */
@@ -522,7 +615,6 @@ const ALL: RuneDefinition[] = [
   CONQUEROR,
   CHEAP_SHOT,
   SUDDEN_IMPACT,
-  EYEBALL_COLLECTION,
   COUP_DE_GRACE,
   CUT_DOWN,
   LAST_STAND,

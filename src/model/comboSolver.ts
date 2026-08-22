@@ -48,6 +48,16 @@ export interface SolverLimits {
   horizonSeconds: number;
 }
 
+/**
+ * One server tick: the resolution the game itself runs at.
+ *
+ * League ticks thirty times a second, so a press that moves the kill by less than
+ * a thirtieth of a second moved nothing anybody could observe — it is a press for
+ * the arithmetic, not for the fight. That is the line the answer is trimmed
+ * against, and it is a physical number rather than a taste.
+ */
+export const TICK_SECONDS = 1 / 30;
+
 export const DEFAULT_LIMITS: SolverLimits = {
   maxSteps: 8,
   beam: 120,
@@ -137,6 +147,61 @@ export interface SolveArgs {
   limits?: Partial<SolverLimits>;
   /** Makes the uids; injected so results are reproducible in tests. */
   uid?: (index: number) => string;
+}
+
+/**
+ * The same kill with the free-riders taken out.
+ *
+ * The search answers "what kills fastest" and nothing else, so a press that adds
+ * damage at no cost in time joins the answer even when the target was dying
+ * anyway. Smite is the clearest case — it costs no cast time and it costs ninety
+ * seconds of recharge, and the search can only see the first half. Reading a combo
+ * with a press in it that changes nothing is worse than reading one without it.
+ *
+ * So every press is asked to justify itself: drop it, run the fight again, and if
+ * the target still dies within a tick of the fastest known time, it was never part
+ * of the combo. Late presses are tried first, because that is where padding
+ * collects, and one accepted drop restarts the pass — removing a press changes the
+ * timing of everything after it.
+ *
+ * The budget is fixed once from the original best, so a chain of drops cannot
+ * creep: whatever comes out is at most one tick slower than the fastest order
+ * found, and every press in it earns at least that much.
+ */
+function trimFreeRiders(
+  best: SolverCandidate,
+  run: SolverRunner,
+  keep: number,
+): { candidate: SolverCandidate; simulations: number } {
+  const budget = (best.killTime ?? 0) + TICK_SECONDS;
+  /* A prefix is one label for the whole of it, so label and step indices differ. */
+  const labelOffset = keep > 0 ? 1 : 0;
+
+  let steps = best.steps;
+  let labels = best.labels;
+  let killTime = best.killTime;
+  let damage = best.damage;
+  let simulations = 0;
+
+  for (let dropping = true; dropping && steps.length > keep; ) {
+    dropping = false;
+    for (let index = steps.length - 1; index >= keep; index -= 1) {
+      const shorter = [...steps.slice(0, index), ...steps.slice(index + 1)];
+      const attempt = run(shorter);
+      simulations += 1;
+      if (!attempt || attempt.killTime === null || attempt.killTime > budget) continue;
+
+      const labelAt = labelOffset + (index - keep);
+      steps = shorter;
+      labels = labels.filter((_, at) => at !== labelAt);
+      killTime = attempt.killTime;
+      damage = attempt.totalMitigated;
+      dropping = true;
+      break;
+    }
+  }
+
+  return { candidate: { steps, labels, killTime, damage, remaining: 0 }, simulations };
 }
 
 export function solveFastestKill(args: SolveArgs): SolverResult {
@@ -294,9 +359,20 @@ export function solveFastestKill(args: SolveArgs): SolverResult {
     if (unique.length >= 5) break;
   }
 
+  const winner = unique[0];
+  if (!winner) return { best: null, runnersUp: [], simulations, hitLimit };
+
+  const trimmed = trimFreeRiders(winner, args.run, prefix.length);
+  simulations += trimmed.simulations;
+
+  /*
+   * A trimmed winner can turn out to be an order the list already held further
+   * down, which would then read as its own alternative.
+   */
+  const order = trimmed.candidate.labels.join('>');
   return {
-    best: unique[0] ?? null,
-    runnersUp: unique.slice(1),
+    best: trimmed.candidate,
+    runnersUp: unique.slice(1).filter((other) => other.labels.join('>') !== order),
     simulations,
     hitLimit,
   };

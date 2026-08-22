@@ -23,6 +23,7 @@ import {
 import type { ChampionModuleContext } from '../src/model/champions/types';
 import { VI_MODULE } from '../src/model/champions/vi';
 import { emptyStats, resolveChampionStats } from '../src/model/stats';
+import { getRuneDefinition } from '../src/model/runes';
 import { FIXTURE_CHAMPION, FIXTURE_CHAMPION_STATS, FIXTURE_SPELLS_BY_ID } from './fixtures';
 
 const HAIL_OF_BLADES = 9923;
@@ -55,7 +56,13 @@ function step(action: ComboStep['action']): ComboStep {
 
 function run(
   combo: ComboStep[],
-  options: { runeIds?: number[]; target?: TargetConfig; bonusAd?: number } = {},
+  options: {
+    runeIds?: number[];
+    target?: TargetConfig;
+    bonusAd?: number;
+    /** Vi's own health, for the runes that read it. */
+    attackerHealthPercent?: number;
+  } = {},
 ) {
   const bonusStats = { ...emptyStats(), attackDamage: options.bonusAd ?? 0 };
   const input: SimulationInput = {
@@ -67,6 +74,9 @@ function run(
       runeIds: options.runeIds ?? [],
       shardIds: [],
       manualStats: {},
+      ...(options.attackerHealthPercent !== undefined
+        ? { currentHealthPercent: options.attackerHealthPercent }
+        : {}),
     },
     championBaseStats: FIXTURE_CHAMPION_STATS,
     attackerStats: resolveChampionStats(FIXTURE_CHAMPION_STATS, LEVEL, bonusStats),
@@ -176,5 +186,121 @@ describe('Hail of Blades', () => {
 
   it('does nothing at all when it is not picked', () => {
     expect(procs(run(attacks(3)))).toEqual([]);
+  });
+});
+
+/**
+ * The numbers, pinned to Riot's own words.
+ *
+ * These are the values that had rotted quietly: Sudden Impact was still granting
+ * lethality it lost seasons ago, Electrocute was computing a 30–180 base against a
+ * published 70–240, and the suite was green through all of it. A test that quotes
+ * the tooltip is the only thing that turns "Riot changed a rune" from a silent
+ * wrong answer into a failure with a name on it.
+ */
+describe('rune values, against runesReforged for 16.16.1', () => {
+  const at = (id: number) => {
+    const rune = getRuneDefinition(id);
+    if (!rune) throw new Error(`rune ${id} is not modelled`);
+    return rune;
+  };
+  const statsOf = (id: number, level: number) =>
+    at(id).stats?.({ level, baseline: resolveChampionStats(FIXTURE_CHAMPION_STATS, level, emptyStats()) }) ?? {};
+
+  it('Legend: Alacrity — "3% attack speed plus an additional 1.5% for every Legend stack (max 10)"', () => {
+    expect(statsOf(9104, 11).attackSpeed).toBeCloseTo(0.18, 10);
+  });
+
+  it('Legend: Haste — "1.5 basic ability haste for every Legend stack (max 10)"', () => {
+    expect(statsOf(9105, 11).basicAbilityHaste).toBe(15);
+  });
+
+  it('Transcendence — "Level 5: +5 Ability Haste · Level 8: +5 Ability Haste"', () => {
+    expect(statsOf(8210, 4).abilityHaste).toBe(0);
+    expect(statsOf(8210, 5).abilityHaste).toBe(5);
+    // The second tier lands at 8. It used to be modelled at 10, which quietly
+    // shortened nothing for three levels of every mid-game build.
+    expect(statsOf(8210, 8).abilityHaste).toBe(10);
+  });
+
+  it('Absolute Focus — "up to 18 Attack Damage … 1.8 Attack Damage at level 1"', () => {
+    // Riot states the attack-damage end itself: no adaptive-force conversion.
+    expect(statsOf(8233, 1).attackDamage).toBeCloseTo(1.8, 6);
+    expect(statsOf(8233, 18).attackDamage).toBeCloseTo(18, 6);
+  });
+
+  it('Gathering Storm — "10 min: +8 AP or 5 AD · 20 min: +24 AP or 14 AD"', () => {
+    // Two minutes per level is the app's stand-in for a clock, so level 11 is
+    // 22 minutes: one step in.
+    expect(statsOf(8236, 4).attackDamage).toBe(0);
+    expect(statsOf(8236, 6).attackDamage).toBe(5);
+    expect(statsOf(8236, 11).attackDamage).toBe(14);
+  });
+
+  it('Sudden Impact grants no stats at all any more', () => {
+    // It granted 7 lethality and 6 magic penetration here for years after Riot
+    // replaced the rune with a true-damage proc.
+    const rune = at(8143);
+    expect(rune.stats).toBeUndefined();
+    expect(rune.createRuntime).toBeTypeOf('function');
+  });
+
+  it('models no rune Riot has removed from the tree', () => {
+    // Eyeball Collection (8138) has not been in the Domination tree for years, so
+    // nothing could pick it and its stat line was unreachable code that read as a
+    // modelled rune.
+    expect(getRuneDefinition(8138)).toBeUndefined();
+  });
+});
+
+describe('Sudden Impact', () => {
+  const SUDDEN_IMPACT = 8143;
+  const procs = (result: ReturnType<typeof run>) =>
+    result.instances.filter((entry) => entry.sourceId === 'rune:8143');
+
+  it('does nothing without a dash to arm it', () => {
+    // Basic attacks are not dashes, and neither is E.
+    const result = run(attacks(3), { runeIds: [SUDDEN_IMPACT] });
+    expect(procs(result)).toHaveLength(0);
+  });
+
+  it('fires on the dash that arms it, because the dash comes first', () => {
+    const result = run([step({ kind: 'ability', slot: 'Q' })], { runeIds: [SUDDEN_IMPACT] });
+    expect(procs(result)).toHaveLength(1);
+    // "20 - 80 True Damage based on level": level 11 is 10/17 of the way up.
+    expect(procs(result)[0]!.raw).toBeCloseTo(20 + 60 * (10 / 17), 4);
+    expect(procs(result)[0]!.type).toBe('true');
+  });
+
+  it('arms the next press too, then holds its ten seconds', () => {
+    const result = run(
+      [step({ kind: 'ability', slot: 'Q' }), ...attacks(3)],
+      { runeIds: [SUDDEN_IMPACT] },
+    );
+    // Once on the Q, and not again inside the cooldown.
+    expect(procs(result)).toHaveLength(1);
+  });
+});
+
+describe('Cut Down and Last Stand read health, not build size', () => {
+  it('Cut Down — "8% more damage to champions who have more than 60% health"', () => {
+    const healthy = run(attacks(1), { runeIds: [8017] });
+    const wounded = run(attacks(1), {
+      runeIds: [8017],
+      target: { ...TARGET, currentHealthPercent: 0.5 },
+    });
+    const first = (result: ReturnType<typeof run>) =>
+      result.instances.filter((entry) => entry.sourceId === 'AA')[0]!.raw;
+    // Above the threshold it amplifies; below it, nothing.
+    expect(first(healthy)).toBeGreaterThan(first(wounded));
+    expect(first(healthy) / first(wounded)).toBeCloseTo(1.08, 3);
+  });
+
+  it('Last Stand — "5% - 11% … while you are below 60% health"', () => {
+    const full = run(attacks(1), { runeIds: [8299] });
+    const low = run(attacks(1), { runeIds: [8299], attackerHealthPercent: 0.3 });
+    const first = (result: ReturnType<typeof run>) =>
+      result.instances.filter((entry) => entry.sourceId === 'AA')[0]!.raw;
+    expect(first(low) / first(full)).toBeCloseTo(1.11, 3);
   });
 });

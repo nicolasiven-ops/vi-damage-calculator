@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { cooldownMultiplier, emptyStats, resolveChampionStats, sumStats } from '../src/model/stats';
+import {
+  cooldownMultiplier,
+  emptyStats,
+  resolveChampionStats,
+  sumStats,
+  withPublishedGrowth,
+} from '../src/model/stats';
 import { FIXTURE_CHAMPION_STATS } from './fixtures';
 
 describe('sumStats', () => {
@@ -69,5 +75,38 @@ describe('cooldownMultiplier', () => {
   it('is neutral at zero and never amplifies for negative input', () => {
     expect(cooldownMultiplier(0)).toBe(1);
     expect(cooldownMultiplier(-50)).toBe(1);
+  });
+});
+
+/**
+ * The gap that made a level 11 Vi hit like a level 1 Vi.
+ *
+ * Data Dragon ships `attackdamageperlevel: 0` for every champion in 16.16.1, in
+ * the summary file and the per-champion file alike. Read straight, that is a
+ * champion whose attack damage never grows: 63 at level 11 where the game says
+ * 94, and every total that reads attack damage short by the difference. Riot does
+ * publish the number, in the champion's own character record.
+ */
+describe('withPublishedGrowth', () => {
+  const zeroed = { ...FIXTURE_CHAMPION_STATS, attackdamage: 63, attackdamageperlevel: 0 };
+
+  it('fills in the growth Data Dragon stopped shipping', () => {
+    const fixed = withPublishedGrowth(zeroed, 3.5);
+    expect(fixed.attackdamageperlevel).toBe(3.5);
+
+    // Riot's own curve at level 11: 63 + 3.5 × 10 × (0.7025 + 0.175) = 93.7,
+    // which is the 94 the in-game HUD shows for Vi.
+    const stats = resolveChampionStats(fixed, 11, emptyStats());
+    expect(stats.baseAttackDamage).toBeCloseTo(93.7125, 4);
+  });
+
+  it('leaves a value Data Dragon does ship alone', () => {
+    // The day Riot starts publishing it again is not the day to start ignoring it.
+    const shipped = { ...zeroed, attackdamageperlevel: 4 };
+    expect(withPublishedGrowth(shipped, 3.5).attackdamageperlevel).toBe(4);
+  });
+
+  it('changes nothing when the character record is missing', () => {
+    expect(withPublishedGrowth(zeroed, null)).toBe(zeroed);
   });
 });

@@ -182,6 +182,17 @@ export interface ChampionGameData {
    * real one. Null when the record is missing, so the caller can keep using it.
    */
   attackWindupFraction: number | null;
+  /**
+   * The champion's attack damage per level, from its character record.
+   *
+   * Riot's own `damagePerLevelModifiable` — 3.5 for Vi. It is here because Data
+   * Dragon's `attackdamageperlevel` is **zero for all 173 champions** in 16.16.1,
+   * in both the summary file and the per-champion one. That is not a stale value
+   * anybody would notice: it reads as a champion whose attack damage never grows,
+   * and the calculator then agrees with the game exactly at level 1 and nowhere
+   * else. Null when the record is missing, so the caller can fall back.
+   */
+  attackDamagePerLevel: number | null;
 }
 
 /* ------------------------------------------------------------ enum mappings */
@@ -503,6 +514,7 @@ export function parseChampionBin(raw: unknown, championId: string, patch: string
     spells,
     incomplete,
     attackWindupFraction: readAttackWindup(records, championId),
+    attackDamagePerLevel: readDamagePerLevel(records, championId),
   };
 }
 
@@ -531,6 +543,27 @@ function readAttackWindup(
   const fraction = cast / total;
   if (fraction < 0.1 || fraction > 0.66) return null;
   return fraction;
+}
+
+/**
+ * Attack damage per level, from the character record.
+ *
+ * Refused rather than clamped when it is out of range, on the same grounds as the
+ * wind-up above: no champion in the game grows by twenty attack damage a level, so
+ * a number like that is a misread field, and a plausible-looking wrong growth is
+ * the worst possible outcome for a calculator.
+ */
+function readDamagePerLevel(
+  records: Record<string, RawRecord>,
+  championId: string,
+): number | null {
+  const record = records[`Characters/${championId}/CharacterRecords/Root`] as
+    | { damagePerLevelModifiable?: { baseValue?: unknown } }
+    | undefined;
+  const value = record?.damagePerLevelModifiable?.baseValue;
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  if (value < 0 || value > 10) return null;
+  return value;
 }
 
 export function findSpell(data: ChampionGameData | null, key: string): GameSpell | null {

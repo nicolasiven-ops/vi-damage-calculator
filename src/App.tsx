@@ -7,7 +7,12 @@ import { VI_MODULE } from './model/champions/vi';
 import { resolveAbilityNames, type ChampionModuleContext } from './model/champions/types';
 import { resolveAllItems, resolvePurchasableItems } from './model/items';
 import { runeStats } from './model/runes';
-import { emptyStats, resolveChampionStats, sumStats } from './model/stats';
+import {
+  emptyStats,
+  resolveChampionStats,
+  sumStats,
+  withPublishedGrowth,
+} from './model/stats';
 import { prepareRun, resolveBonusStats, runBuild } from './state/runBuild';
 import { itemValues, type ItemValueRow } from './model/itemValue';
 import { EMPTY_CHANGE_LOG, buildOf, recordChange } from './state/changeLog';
@@ -225,8 +230,19 @@ export default function App() {
     [bundle, items],
   );
 
-  const baseStats =
+  /*
+   * Data Dragon's numbers, with the attack-damage growth it no longer ships put
+   * back from Riot's own character record — see `withPublishedGrowth`.
+   */
+  const publishedStats =
     champion.detail?.stats ?? bundle?.champions[build.championId]?.stats ?? null;
+  const baseStats = useMemo(
+    () =>
+      publishedStats
+        ? withPublishedGrowth(publishedStats, champion.gameData?.attackDamagePerLevel ?? null)
+        : null,
+    [publishedStats, champion.gameData],
+  );
 
   const moduleCtx: ChampionModuleContext = useMemo(
     () => ({

@@ -163,3 +163,105 @@ describe('completing a combo that is already typed', () => {
     expect(result.simulations).toBe(1);
   });
 });
+
+describe('presses that earn nothing', () => {
+  it('leaves out a press that costs no time and changes no kill time', () => {
+    /*
+     * "Free" is exactly Smite's shape: no time, a little damage. The search will
+     * happily take it, because it is scored on the kill alone — so the answer has
+     * to be asked afterwards whether every press in it did anything.
+     */
+    const table = {
+      hit: { damage: 100, seconds: 1 },
+      free: { damage: 20, seconds: 0 },
+    };
+
+    const result = solveFastestKill({
+      actions: [labelled('hit', 'Hit'), labelled('free', 'Free')],
+      run: runnerFor(table, 300),
+      startingHealth: 300,
+      limits: { maxSteps: 6, beam: 40, maxSimulations: 3000, horizonSeconds: 10 },
+    });
+
+    // Three hits kill at 3 s with or without the free press alongside them.
+    expect(result.best!.killTime).toBeCloseTo(3, 6);
+    expect(result.best!.labels).toEqual(['Hit', 'Hit', 'Hit']);
+  });
+
+  /**
+   * A fight read off a script: this order kills then, that one kills later.
+   *
+   * The arithmetic runner above cannot express "drop this press and the target
+   * still dies, just later" — that needs cooldowns or a burn, which it has none
+   * of. So the two cases around the tolerance are simply written down.
+   */
+  function scripted(script: Record<string, number>, health: number) {
+    return (steps: ComboStep[]): SimulationResult => {
+      const ids = steps.map((step) => String(step.uid).split('#')[1] ?? '');
+      const killTime = script[ids.join('>')] ?? null;
+      /*
+       * The search treats two prefixes at the same clock with the same health as
+       * the same problem, which is the whole point of it — so a fixture where
+       * "Main, Extra" and "Extra, Main" leave exactly the same health would have
+       * one of them thrown away before it could be expanded. Where the extra press
+       * sits therefore has to move the number, as it would in any real fight.
+       */
+      const spread = ids.reduce((sum, id, at) => sum + (id === 'extra' ? (at + 1) * 7 : 0), 0);
+      return {
+        duration: steps.length * 0.5,
+        killTime,
+        targetHpRemaining: killTime === null ? health / 2 - spread : 0,
+        totalMitigated: killTime === null ? health / 2 + spread : health,
+      } as SimulationResult;
+    };
+  }
+
+  it('keeps a press that buys more than a tick', () => {
+    // 0.90 s with the extra press against 1.00 s without it: a hundred
+    // milliseconds is three server ticks, which is a real gain in a real fight.
+    const result = solveFastestKill({
+      actions: [labelled('main', 'Main'), labelled('extra', 'Extra')],
+      run: scripted({ 'main>main': 1.0, 'main>extra>main': 0.9 }, 400),
+      startingHealth: 400,
+      limits: { maxSteps: 3, beam: 40, maxSimulations: 3000, horizonSeconds: 10 },
+    });
+
+    expect(result.best!.killTime).toBeCloseTo(0.9, 6);
+    expect(result.best!.labels).toEqual(['Main', 'Extra', 'Main']);
+  });
+
+  it('drops a press that buys less than a tick', () => {
+    // Same shape, but the press is worth 10 ms. The game itself cannot see that:
+    // it ticks thirty times a second, so this is a press for the arithmetic.
+    const result = solveFastestKill({
+      actions: [labelled('main', 'Main'), labelled('extra', 'Extra')],
+      run: scripted({ 'main>main': 1.0, 'main>extra>main': 0.99 }, 400),
+      startingHealth: 400,
+      limits: { maxSteps: 3, beam: 40, maxSimulations: 3000, horizonSeconds: 10 },
+    });
+
+    expect(result.best!.labels).toEqual(['Main', 'Main']);
+    expect(result.best!.killTime).toBeCloseTo(1.0, 6);
+  });
+
+  it('never trims a press the caller typed', () => {
+    // The prefix is his opener, not a suggestion: even a press that contributes
+    // nothing stays, because removing it would answer a question nobody asked.
+    const table = {
+      hit: { damage: 100, seconds: 1 },
+      free: { damage: 0, seconds: 0 },
+    };
+    const typed: ComboStep[] = [{ uid: 'typed-1#free', action: { kind: 'attack' } }];
+
+    const result = solveFastestKill({
+      actions: [labelled('hit', 'Hit')],
+      run: runnerFor(table, 200),
+      startingHealth: 200,
+      prefix: typed,
+      limits: { maxSteps: 4, beam: 20, maxSimulations: 800, horizonSeconds: 10 },
+    });
+
+    expect(result.best!.steps[0]!.uid).toBe('typed-1#free');
+    expect(result.best!.steps).toHaveLength(3);
+  });
+});
