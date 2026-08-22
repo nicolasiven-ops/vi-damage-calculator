@@ -229,6 +229,8 @@ export function simulate(
   }
 
   const shreds: ArmorShred[] = [];
+  /** The same, on magic resistance — see applyMagicResistShred. */
+  const magicShreds: ArmorShred[] = [];
   const tempStats: TempStats[] = [];
   const targetAmps: TargetAmp[] = [];
   /** Crowd control on the target: label and when it ends. */
@@ -305,6 +307,7 @@ export function simulate(
   function takeSnapshot(index: number, stepUid?: string): void {
     const stats = currentStats();
     const shred = combinedShred();
+    const magicShred = combinedMagicShred();
 
     snapshots.push({
       stepUid,
@@ -338,8 +341,8 @@ export function simulate(
         baseMagicResist: input.target.magicResist,
         effectiveMagicResist: effectiveResistance({
           base: input.target.magicResist,
-          flatReduction: 0,
-          percentReduction: 0,
+          flatReduction: magicShred.flat,
+          percentReduction: magicShred.percent,
           percentPenetration: stats.magicPenPercent,
           flatPenetration: stats.magicPenFlat,
         }),
@@ -387,6 +390,7 @@ export function simulate(
 
   function prune(): void {
     dropExpired(shreds, time);
+    dropExpired(magicShreds, time);
     dropExpired(tempStats, time);
     dropExpired(targetAmps, time);
   }
@@ -397,16 +401,57 @@ export function simulate(
     return resolveChampionStats(input.championBaseStats, input.attacker.level, bonus);
   }
 
-  /** Percent armor reductions stack multiplicatively, not additively. */
-  function combinedShred(): { percent: number; flat: number } {
+  /** Percent resistance reductions stack multiplicatively, not additively. */
+  function combine(list: ArmorShred[]): { percent: number; flat: number } {
     prune();
     let remaining = 1;
     let flat = 0;
-    for (const shred of shreds) {
+    for (const shred of list) {
       remaining *= 1 - clamp01(shred.percent);
       flat += shred.flat;
     }
     return { percent: 1 - remaining, flat };
+  }
+
+  function combinedShred(): { percent: number; flat: number } {
+    return combine(shreds);
+  }
+
+  function combinedMagicShred(): { percent: number; flat: number } {
+    return combine(magicShreds);
+  }
+
+  /**
+   * Record a resistance reduction, on whichever resistance it belongs to.
+   *
+   * Re-applying the same source refreshes rather than stacks, which is how the
+   * game treats a debuff from one item: Black Cleaver's fifth stack does not
+   * become a sixth by hitting again.
+   */
+  function applyShred(
+    list: ArmorShred[],
+    what: 'armor' | 'magic resist',
+    {
+      percent = 0,
+      flat = 0,
+      durationSeconds,
+      label,
+    }: { percent?: number; flat?: number; durationSeconds: number; label: string },
+  ): void {
+    const existing = list.find((entry) => entry.label === label);
+    if (existing) {
+      existing.percent = Math.max(existing.percent, percent);
+      existing.flat = Math.max(existing.flat, flat);
+      existing.expiresAt = time + durationSeconds;
+    } else {
+      list.push({ percent, flat, expiresAt: time + durationSeconds, label });
+    }
+    const detail =
+      percent > 0
+        ? `−${(percent * 100).toFixed(0)}% ${what} for ${durationSeconds} s`
+        : `−${flat.toFixed(0)} ${what} for ${durationSeconds} s`;
+    addEvent({ kind: 'shred', label, detail });
+    addEffectSpan(`shred:${label}`, label, detail, time + durationSeconds, 'debuff');
   }
 
   function combinedTargetAmp(): number {
@@ -491,22 +536,12 @@ export function simulate(
       return applyDamage(args);
     },
 
-    applyArmorShred({ percent = 0, flat = 0, durationSeconds, label }) {
-      // Re-applying the same source refreshes rather than stacks.
-      const existing = shreds.find((entry) => entry.label === label);
-      if (existing) {
-        existing.percent = Math.max(existing.percent, percent);
-        existing.flat = Math.max(existing.flat, flat);
-        existing.expiresAt = time + durationSeconds;
-      } else {
-        shreds.push({ percent, flat, expiresAt: time + durationSeconds, label });
-      }
-      const detail =
-        percent > 0
-          ? `−${(percent * 100).toFixed(0)}% armor for ${durationSeconds} s`
-          : `−${flat.toFixed(0)} armor for ${durationSeconds} s`;
-      addEvent({ kind: 'shred', label, detail });
-      addEffectSpan(`shred:${label}`, label, detail, time + durationSeconds, 'debuff');
+    applyArmorShred(args) {
+      applyShred(shreds, 'armor', args);
+    },
+
+    applyMagicResistShred(args) {
+      applyShred(magicShreds, 'magic resist', args);
     },
 
     grantShield({ amount, durationSeconds, label }) {
@@ -756,6 +791,7 @@ export function simulate(
 
     const stats = currentStats();
     const shred = combinedShred();
+    const magicShred = combinedMagicShred();
 
     /*
      * Amplifications stack multiplicatively with each other, and every amplifier
@@ -793,8 +829,8 @@ export function simulate(
       },
       magicResist: {
         base: input.target.magicResist,
-        flatReduction: 0,
-        percentReduction: 0,
+        flatReduction: magicShred.flat,
+        percentReduction: magicShred.percent,
         percentPenetration: stats.magicPenPercent,
         flatPenetration: stats.magicPenFlat,
       },

@@ -21,6 +21,7 @@ import { BURN_ITEMS } from './items/burn';
 import { CRIT_ITEMS } from './items/crit';
 import { ONHIT_ITEMS } from './items/onhit';
 import { PENETRATION_ITEMS } from './items/penetration';
+import { RIDER_ITEMS } from './items/riders';
 import type { HitInfo } from './runes';
 
 export interface ItemAttackRider {
@@ -420,6 +421,7 @@ const ALL: ItemEffect[] = [
   ...BURN_ITEMS,
   ...ABILITY_ITEMS,
   ...BRUISER_ITEMS,
+  ...RIDER_ITEMS,
 ];
 
 const BY_ID = new Map<string, ItemEffect>(ALL.map((effect) => [effect.id, effect]));

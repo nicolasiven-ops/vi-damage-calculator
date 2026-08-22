@@ -1,0 +1,217 @@
+{
+ "3035": [
+  "Last Whisper",
+  "No passive at all: its 18% Armor Penetration is a <stats> line that items.ts already parses into StatBlock.armorPenPercent, which the engine spends as percent penetration. An entry here would double-count it.",
+  "none — already covered by the stat pipeline"
+ ],
+ "3135": [
+  "Void Staff",
+  "Same: 40% Magic Penetration is a parsed <stats> line (magicPenFlat's PERCENT_VARIANT → magicPenPercent). No damage effect left to model.",
+  "none — already covered by the stat pipeline"
+ ],
+ "3033": [
+  "Mortal Reminder",
+  "Its 30% Armor Penetration is a parsed stat line; the passive is Grievous Wounds (40% for 3 s, 80% under Sepsis on the Arena copy 223033).",
+  "The simulation never heals the target, so anti-heal cannot reach a damage number. There is no target-healing model and no hook to reduce one."
+ ],
+ "3137": [
+  "Cryptbloom",
+  "30% Magic Penetration is a parsed stat line; Life from Death is a healing nova that fires when a champion Vi damaged dies.",
+  "No healing to report (grantShield is the only restorative hook and a shield is not health) and no takedown event — the simulated target dying ends the combo."
+ ],
+ "6695": [
+  "Serpent's Fang",
+  "Lethality is a parsed stat line; Shield Reaver is ShieldShred 50 / ShieldWounds 50 for the melee user (35 ranged) over DebuffDuration 3 (Items/6695).",
+  "The target has no shields in this model — shields exist only on the attacker via grantShield — so there is nothing for shield reduction to act on."
+ ],
+ "8010": [
+  "Bloodletter's Curse (and its 4010 copy)",
+  "ShredPerStack 0.075, MaxStacks 4, DebuffDuration 6, InternalCD 0.3 — a 30% magic-resist shred, exactly the mechanic this family is about, and the one thing the engine cannot express.",
+  "No magic-resist shred: applyArmorShred is armour-only, and applyDamage builds the magicResist ResistanceInput with flatReduction 0 and percentReduction 0 hard-coded. Faking it as magicPenPercent would be wrong — penetration is attacker-side and does not stack with the target's other attackers the way reduction does."
+ ],
+ "3036": [
+  "Lord Dominik's Regards",
+  "Already modelled in src/model/itemEffects.ts, which the hard rules forbid re-modelling. Worth flagging for whoever owns that file: its Giant Slayer ramps over a 2000 max-health difference, while patch 16.16.1 data reads MaxBonusHealth 1500 on the target's BONUS health, and Riot's current text puts no damage type on the bonus while the implementation restricts it to physical.",
+  "none — ownership, not capability"
+ ],
+ "4645": [
+  "Shadowflame",
+  "Cinderbloom (HealthThreshold 0.4, SpellItemDamageAmp 0.2) is already implemented by the sibling family in src/model/items/ability.ts. Keeping a second copy here would double the amplifier once the families are merged into one registry, so it was removed from this family.",
+  "none — ownership, not capability"
+ ],
+ "3001": [
+  "Evenshroud",
+  "Coruscation makes the target take AmpAmount 0.07 more damage for AmpDuration 5 s after Vi immobilises it — reachable in principle through applyTargetAmplification, and Vi's R is a knock-up.",
+  "No hook tells an item that the attacker applied crowd control. ItemRuntime sees casts, hits and attacks only; applyCrowdControl is write-only, and keying the amp to a specific ability slot would hard-code champion knowledge into a generic item module."
+ ],
+ "226696": [
+  "Axiom Arc (Arena copy)",
+  "\"Your Ultimate Abilities deal 20% increased damage\" — an amplifier, and the numbers are in Riot's own text.",
+  "AmplifiableHit carries sourceId, sourceKind, type, isAbilityDamage and triggersOnHit but no AbilitySlot, so \"ultimate only\" cannot be distinguished from \"any ability\"."
+ ],
+ "447112": [
+  "Flesheater (and its 667112 copy)",
+  "\"Dealing damage shreds 3 Armor and Magic Resist for 5 seconds, stacking up to 10 times.\"",
+  "Half the effect is expressible (flat armour shred) and half is not (magic-resist shred). Modelling only the armour half would silently understate the item, so it is named instead of approximated."
+ ],
+ "773035": [
+  "Last Whisper / Void Staff, legacy-mode copies (773035, 773135, 773001)",
+  "These write their penetration into the passive line rather than the <stats> block — \"You ignore 35% of your opponent's Armor\", \"Magic damage ignores 35% of the target's Magic Resist\" — so ItemEffect.stats would be the right home for 773035 and 773135, and 773001 Abyssal Scepter reduces nearby enemies' magic resist by a flat 20.",
+  "All three are maps[\"11\"] === false, so resolvePurchasableItems filters them out of the shop and an entry could never be consulted; 773001 additionally needs flat magic-resist reduction, which the engine has no slot for. A stats-only entry also reaches no damage number through any hook, which is this family's invariant."
+ ],
+ "3031": [
+  "Infinity Edge",
+  "No damage effect. In patch 16.16 the item's entire Data Dragon description is a <stats> block (75 AD, 25% crit chance, 30% crit damage) with no passive at all, and no data values or calculations in the item bin. parseItemDescription in items.ts already maps 'Critical Strike Damage' onto critDamage, so an entry here would grant the 30% a second time.",
+  "none — the crit damage is a stat the description parser already reads"
+ ],
+ "6675": [
+  "Navori Flickerblade",
+  "Transcendence is a cooldown effect: 'Basic attacks on-attack reduce the remaining cooldowns of your basic abilities by 15%' (wiki, verbatim; bin CDRAmount=0.15). Nothing in the module can reach a running cooldown, and ability haste is a different mechanic (it scales the cooldown's length, not its remainder), so substituting basicAbilityHaste would be an invented number. Note the id drift: 6675 is Navori Flickerblade now, not Navori Quickblades.",
+  "SimContext offers no way to reduce an ability's remaining cooldown — it exposes damage, armor shred, shields, temporary stats, target amplification, crowd control and events only"
+ ],
+ "6698": [
+  "Profane Hydra",
+  "Neither half reaches the target in this model. Cleave hits 'other enemies in a 350 radius centered around the target' (wiki, verbatim) — the attack's own target is excluded, which is exactly why Titanic Hydra needs a separate on-hit component and Profane Hydra has none. The 80% AD active (bin SlashDamageBase) would land on the target, but the engine answers an item combo step with 'Item actives are not modelled yet — step skipped'.",
+  "ItemRuntime has no activation hook for an item active, and single-target simulation gives off-target cleave nowhere to land"
+ ],
+ "3085": [
+  "Runaan's Hurricane",
+  "Wind's Fury fires bolts at two additional enemies near the target (bin BoltDamage = 0.65 of an attack-damage stat). The bolts never hit the target of the attack, so against a single target the passive adds nothing. The 25% crit chance and 40% attack speed are stat lines the description parser reads.",
+  "no secondary targets in the simulation, so off-target bolt damage has nowhere to land"
+ ],
+ "3046": [
+  "Phantom Dancer",
+  "No damage effect. Spectral Waltz grants ghosting only ('Become Ghosted' in Riot's text) and the item has no data values in the bin at all; its 65% attack speed, 25% crit chance and 10% move speed are stat lines.",
+  "none — nothing about the passive changes a damage number"
+ ],
+ "3142": [
+  "Youmuu's Ghostblade",
+  "No damage effect. Haunt is out-of-combat movement speed and Wraith Step is a movement-speed and ghosting active; every data value in the bin for 3142 is a speed or a duration (OOCMS, BaseOOCMS, DurationNDV, Cooldown). Its 18 lethality is a stat line already parsed.",
+  "none — movement speed and ghosting change no damage number in a model without positions"
+ ],
+ "3095": [
+  "Deprecated item (the id often listed as Stormrazor)",
+  "Data Dragon 16.16.1 names 3095 'Deprecated item' and disables it on every map (maps 11/12/21/35/453 all false). The live Stormrazor is 3097, which is implemented above. Modelling 3095 would put a passive on an item nobody can buy.",
+  "none — stale id, superseded by 3097"
+ ],
+ "6673": [
+  "Immortal Shieldbow (the id sometimes listed as Yun Tal Wildarrows)",
+  "6673 is Immortal Shieldbow in patch 16.16, not Yun Tal (which is 3032, implemented above). Its Lifeline passive grants a shield when Vi's own health drops below 30% — a defensive reaction to incoming damage, which this simulation does not model at all since the target never fights back.",
+  "no incoming damage is simulated, so a health-threshold defensive trigger can never fire"
+ ],
+ "3051": [
+  "Hearthbound Axe",
+  "no damage effect. Data Dragon 16.16.1 prints 20 attack damage and 20% attack speed and then an empty tail where a passive block used to be, and Items/3051 in the bin has no mDataValues, no mItemCalculations and no spellName. The wiki confirms the old Nimble passive was removed. Nothing left to model.",
+  "none — the item has no passive"
+ ],
+ "3006": [
+  "Berserker's Greaves",
+  "no damage effect. Data Dragon prints 30% attack speed and 45 move speed and no passive block at all.",
+  "none — the item has no passive"
+ ],
+ "3077": [
+  "Tiamat",
+  "Cleave is worth exactly zero against one enemy, and the active cannot be reached. Data Dragon ships the cleave without a number (\"Attacks deal physical damage to nearby enemies\"), so the wiki supplies who is hit, verbatim: \"Basic attacks on-hit deal (40% AD / 20% AD) physical damage to other enemies in a 350 radius centered around the target.\" Other enemies — the target of the attack is not among them. Riot's Items/3077 MeleeItemCalcValue (0.4 x total AD, against RangedItemCalcValue 0.2) sizes a bolt this single-target model never fires. Crescent does hit the target (PrimaryDamage = ActiveADRatio 0.75 x total AD, Cooldown 10 s) and is still left out.",
+  "An item-active hook. ItemRuntime is offered onBasicAttack, onAbilityCast (champion abilities) and onHitLanded, and no combo step presses an item, so nothing can fire an item active or run its 10 s cooldown. Also no way to express damage to units other than the target."
+ ],
+ "3074": [
+  "Ravenous Hydra",
+  "Same as Tiamat: Cleave hits only enemies other than the attack's target (wiki, quoted verbatim in the module), which is nothing in a single-target model, and Ravenous Crescent (PrimaryDamage = ActiveADRatio 0.8 x total AD, Cooldown 10 s) is an item active. The 12% life steal and 15 ability haste are stat lines the description parser already reads.",
+  "An item-active hook, plus off-target (cleave) damage the model has no notion of."
+ ],
+ "6631": [
+  "Stridebreaker",
+  "Same as the Hydras: Cleave (Items/6631 MeleeItemCalcValue 0.4 x total AD, PassiveRadius 350) hits only enemies other than the target, and Breaking Shockwave (SlashDamage = ADRatio 0.8 x total AD, MSSlow -0.35, Cooldown 15 s) is an item active. applyCrowdControl could record the 35% slow, but only if something could cast the active.",
+  "An item-active hook. Nothing else is missing — the numbers are all in Riot's bin."
+ ],
+ "3302": [
+  "Terminus",
+  "An on-hit item, but already modelled in src/model/items/penetration.ts, where its Juxtaposition Light/Dark stacks live. Entering it here as well would count its Shadow on-hit twice for any build that owns it. The brief made this conditional on the penetration family taking it; it did.",
+  "none — modelled elsewhere"
+ ],
+ "3165": [
+  "Morellonomicon",
+  "no damage effect. Its only passive is Grievous Wounds ('Dealing magic damage to champions applies 40% Wounds for 3 seconds'), which is healing reduction on the target and never produces a damage instance. Its stat line still counts through items.ts.",
+  "none — the passive reduces the target's healing, and this model tracks damage Vi deals plus her own healing, not the target's"
+ ],
+ "3075": [
+  "Thornmail",
+  "out of scope for an attacker-only model: Thorns damages whoever struck Vi ('When struck by an Attack, deal magic damage to the attacker'), so its damage flows from the target to Vi rather than from Vi to the target. Nothing in the family's hooks can express damage the target takes for attacking. The 40% Wounds half is healing reduction and would be out of scope regardless.",
+  "retaliation damage — a hook for damage dealt when the attacker is hit, and a model of the target attacking at all"
+ ],
+ "3089": [
+  "Rabadon's Deathcap",
+  "Magical Opus multiplies total ability power by 30% (Riot bin Items/3089: APAmp=0.30; Data Dragon: 'Increases your total Ability Power by 30%'). Checked as instructed: grepping percentAbilityPower across all of src/ returns nothing, so the stat pipeline does NOT already apply percent AP and there is no double-counting risk. It is skipped anyway because there is no honest way to express it: ItemEffect.stats is a flat Partial<StatBlock> resolved without knowing the rest of the build, so it cannot multiply AP contributed by other items. Implementing it as an amplify fraction instead would be wrong rather than approximate, since a 30% damage multiplier would also raise Vi's physical damage and the flat base portions of her abilities, which the item does not touch.",
+  "A percent-ability-power channel in StatBlock, or a stats hook that can read the resolved build and return a multiplier on a total stat."
+ ],
+ "4628": [
+  "Horizon Focus",
+  "Data Dragon 16.16.1's resolved text for Hypershot and Focus is reveal-only and contains no damage at all: ability damage to champions at 600+ range reveals them for 6 s, and Focus reveals other champions within 1400 range. The bin (Items/4628) does carry DamageAmp=0.1, but no mItemCalculations entry references it and the resolved tooltip does not mention it, so treating it as a live +10% would be inventing a number Riot no longer advertises. Even if it were live, the 600-range gate is unreachable: SimContext exposes no cast distance or range.",
+  "Cast distance / range on the hit, and a live damage-amplification value in Riot's data to key it off."
+ ],
+ "4629": [
+  "Cosmic Drive",
+  "no damage effect. Spelldance grants move speed for 4 s on dealing magic or true damage to champions (Riot bin Items/4629: MovespeedToGrant=40, MaxStacks=3, StackDuration=4, MoveSpeedAmount=20). Movement speed changes no damage number in this simulation.",
+  ""
+ ],
+ "3152": [
+  "Hextech Rocketbelt",
+  "The only damage is on the Supersonic active, worth 100 (+10% AP) magic damage on a 50 s cooldown (Riot bin Items/3152: BaseDamage=100, APRatio=0.1, Cooldown=50; mItemCalculations.FireboltDamage = BaseDamage + AP x APRatio). The numbers are in hand, but the engine cannot fire them: ItemRuntime has no active hook, and src/engine/simulate.ts case 'item' (line 1455) does not execute anything, it calls ctx.warn('Item active ... is only modelled as a passive - step skipped.') and breaks.",
+  "An onActive / item-active hook on ItemRuntime, and a simulate.ts case 'item' branch that actually invokes it instead of warning and skipping."
+ ],
+ "3003": [
+  "Archangel's Staff",
+  "no damage effect. Awe converts bonus mana into ability power (Riot bin Items/3003: APFromMana=0.01) and Manaflow grows max mana by 5 per ability landed, doubled against champions, 5 charges on an 8 s timer (ManaPerCharge=5, ManaChargeMaxAmmo=5, ManaChargeAmmoCD=8). Neither reaches a damage number directly, and the conversion cannot even be declared as a stat: ChampionStats does expose bonusMana, but ItemEffect.stats is a context-free flat Partial<StatBlock> that cannot read it.",
+  "A stats hook that receives the resolved stat block so one stat can be derived from another, plus a way for a runtime to permanently grow a stat mid-combo for Manaflow."
+ ],
+ "3040": [
+  "Seraph's Embrace",
+  "no damage effect. Awe is the same mana-to-AP conversion at a higher rate (Riot bin Items/3040: APFromMana=0.02), and Lifeline is purely defensive: taking damage that would drop Vi below 30% health grants a shield of 18% of maximum mana for 3 s (HealthThreshold=0.3, ShieldDuration=3, LifelineCooldown=90, ShieldValue coefficient 0.18). The simulation never damages Vi, so the trigger can never fire, and the conversion hits the same context-free stats-hook limit as Archangel's.",
+  ""
+ ],
+ "3102": [
+  "Banshee's Veil",
+  "no damage effect. Purely defensive, as the brief anticipated: an Annul spell shield that blocks one incoming enemy ability. It changes nothing about the damage Vi deals, and the simulation models no incoming abilities for it to block.",
+  ""
+ ],
+ "3053": [
+  "Sterak's Gage",
+  "The Claws that Catch is a real damage number — bin ADtoAD 0.5 on mStat 2 with mStatFormula 1, i.e. bonus AD equal to 50% of base AD — but it is a stat, not a proc, and there is nowhere to put it. Lifeline (a decaying shield below 30% health, ShieldDuration 4.5, BaseShieldRatio 0.6 of bonus health) is purely defensive.",
+  "ItemEffect.stats is a static Partial<StatBlock> and cannot read the champion's base attack damage; ItemEffect has no stats(ctx) hook of the kind RuneDefinition.stats provides. Faking it with applyTemporaryStats from the first runtime hook was rejected: no hook fires before the combo's first damage in every ordering, so the opening hit would be computed without the AD, and a permanent stat would show up as a timeline buff rather than on the stat sheet the user reads."
+ ],
+ "2501": [
+  "Overlord's Bloodmail",
+  "Both passives are damage-relevant and neither is expressible. Tyranny is HPToADPercentage 0.025 (2.5% of bonus health as AD) and Retribution is MissingHealthAD 0.12 ramping to +12% AD below MissingHealthThreshold 0.7 of health.",
+  "Same static-stats limitation as Sterak's for Tyranny, plus: the simulation has no notion of the attacker's own current or missing health at all (SimContext exposes targetCurrentHealth, never an attacker health pool), so Retribution has no input to read."
+ ],
+ "6333": [
+  "Death's Dance",
+  "No damage effect. Ignore Pain redirects a share of damage taken into a bleed on Vi herself (bin MeleeItemCalcValue 0.30, BleedDurationWorst 3), and Defy cleanses it and heals BonusADRatio 0.75 of bonus AD on a takedown. Nothing here deals damage to the target.",
+  ""
+ ],
+ "6665": [
+  "Jak'Sho, The Protean",
+  "No damage effect. Voidborn Resilience raises Vi's own bonus armor and magic resist by BonusResistPercentage 0.3 after 5 s of combat. Defensive only, and stretching it into a damage number would be inventing one.",
+  ""
+ ],
+ "3110": [
+  "Frozen Heart",
+  "No damage effect. Winter's Caress is an aura that lowers nearby enemies' attack speed (ASPDSlow -0.2, AuraRadius 700). It changes what the target does to Vi, which this simulation does not model, and never what Vi deals.",
+  ""
+ ],
+ "3083": [
+  "Warmog's Armor",
+  "No damage effect of its own. Warmog's Heart is out-of-combat regeneration (MaxHealthRatio 0.015 per SecondsPerHeal 0.5 after OOCTimerChampion 8), and Warmog's Vitality is HPAmp 0.12 of item health as bonus health. That bonus health would genuinely feed Heartsteel, Hullbreaker and Titanic Hydra, so it is not damage-neutral — but it is another stat-from-stat conversion.",
+  "ItemEffect.stats is static and cannot see the rest of the build; there is no hook that lets one item's stat line be computed from the health granted by the other items."
+ ],
+ "2502": [
+  "Unending Despair",
+  "A bonus-health-scaling damage passive that belongs to this family and was left out on timing grounds: Anguish deals DrainCalc = BonusHealthDrainPercentage 0.03 of bonus health (mStat 12, mStatFormula 2) as magic damage on a Cooldown of 4 s while in champion combat, healing HealMultiplier 2.5 of it.",
+  "No wall-clock tick hook. Every runtime hook is driven by an attack or a cast, and scheduleDamage is one-shot with no safe way to re-arm itself, so a 4 s cadence that runs whether or not Vi is swinging could only be approximated as 'the next hit after the timer' — which is a different timeline, so it is reported rather than silently shipped."
+ ],
+ "223084": [
+  "Heartsteel (Arena)",
+  "Deliberately not aliased onto the Rift entry, and the same applies to 226662 (Arena Iceborn) and 447111 (Arena Overlord's Bloodmail). The Arena copies carry different data values — Arena Heartsteel is BaseDamage 125 with a 0.12 health ratio, Arena Iceborn slows for SlowAmount 0.3 — so a blanket alias of the kind Spear of Shojin uses would quietly report Rift numbers for an Arena build.",
+  ""
+ ]
+}

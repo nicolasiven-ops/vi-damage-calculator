@@ -170,6 +170,7 @@ function harness(
       throw new Error(`unexpected warning: ${message}`);
     },
     applyArmorShred: unused('applyArmorShred'),
+    applyMagicResistShred: unused('applyMagicResistShred'),
     grantShield: unused('grantShield'),
     applyTemporaryStats: unused('applyTemporaryStats'),
     clearTemporaryStats: unused('clearTemporaryStats'),

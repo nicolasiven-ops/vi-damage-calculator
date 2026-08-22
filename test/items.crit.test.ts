@@ -185,6 +185,7 @@ function harness(target: Partial<TargetConfig> = {}) {
     },
     scheduleDamage() {},
     applyArmorShred() {},
+    applyMagicResistShred() {},
     grantShield() {},
     applyTemporaryStats(args) {
       const existing = temporary.find((entry) => identity(entry.label) === identity(args.label));

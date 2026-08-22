@@ -69,6 +69,21 @@ export interface SimContext {
     durationSeconds: number;
     label: string;
   }): void;
+  /**
+   * The same, on the target's magic resistance.
+   *
+   * Kept apart from magic penetration on purpose. Penetration belongs to whoever
+   * is hitting and applies to their damage alone; reduction belongs to the target
+   * and every attacker meets the reduced number. They also resolve in a different
+   * order, so folding one into the other would be right in this simulation and
+   * wrong in a fight with two people in it.
+   */
+  applyMagicResistShred(args: {
+    percent?: number;
+    flat?: number;
+    durationSeconds: number;
+    label: string;
+  }): void;
   grantShield(args: { amount: number; durationSeconds: number; label: string }): void;
   applyTemporaryStats(args: {
     stats: Partial<StatBlock>;
