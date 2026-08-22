@@ -126,6 +126,18 @@ export interface SimContext {
      */
     detail?: string;
   }): void;
+  /**
+   * Cut a fraction off what is left of the basic abilities' cooldowns.
+   *
+   * Not haste: haste decides how long a cooldown is when it is set, this shortens
+   * one that is already running. Navori Flickerblade is the reason it exists —
+   * "attacks reduce basic ability cooldowns by 15% of their remaining
+   * cooldown" — and the distinction matters over a long combo, because haste
+   * compounds with itself and this compounds with the clock.
+   *
+   * Ultimates are untouched, which is what Riot means by "basic abilities".
+   */
+  reduceBasicCooldowns(args: { fraction: number; label: string }): void;
   addEvent(event: Omit<TimelineEvent, 'id' | 'time' | 'seq'>): void;
   warn(message: string): void;
 }

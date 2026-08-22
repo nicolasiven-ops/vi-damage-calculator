@@ -44,6 +44,12 @@ export type ItemMechanic =
   | 'target-defensive'
   /** Has a button. */
   | 'active'
+  /** Needs to shorten a running cooldown, which no hook can reach. */
+  | 'needs-cooldown-hook'
+  /** Needs the attacker's own current or missing health, which is not simulated. */
+  | 'needs-own-health'
+  /** Only puts crowd control on the timeline; changes no number. */
+  | 'crowd-control'
   /** Not yet examined. */
   | 'unclassified';
 
@@ -63,21 +69,87 @@ export type ItemVerdict =
  */
 export const MODELLED_ITEM_IDS: readonly string[] = REGISTERED_ITEM_IDS;
 
-/** Items whose passive text cannot reach a damage number, and why. */
+/**
+ * Items whose passive cannot reach a damage number, and why.
+ *
+ * Every line here has been read against Riot's own text. That is the whole
+ * point of the entry: an item nobody has looked at and an item that has been
+ * looked at and cannot matter are both 'not modelled', and only one of them is
+ * work left to do.
+ *
+ * The recurring reasons are worth naming, because they are properties of *this*
+ * simulation rather than of the items: there is one attacker and one target, so
+ * everything ally-facing is out; the attacker's own health is not simulated, so
+ * lifelines are out; the target is never healed or shielded, so anti-heal and
+ * shield-shred have nothing to act on; and area damage that lands beside the
+ * target is real damage that never reaches it.
+ */
 const NO_DAMAGE: Record<string, string> = {
-  '2003': 'Health potion: healing out of combat.',
-  '2031': 'Refillable potion: healing out of combat.',
-  '2055': 'Control ward: vision.',
-  '3330': 'Effigy: vision.',
-  '3340': 'Stealth ward: vision.',
-  '3363': 'Farsight alteration: vision.',
-  '3364': 'Oracle lens: vision.',
-  '3599': "Kalista's spear: a bond with an ally, not damage.",
-  '3600': "Kalista's spear: a bond with an ally, not damage.",
-  '3865': 'World Atlas: gold income and vision.',
-  '2141': 'Cappa Juice: healing.',
+  '2065': "Shurelya's Battlesong: movement speed for nearby allies.",
+  '2504': "Kaenic Rookern: a magic shield out of combat.",
+  '2524': "Bandlepipes: movement speed after immobilising something.",
+  '2525': "Protoplasm Harness: a lifeline that grants health below 30%.",
+  '3026': "Guardian Angel: revives; nothing about damage dealt.",
+  '3033': "Mortal Reminder: Grievous Wounds, and the target is never healed here.",
+  '3041': "Mejai's Soulstealer: stacks come from takedowns before the fight, and the app asks for no stack count.",
+  '3046': "Phantom Dancer: ghosting, and nothing else.",
+  '3065': "Spirit Visage: raises healing and shielding on the wearer.",
+  '3072': "Bloodthirster: turns excess lifesteal into a shield.",
+  '3074': "Ravenous Hydra: Cleave hits enemies *around* the target; the active needs the active hook.",
+  '3075': "Thornmail: damages whoever attacks *you*, which is nobody in this model.",
+  '3083': "Warmog's Armor: out-of-combat health regeneration.",
+  '3085': "Runaan's Hurricane: bolts fly at other enemies, not the one you hit.",
+  '3102': "Banshee's Veil: a spell shield.",
+  '3107': "Redemption: an ally heal on an area active; its true damage needs the active hook.",
+  '3109': "Knight's Vow: redirects damage from an ally, who does not exist here.",
+  '3110': "Frozen Heart: lowers the attack speed of enemies near you, not your own damage.",
+  '3137': "Cryptbloom: a healing nova when a champion you damaged dies.",
+  '3139': "Mercurial Scimitar: cleanses crowd control and grants movement speed.",
+  '3142': "Youmuu's Ghostblade: out-of-combat movement speed and ghosting.",
+  '3143': "Randuin's Omen: reduces critical damage taken, and slows.",
+  '3156': "Maw of Malmortius: a lifeline shield against magic damage.",
+  '3157': "Zhonya's Hourglass: stasis.",
+  '3165': "Morellonomicon: the same, on magic damage.",
+  '3190': "Locket of the Iron Solari: a shield for nearby allies.",
+  '3222': "Mikael's Blessing: cleanses and heals an ally.",
+  '3504': "Ardent Censer: arms itself by healing an ally, which never happens here.",
+  '3814': "Edge of Night: a spell shield.",
+  '4005': "Imperial Mandate: pays out when an ally hits the marked target.",
+  '4401': "Force of Nature: magic resistance and movement speed after being hit.",
+  '4628': "Horizon Focus: Riot's resolved text for Hypershot and Focus is reveal-only; the damage the bin once carried is not in the live text.",
+  '4629': "Cosmic Drive: movement speed after dealing damage.",
+  '6333': "Death's Dance: defers damage taken; nothing outgoing.",
+  '6609': "Chempunk Chainsword: the same, on physical damage.",
+  '6616': "Staff of Flowing Water: triggered by healing or shielding an ally.",
+  '6617': "Moonstone Renewer: chains an ally heal to another ally.",
+  '6620': "Echoes of Helia: converts damage into ally healing.",
+  '6621': "Dawncore: scales heal and shield power, which no attacker uses.",
+  '6631': "Stridebreaker: Cleave is off-target, and Breaking Shockwave is an active.",
+  '6657': "Rod of Ages: stacks over ten minutes, which no combo spans, and the app asks for no stack count.",
+  '6665': "Jak'Sho, The Protean: grows the wearer's resistances in a long fight.",
+  '6673': "Immortal Shieldbow: a lifeline shield below 30% health.",
+  '6695': "Serpent's Fang: reduces shields the target gains, and the target gains none.",
+  '6696': "Axiom Arc: refunds ultimate cooldown on a takedown, after the combo is over.",
+  '6697': "Hubris: attack damage on a takedown, and the combo ends at the kill.",
+  '6698': "Profane Hydra: Cleave is off-target, and Heretical Cleave is an active.",
 };
 
+/**
+ * Items whose passive *would* reach a damage number, and what is in the way.
+ *
+ * These are the honest to-do list: the numbers are known and read out of Riot's
+ * own files, and the engine cannot yet express them. Each one names the missing
+ * capability, so the next engine feature can be chosen by how many of these it
+ * unblocks rather than by whichever item came to mind.
+ */
+const BLOCKED: Record<string, { mechanic: ItemMechanic; why: string }> = {
+  '2501': { mechanic: 'needs-own-health', why: "Overlord's Bloodmail: Tyranny is modelled; Retribution ramps to +12% attack damage below 70% of the attacker's own health." },
+  '2512': { mechanic: 'crit-modifier', why: "Fiendhunter Bolts: after the ultimate, three attacks crit at 80% of normal crit damage, or add 15% true damage if they would have crit anyway." },
+  '2522': { mechanic: 'active', why: "Actualizer: Mana Made Real is an active that raises ability damage for 8 s." },
+  '3053': { mechanic: 'needs-own-health', why: "Sterak's Gage: the attack damage is modelled; the Lifeline shield needs the attacker's own health." },
+  '3146': { mechanic: 'active', why: "Hextech Gunblade: the damage is on the Lightning Bolt active." },
+  '3152': { mechanic: 'active', why: "Hextech Rocketbelt: 100 (+10% AP) magic damage on the Supersonic active." },
+};
 /**
  * The verdicts.
  *
@@ -91,6 +163,12 @@ export const ITEM_DECISIONS: Record<string, ItemVerdict> = {
   ),
   ...Object.fromEntries(
     Object.entries(NO_DAMAGE).map(([id, why]) => [id, { kind: 'no-damage-effect', why } as ItemVerdict]),
+  ),
+  ...Object.fromEntries(
+    Object.entries(BLOCKED).map(([id, entry]) => [
+      id,
+      { kind: 'todo', mechanic: entry.mechanic, why: entry.why } as ItemVerdict,
+    ]),
   ),
 };
 

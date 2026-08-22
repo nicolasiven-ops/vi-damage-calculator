@@ -632,6 +632,41 @@ export function simulate(
       });
     },
 
+    reduceBasicCooldowns({ fraction, label }) {
+      if (fraction <= 0) return;
+      let shortenedBy = 0;
+      for (const slot of ['Q', 'W', 'E'] as AbilitySlot[]) {
+        const readyAt = cooldowns.get(slot);
+        if (readyAt !== undefined && readyAt > time) {
+          const cut = (readyAt - time) * fraction;
+          cooldowns.set(slot, readyAt - cut);
+          shortenedBy = Math.max(shortenedBy, cut);
+        }
+
+        /*
+         * A charge ability's wait is its recharge, not the static gap between
+         * casts — so cutting only the cooldown map would do nothing at all for
+         * Vi's E, which is exactly the ability a player buys this for.
+         */
+        const spec = chargeSpec(slot);
+        if (!spec) continue;
+        const state = chargeState(slot, spec);
+        if (state.available >= spec.max) continue;
+        if (state.nextChargeAt === Number.POSITIVE_INFINITY || state.nextChargeAt <= time) continue;
+        const chargeCut = (state.nextChargeAt - time) * fraction;
+        state.nextChargeAt -= chargeCut;
+        shortenedBy = Math.max(shortenedBy, chargeCut);
+      }
+      // Silence when nothing was running: an event for every attack that
+      // shortened nothing would bury the ones that did.
+      if (shortenedBy <= 0.0005) return;
+      addEvent({
+        kind: 'info',
+        label,
+        detail: `−${(fraction * 100).toFixed(0)}% of the remaining basic cooldowns`,
+      });
+    },
+
     addEvent(event) {
       addEvent(event);
     },

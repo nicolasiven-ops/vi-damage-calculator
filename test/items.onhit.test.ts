@@ -185,6 +185,7 @@ function harness(effect: ItemEffect, options: HarnessOptions = {}): Harness {
     },
     applyArmorShred: unsupported('applyArmorShred'),
     applyMagicResistShred: unsupported('applyMagicResistShred'),
+    reduceBasicCooldowns: unsupported('reduceBasicCooldowns'),
     grantShield: unsupported('grantShield'),
     clearTemporaryStats: unsupported('clearTemporaryStats'),
     applyTargetAmplification: unsupported('applyTargetAmplification'),

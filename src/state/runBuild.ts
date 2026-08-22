@@ -19,6 +19,7 @@ import { simulate } from '../engine/simulate';
 import type { AbilitySlot, ComboStep, CritMode, TargetConfig, TimingConfig } from '../engine/types';
 import type { ChampionModule, ChampionModuleContext } from '../model/champions/types';
 import type { ResolvedItem } from '../model/items';
+import { itemDerivedStats } from '../model/itemEffects';
 import { runeStats } from '../model/runes';
 import {
   resolveChampionStats,
@@ -72,7 +73,23 @@ export function resolveBonusStats(
     baseline,
   });
 
-  return sumStats([...fromItems, ...fromRunes, inputs.manualStats]);
+  /*
+   * Items whose stat line is a function of the build — Sterak's half of base
+   * attack damage, Manamune's per-mana attack damage, Rabadon's multiplier on
+   * ability power. They read the same baseline the runes do, for the same
+   * reason: they cannot be resolved until the rest of the build is.
+   */
+  const withRunes = resolveChampionStats(
+    inputs.baseStats,
+    inputs.level,
+    sumStats([...fromItems, ...fromRunes, inputs.manualStats]),
+  );
+  const derived = itemDerivedStats(inputs.itemIds, {
+    level: inputs.level,
+    baseline: withRunes,
+  });
+
+  return sumStats([...fromItems, ...fromRunes, ...derived, inputs.manualStats]);
 }
 
 /** The build, simulated and analysed. */

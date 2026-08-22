@@ -68,6 +68,16 @@ export const RIDER_CONSTANTS = {
     maxAmp: 0.1,
     maxRange: 500,
   },
+  /*
+   * Dusk and Dawn (2510) is a spellblade and lives in items/ability.ts, next to
+   * the other ability-proc items and the shared spellblade runtime. It was
+   * written here too before that was noticed — hence this note, so the third
+   * person to look for it stops here.
+   */
+  /** Navori Flickerblade — Transcendence. Items/6675. */
+  navori: { id: '6675', remainingCooldownCut: 0.15 },
+  /** Rylai's Crystal Scepter — Rimefrost. Items/3116. */
+  rylais: { id: '3116', slowPercent: 0.3, slowSeconds: 1 },
   /** Bloodletter's Curse — Vile Decay. Items/8010. */
   bloodletter: {
     id: '8010',
@@ -250,7 +260,69 @@ const BLOODLETTERS_CURSE: ItemEffect = {
   },
 };
 
+/**
+ * Navori Flickerblade — Transcendence.
+ *
+ * Every attack takes 15 % off what is *left* of the basic-ability cooldowns. It
+ * is the reason `reduceBasicCooldowns` exists: haste sets how long a cooldown is,
+ * this shortens one already running, and only the second one can bring an ability
+ * back inside a combo that has already started.
+ *
+ * Worth naming what this does *not* do: nothing here re-orders the combo. A
+ * cooldown that comes back sooner only helps if the list of presses asks for that
+ * ability again — the value shows up as a step that no longer waits, not as an
+ * extra press the player did not plan.
+ */
+const NAVORI_FLICKERBLADE: ItemEffect = {
+  id: RIDER_CONSTANTS.navori.id,
+  name: 'Navori Flickerblade',
+  modelled: true,
+  note: 'Transcendence: every attack cuts 15% off the remaining cooldown of Q, W and E. The ultimate is untouched.',
+  createRuntime(): ItemRuntime {
+    return {
+      onBasicAttack(ctx) {
+        ctx.reduceBasicCooldowns({
+          fraction: RIDER_CONSTANTS.navori.remainingCooldownCut,
+          label: 'Navori Flickerblade · Transcendence',
+        });
+        // It adds no damage of its own; the attack is unchanged.
+        return null;
+      },
+    };
+  },
+};
+
+/**
+ * Rylai's Crystal Scepter — Rimefrost.
+ *
+ * A slow, which changes no number in a simulation where the target never moves.
+ * It is modelled anyway, because the timeline is meant to be readable as a fight:
+ * a combo that keeps the target slowed for its whole length is a different combo
+ * from one that does not, and the lane says so.
+ */
+const RYLAIS_CRYSTAL_SCEPTER: ItemEffect = {
+  id: RIDER_CONSTANTS.rylais.id,
+  name: "Rylai's Crystal Scepter",
+  modelled: true,
+  note: "Rimefrost: ability damage slows by 30% for 1s. It changes no damage number — the target does not move here — and is recorded so the timeline reads as a fight.",
+  createRuntime(): ItemRuntime {
+    return {
+      onHitLanded(ctx, hit) {
+        if (!hit.isAbilityDamage || hit.mitigated <= 0) return;
+        const { slowPercent, slowSeconds } = RIDER_CONSTANTS.rylais;
+        ctx.applyCrowdControl({
+          label: "Rylai's · Rimefrost",
+          durationSeconds: slowSeconds,
+          detail: `${(slowPercent * 100).toFixed(0)}% slow`,
+        });
+      },
+    };
+  },
+};
+
 export const RIDER_ITEMS: ItemEffect[] = [
+  NAVORI_FLICKERBLADE,
+  RYLAIS_CRYSTAL_SCEPTER,
   UMBRAL_GLAIVE,
   BASTIONBREAKER,
   DEAD_MANS_PLATE,

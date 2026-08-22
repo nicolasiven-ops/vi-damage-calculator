@@ -228,3 +228,54 @@ describe("Bloodletter's Curse - Vile Decay (8010)", () => {
     expect(shredCalls([{ type: 'magic', ability: false, at: 0 }])).toHaveLength(0);
   });
 });
+
+describe('Navori Flickerblade - Transcendence (6675)', () => {
+  it('brings a second E back sooner by cutting its recharge', () => {
+    // Items/6675 CDRAmount 0.15 on the *remaining* timer, per attack. E holds
+    // two charges, so what it waits on is the recharge — which is the point:
+    // cutting only a cooldown map would do nothing for the ability a player
+    // actually buys this item for.
+    const combo = [
+      ability('E'),
+      ability('E'),
+      attack(),
+      attack(),
+      attack(),
+      attack(),
+      ability('E'),
+    ];
+    const plain = run(combo.map((entry) => ({ ...entry })), []);
+    const withItem = run(combo.map((entry) => ({ ...entry })), ['6675']);
+
+    const lastE = (result: typeof plain.result) =>
+      result.instances.filter((entry) => entry.slot === 'E').at(-1)!.time;
+
+    expect(lastE(withItem.result)).toBeLessThan(lastE(plain.result));
+  });
+
+  it('adds no damage of its own', () => {
+    const { result } = run([attack(), attack()], ['6675']);
+    expect(result.instances.every((entry) => !entry.sourceLabel.includes('Navori'))).toBe(true);
+  });
+});
+
+describe("Rylai's Crystal Scepter - Rimefrost (3116)", () => {
+  it('slows on ability damage and nothing else', () => {
+    // Items/3116 SlowAmount 0.3, SlowDuration 1.
+    const withAbility = run([ability('Q')], ['3116']);
+    const withAttack = run([attack()], ['3116']);
+
+    const slows = (result: typeof withAbility.result) =>
+      result.spans.filter((span) => span.lane === 'cc' && span.label.includes('Rimefrost'));
+
+    expect(slows(withAbility.result)).toHaveLength(1);
+    expect(slows(withAbility.result)[0]!.detail).toContain('30%');
+    expect(slows(withAttack.result)).toHaveLength(0);
+  });
+
+  it('changes no damage number', () => {
+    const plain = run([ability('Q')], []);
+    const withItem = run([ability('Q')], ['3116']);
+    expect(withItem.result.totalMitigated).toBeCloseTo(plain.result.totalMitigated, 6);
+  });
+});

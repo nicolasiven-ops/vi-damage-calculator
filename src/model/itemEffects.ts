@@ -14,13 +14,14 @@
 
 import type { SimContext } from '../engine/context';
 import type { AbilitySlot, DamageType } from '../engine/types';
-import type { StatBlock } from './stats';
+import type { ChampionStats, StatBlock } from './stats';
 import { ABILITY_ITEMS } from './items/ability';
 import { BRUISER_ITEMS } from './items/bruiser';
 import { BURN_ITEMS } from './items/burn';
 import { CRIT_ITEMS } from './items/crit';
 import { ONHIT_ITEMS } from './items/onhit';
 import { PENETRATION_ITEMS } from './items/penetration';
+import { DERIVED_ITEMS } from './items/derived';
 import { RIDER_ITEMS } from './items/riders';
 import type { HitInfo } from './runes';
 
@@ -84,7 +85,33 @@ export interface ItemEffect {
    * would raise the wrong half of a combo.
    */
   amplify?(ctx: SimContext, hit: AmplifiableHit): number;
+  /**
+   * Stats that depend on the build the item is in.
+   *
+   * Riot ships a whole class of items whose stat line is a *function*: Sterak's
+   * Gage grants attack damage equal to half your base attack damage, Manamune
+   * grants it per point of mana, Rabadon's multiplies the ability power you
+   * already have. None of them fit `stats`, which is a fixed block, and none of
+   * them are procs — so before this hook existed they were unmodellable in the
+   * most frustrating way: the number was known and there was nowhere to put it.
+   *
+   * It mirrors what runes already do (see `runeStats`): the build is resolved
+   * once without these, and the result is handed back as `baseline` so an item
+   * can read what it needs.
+   *
+   * One limit, stated rather than hidden: a single pass means second-order
+   * effects do not compound. Rabadon's reads the ability power the build has
+   * *before* Archangel's converts its mana, which is the conservative direction
+   * and the one Riot's own tooltips describe.
+   */
+  derivedStats?(ctx: ItemStatContext): Partial<StatBlock>;
   createRuntime?(): ItemRuntime;
+}
+
+export interface ItemStatContext {
+  level: number;
+  /** The champion as it stands with items, runes and levels already resolved. */
+  baseline: ChampionStats;
 }
 
 /* ------------------------------------------------------------------ spellblade */
@@ -422,6 +449,7 @@ const ALL: ItemEffect[] = [
   ...ABILITY_ITEMS,
   ...BRUISER_ITEMS,
   ...RIDER_ITEMS,
+  ...DERIVED_ITEMS,
 ];
 
 const BY_ID = new Map<string, ItemEffect>(ALL.map((effect) => [effect.id, effect]));
@@ -451,6 +479,19 @@ export function itemRuntimes(ids: string[]): { id: string; runtime: ItemRuntime 
       Boolean(entry.effect?.createRuntime),
     )
     .map((entry) => ({ id: entry.id, runtime: entry.effect.createRuntime!() }));
+}
+
+/**
+ * The stat blocks items derive from the build they are in.
+ *
+ * Returned as separate blocks rather than summed, so the caller decides how they
+ * combine — the same shape `runeStats` returns, for the same reason.
+ */
+export function itemDerivedStats(ids: string[], ctx: ItemStatContext): Partial<StatBlock>[] {
+  return ids
+    .map((id) => BY_ID.get(id))
+    .filter((effect): effect is ItemEffect => Boolean(effect?.derivedStats))
+    .map((effect) => effect.derivedStats!(ctx));
 }
 
 export function itemAmplifiers(ids: string[]): ItemEffect[] {

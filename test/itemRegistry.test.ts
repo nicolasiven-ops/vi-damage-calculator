@@ -28,11 +28,16 @@ describe('the item registry', () => {
       const effect = getItemEffect(id)!;
       expect(effect.name.length, id).toBeGreaterThan(0);
       expect(effect.note.length, id).toBeGreaterThan(0);
-      // An entry with neither an amplifier, a runtime nor granted stats does
-      // nothing at all, and an entry that does nothing is worse than no entry:
-      // it reports the item as modelled.
+      /*
+       * An entry that neither amplifies, runs, grants stats nor derives them
+       * does nothing at all — and an entry that does nothing is worse than no
+       * entry, because it reports the item as modelled.
+       */
       expect(
-        Boolean(effect.amplify) || Boolean(effect.createRuntime) || Boolean(effect.stats),
+        Boolean(effect.amplify) ||
+          Boolean(effect.createRuntime) ||
+          Boolean(effect.stats) ||
+          Boolean(effect.derivedStats),
         `${effect.name} (${id}) is registered but has no effect`,
       ).toBe(true);
     }

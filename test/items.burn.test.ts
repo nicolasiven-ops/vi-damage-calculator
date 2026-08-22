@@ -171,6 +171,7 @@ function harness(
     },
     applyArmorShred: unused('applyArmorShred'),
     applyMagicResistShred: unused('applyMagicResistShred'),
+    reduceBasicCooldowns: unused('reduceBasicCooldowns'),
     grantShield: unused('grantShield'),
     applyTemporaryStats: unused('applyTemporaryStats'),
     clearTemporaryStats: unused('clearTemporaryStats'),
