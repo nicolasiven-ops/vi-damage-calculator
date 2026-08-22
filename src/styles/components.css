@@ -3711,3 +3711,44 @@ code {
   font-size: 10.5px;
   color: var(--text-muted);
 }
+
+/*
+ * Who is fighting, above what happened.
+ *
+ * Both sides on one line with the numbers they bring, because the first question
+ * anyone asks of a duel result is "against what".
+ */
+.duel-sides {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--line-soft);
+  flex-wrap: wrap;
+}
+
+.duel-side {
+  display: grid;
+  gap: 1px;
+  font-size: 12px;
+}
+
+.duel-side .mono {
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+
+.duel-side.vi strong {
+  color: var(--gold-100);
+}
+
+.duel-side.enemy strong {
+  color: var(--status-bad);
+}
+
+.duel-versus {
+  font-family: var(--font-display);
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+}

@@ -22,6 +22,13 @@ interface Props {
   enemyName: string;
   /** Empty when the enemy's abilities are modelled — that is, when they are Vi. */
   enemyGap: string | null;
+  /** Who is fighting, in the numbers each side brings. */
+  sides?: {
+    vi: { level: number; health: number; items: number; presses: number };
+    enemy: { level: number; health: number; items: number; presses: number; kit: string };
+  };
+  /** Why there is no fight, when there is none. */
+  blocked?: string | null;
 }
 
 const WIDTH = 720;
@@ -59,9 +66,22 @@ function line(
   return parts.join(' ');
 }
 
-export function DuelPanel({ outcome, viName, enemyName, enemyGap }: Props) {
+export function DuelPanel({ outcome, viName, enemyName, enemyGap, sides, blocked }: Props) {
   if (!outcome) {
-    return <p className="duel-empty">Nothing to fight with yet.</p>;
+    /*
+     * Name the switch. "Nothing to fight with yet" was true and useless: the
+     * opponent in a duel is the target in the right sidebar, and if that target is
+     * a set of typed numbers then there is nobody home — which is a thing to say
+     * plainly rather than leave the reader looking for a start button.
+     */
+    return (
+      <div className="duel">
+        <p className="duel-empty">
+          {blocked ??
+            'No fight yet. The opponent in a duel is the target in the right sidebar — pick a champion there and it fights back.'}
+        </p>
+      </div>
+    );
   }
 
   const span = Math.max(outcome.endTime, 0.5);
@@ -79,6 +99,34 @@ export function DuelPanel({ outcome, viName, enemyName, enemyGap }: Props) {
 
   return (
     <div className="duel">
+      {/*
+        * Who is fighting, before what happened.
+        *
+        * The opponent is not a setting hidden in this panel — it is the target
+        * sidebar, at its level, with its items and its ranks. Saying so here is
+        * what turns two coloured lines into a fight between two champions.
+        */}
+      {sides && (
+        <div className="duel-sides">
+          <span className="duel-side vi">
+            <strong>{viName}</strong>
+            <span className="mono">
+              level {sides.vi.level} · {Math.round(sides.vi.health).toLocaleString('en-US')} HP ·{' '}
+              {sides.vi.items} items · {sides.vi.presses} presses
+            </span>
+          </span>
+          <span className="duel-versus">vs</span>
+          <span className="duel-side enemy">
+            <strong>{enemyName}</strong>
+            <span className="mono">
+              level {sides.enemy.level} ·{' '}
+              {Math.round(sides.enemy.health).toLocaleString('en-US')} HP ·{' '}
+              {sides.enemy.items} items · {sides.enemy.kit}
+            </span>
+          </span>
+        </div>
+      )}
+
       <div className="duel-verdict">
         {winnerName ? (
           <>

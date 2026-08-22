@@ -54,6 +54,13 @@ interface Props {
   duel?: DuelOutcome | null;
   /** What the enemy's champion does not contribute, when nobody has modelled it. */
   duelEnemyGap?: string | null;
+  /** Who is fighting, in the numbers each side brings. */
+  duelSides?: {
+    vi: { level: number; health: number; items: number; presses: number };
+    enemy: { level: number; health: number; items: number; presses: number; kit: string };
+  };
+  /** Why there is no duel, when there is none. */
+  duelBlocked?: string | null;
   target: TargetConfig;
   /** The attacker, for the bars that face the target. */
   attackerName: string;
@@ -238,6 +245,8 @@ export function AnalysisPanel({
   analysis,
   duel,
   duelEnemyGap,
+  duelSides,
+  duelBlocked,
   target,
   attackerName,
   module,
@@ -558,6 +567,8 @@ export function AnalysisPanel({
             viName={attackerName}
             enemyName={target.name}
             enemyGap={duelEnemyGap ?? null}
+            sides={duelSides}
+            blocked={duelBlocked ?? null}
           />
         )}
 

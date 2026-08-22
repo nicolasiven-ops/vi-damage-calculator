@@ -16,7 +16,15 @@ import {
 import { prepareRun, resolveBonusStats, runBuild } from './state/runBuild';
 import { attackPlan, rotationPlan, runDuel, type DuelCombatant } from './state/runDuel';
 import { JUNGLER_MODULES } from './model/champions/junglers';
-import { DEFAULT_ORDER } from './model/skills';
+
+/**
+ * What a target's abilities cap at.
+ *
+ * Every champion in the game is five-five-five-three except a handful, and the
+ * handful are not junglers. Vi's own caps come from her module; a target has no
+ * module unless somebody declared it, so the ordinary shape is the default.
+ */
+const ENEMY_RANK_CAPS = { Q: 5, W: 5, E: 5, R: 3 } as const;
 import { genericModule } from './model/champions/generic';
 import { clearSkill, resolveSkills, skillDown, skillUp } from './model/skills';
 import { itemValues, type ItemValueRow } from './model/itemValue';
@@ -400,17 +408,17 @@ export default function App() {
   }, [build.targetChampionId]);
 
   /**
-   * The enemy's ability ranks.
+   * The enemy's ability ranks, from their own order at their own level.
    *
-   * Nothing in the interface sets them yet, so they come from the same typical
-   * order Vi's own default uses, resolved at the target's level — a Q-max build,
-   * which is what most of these champions do.
+   * Set in the target sidebar, the same way Vi's are set in hers. It matters more
+   * than it looks: the duel casts these, and an enemy with a maxed Q is a
+   * different fight from one who spread the points.
    */
-  const enemyRanks = useMemo(
-    () =>
-      resolveSkills(DEFAULT_ORDER, build.target.level, { Q: 5, W: 5, E: 5, R: 3 }).ranks,
-    [build.target.level],
+  const enemySkills = useMemo(
+    () => resolveSkills(build.targetSkillOrder, build.target.level, ENEMY_RANK_CAPS),
+    [build.targetSkillOrder, build.target.level],
   );
+  const enemyRanks = enemySkills.ranks;
 
   const enemyPlan = useMemo(() => {
     const slots = (enemyModule?.abilities ?? [])
@@ -493,6 +501,44 @@ export default function App() {
     enemyData,
     enemyPlan,
   ]);
+
+  /**
+   * Who is fighting, for the line above the chart.
+   *
+   * The opponent is the target sidebar — that is the whole answer to "how do I
+   * start a 1v1", and it was nowhere on screen.
+   */
+  const duelSides = useMemo(() => {
+    if (!stats || !targetStats) return undefined;
+    return {
+      vi: {
+        level: build.level,
+        health: stats.maxHealth * build.attackerHealthPercent,
+        items: activeItemIds(build).length,
+        presses: build.combo.length,
+      },
+      enemy: {
+        level: build.target.level,
+        health: targetStats.maxHealth * build.target.currentHealthPercent,
+        items: activeItemIds(build.targetLoadout).length,
+        presses: enemyPlan.length,
+        kit: enemyModule
+          ? `${enemyModule.abilities.filter((ability) => ability.castable).length} abilities modelled`
+          : 'attacks only',
+      },
+    };
+  }, [stats, targetStats, build, enemyModule, enemyPlan]);
+
+  /** Why there is no duel at all, when there is none. */
+  const duelBlocked = useMemo(() => {
+    if (build.targetMode !== 'champion') {
+      return 'The target is typed numbers rather than a champion, so there is nobody to fight back. Switch the target to a champion and the duel starts by itself.';
+    }
+    if (!bundle?.champions[build.targetChampionId]) {
+      return 'Waiting for the patch data for this target.';
+    }
+    return null;
+  }, [build.targetMode, build.targetChampionId, bundle]);
 
   /** What the enemy's champion cannot contribute, when nobody has modelled it. */
   const duelEnemyGap = useMemo(() => {
@@ -1283,6 +1329,8 @@ export default function App() {
             analysis={analysis}
             duel={duelOutcome}
             duelEnemyGap={duelEnemyGap}
+            duelSides={duelSides}
+            duelBlocked={duelBlocked}
             target={effectiveTarget}
             moment={moment}
             playState={playing ? 'running' : playhead !== null ? 'paused' : 'idle'}
@@ -1370,6 +1418,28 @@ export default function App() {
             <TargetPanel
               state={build}
               stats={targetStats}
+              ranks={enemyRanks}
+              points={{
+                spent: enemySkills.spent,
+                available: enemySkills.available,
+                held: enemySkills.held,
+              }}
+              onSkillUp={(slot) =>
+                patchBuild({
+                  targetSkillOrder: skillUp(
+                    build.targetSkillOrder,
+                    build.target.level,
+                    slot,
+                    ENEMY_RANK_CAPS,
+                  ),
+                })
+              }
+              onSkillDown={(slot) =>
+                patchBuild({ targetSkillOrder: skillDown(build.targetSkillOrder, slot) })
+              }
+              onSkillClear={(slot) =>
+                patchBuild({ targetSkillOrder: clearSkill(build.targetSkillOrder, slot) })
+              }
               live={{
                 currentHealth: moment.target.currentHealth,
                 armor: moment.target.currentArmor,

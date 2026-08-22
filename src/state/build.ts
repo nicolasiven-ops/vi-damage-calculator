@@ -94,6 +94,14 @@ export interface TargetState {
   /** Which preset custom mode last loaded, empty when typed by hand. */
   customPresetId: string;
   /**
+   * The order the target's own skill points went in.
+   *
+   * Their own, not Vi's: they are a different champion at a different level, and
+   * the duel casts what this says they have. Same shape and same rules as
+   * `skillOrder` — see `model/skills.ts`.
+   */
+  targetSkillOrder: AbilitySlot[];
+  /**
    * The target own items and runes.
    *
    * Only their stat contributions apply: a target does not proc anything in
@@ -187,6 +195,8 @@ export function defaultBuild(): BuildState {
     targetChampionId: 'Ahri',
     customTarget: { ...DEFAULT_TARGET },
     customPresetId: '',
+    /* A typical order at the target's own level, which is level 11 by default. */
+    targetSkillOrder: DEFAULT_ORDER.slice(0, 11),
     targetLoadout: emptyLoadout(),
     // The classic Vi engage: charged Q in, ult, then E-weave for the W proc.
     attackerHealthPercent: 1,
@@ -263,6 +273,9 @@ function mergeBuild(base: BuildState, stored: Partial<BuildState>): BuildState {
      * as long as the level pays for them.
      */
     skillOrder: storedOrder(stored),
+    targetSkillOrder: Array.isArray(stored.targetSkillOrder)
+      ? stored.targetSkillOrder.filter((slot): slot is AbilitySlot => SKILLABLE.includes(slot))
+      : base.targetSkillOrder,
     itemIds: normaliseSlots(stored.itemIds, 6, ''),
     primaryRuneIds: normaliseSlots(stored.primaryRuneIds, 3, null),
     secondaryRuneIds: normaliseSlots(stored.secondaryRuneIds, 2, null),

@@ -30,6 +30,7 @@ import type { TargetMode, TargetState } from '../state/build';
 import type { ChampionStats } from '../model/stats';
 import { StatSheet, unknownStats, type LiveStats, type StatComparison } from './StatSheet';
 import { AbilityStrip } from './AbilityStrip';
+import type { AbilitySlot } from '../engine/types';
 import { Panel } from './components/Panel';
 import { SelectMenu, type SelectOption } from './components/SelectMenu';
 
@@ -46,6 +47,13 @@ interface Props {
   live?: LiveStats;
   previous?: StatComparison | null;
   champions: Record<string, DDragonChampionSummary>;
+  /** The ranks the duel actually casts at, read from the target's own order. */
+  ranks: Record<AbilitySlot, number>;
+  /** Their point budget, and what the level does not pay for. */
+  points: { spent: number; available: number; held: { slot: AbilitySlot; rank: number }[] };
+  onSkillUp: (slot: AbilitySlot) => void;
+  onSkillDown: (slot: AbilitySlot) => void;
+  onSkillClear: (slot: AbilitySlot) => void;
   /** Full detail for the selected champion, once it has loaded. */
   profile: DDragonChampionDetail | null;
   version: string;
@@ -102,6 +110,11 @@ export function TargetPanel({
   champions,
   profile,
   version,
+  ranks,
+  points,
+  onSkillUp,
+  onSkillDown,
+  onSkillClear,
   onChange,
 }: Props) {
   const { target, targetMode: mode, targetChampionId, customPresetId } = state;
@@ -253,10 +266,22 @@ export function TargetPanel({
       {mode === 'champion' ? (
         <>
           {/*
-           * The same strip the attacker has, read-only: it says who you are
-           * fighting, and nothing it does is simulated, so there is nothing to
-           * set. Identical shape means identical height on both sides.
+           * The same strip the attacker has, and now with the same gesture: the
+           * duel casts these abilities, so the ranks it uses have to be the ranks
+           * shown here — and settable, because a level 11 enemy with a maxed Q is
+           * a different fight from one who put the points elsewhere.
            */}
+          <div className="target-skills">
+            <span className="field-label">
+              Abilities
+              <span className="skill-points mono">
+                {points.spent}/{points.available} pts
+                {points.held.length > 0 && (
+                  <span className="skill-held"> · {points.held.length} held back</span>
+                )}
+              </span>
+            </span>
+          </div>
           <AbilityStrip
             tiles={ABILITY_SLOTS.map((slot) => {
               const ability = abilityOf(profile, slot, version);
@@ -265,9 +290,14 @@ export function TargetPanel({
                 name: ability?.name ?? '—',
                 icon: ability?.icon ?? null,
                 maxRank: slot === 'P' ? 1 : slot === 'R' ? 3 : 5,
-                rank: 0,
+                rank: ranks[slot] ?? 0,
+                held: points.held.filter((entry) => entry.slot === slot).length,
               };
             })}
+            points={{ spent: points.spent, available: points.available }}
+            onSkillUp={onSkillUp}
+            onSkillDown={onSkillDown}
+            onSkillClear={onSkillClear}
           />
 
           <hr className="divider" />
