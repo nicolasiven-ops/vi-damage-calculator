@@ -393,11 +393,11 @@ function SortableStep({
       {pinned && step.action.kind === 'ability' && step.chargeSeconds !== undefined && (
         <FloatingControl anchor={card}>
           {/*
-            * Name, rail, result — in that order and on one line, because the
-            * number is what the rail is for. Stacked, as it was, the two were a
-            * caption and a control that happened to be near each other.
+            * Rail and result, on one line and exactly the card's width. The word
+            * "Charge" is gone: the card above it says which ability this is, the
+            * seconds say what the rail does, and a label between them was the only
+            * thing making the row too wide for the card.
             */}
-          <span className="combo-charge-name">Charge</span>
           <input
             type="range"
             min={0}
@@ -412,7 +412,6 @@ function SortableStep({
 
       {pinned && step.action.kind === 'wait' && (
         <FloatingControl anchor={card}>
-          <span className="combo-charge-name">Duration</span>
           <input
             type="range"
             min={0.1}
@@ -480,9 +479,8 @@ function FloatingControl({
       setSpot({
         left: box.left + box.width / 2,
         top: below ? box.bottom + 6 : box.top - 6,
-        // Wide enough that the name, the rail and the number fit on one line —
-        // the card alone is not, and a wrapped control is what this replaced.
-        width: Math.max(box.width, 210),
+        // Exactly the card's width, so the two line up edge to edge.
+        width: box.width,
         below,
       });
     }

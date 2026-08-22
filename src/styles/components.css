@@ -3363,14 +3363,7 @@ code {
   color: var(--status-bad);
 }
 
-/* Name, rail and result on one line: the rail grows, the two labels do not. */
-.combo-charge-name {
-  flex: 0 0 auto;
-  font-size: 10.5px;
-  color: var(--text-muted);
-  letter-spacing: 0.04em;
-}
-
+/* Rail and result on one line: the rail takes what the number does not need. */
 .combo-charge input[type='range'] {
   flex: 1 1 auto;
   min-width: 60px;
