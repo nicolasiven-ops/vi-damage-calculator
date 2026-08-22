@@ -16,7 +16,9 @@
  * *bonus* health), and getting it backwards would be a plausible-looking lie.
  */
 
-import type { ItemEffect, ItemStatContext } from '../itemEffects';
+import type { ItemEffect, ItemRuntime, ItemStatContext } from '../itemEffects';
+import type { AmplifiableHit } from '../itemEffects';
+import type { SimContext } from '../../engine/context';
 import type { StatBlock } from '../stats';
 
 export const DERIVED_CONSTANTS = {
@@ -36,6 +38,22 @@ export const DERIVED_CONSTANTS = {
   rabadons: { id: '3089', abilityPowerAmp: 0.3 },
   /** Overlord's Bloodmail — Tyranny. Items/2501 HPToADPercentage, formula 2. */
   overlords: { id: '2501', bonusHealthToAd: 0.025 },
+  /** Sterak's Lifeline: a shield below 30% health. Items/3053. */
+  steraksLifeline: {
+    /** LowHealthThreshold. */
+    threshold: 0.3,
+    /** BaseShieldRatio, on bonus health. */
+    shieldRatioOfBonusHealth: 0.6,
+    /** ShieldDuration. */
+    shieldSeconds: 4.5,
+  },
+  /** Overlord's Retribution: attack damage from missing health. Items/2501. */
+  overlordsRetribution: {
+    /** MissingHealthAD. */
+    maxAmplification: 0.12,
+    /** MissingHealthThreshold. */
+    threshold: 0.7,
+  },
   /**
    * One point of Adaptive Force in attack damage.
    *
@@ -56,14 +74,47 @@ function derived(
 }
 
 export const DERIVED_ITEMS: ItemEffect[] = [
-  derived(
-    DERIVED_CONSTANTS.steraks.id,
-    "Sterak's Gage",
-    'The Claws that Catch: bonus attack damage equal to 50% of base attack damage. Lifeline is a shield below 30% health, which needs the attacker\'s own health.',
-    ({ baseline }) => ({
-      attackDamage: baseline.baseAttackDamage * DERIVED_CONSTANTS.steraks.baseAdRatio,
-    }),
-  ),
+  {
+    ...derived(
+      DERIVED_CONSTANTS.steraks.id,
+      "Sterak's Gage",
+      "The Claws that Catch: bonus attack damage equal to 50% of base attack damage. Lifeline: a shield worth 60% of bonus health for 4.5s below 30% health — and since the attacker's health is an input that never falls, it fires at the start of a combo or not at all.",
+      ({ baseline }) => ({
+        attackDamage: baseline.baseAttackDamage * DERIVED_CONSTANTS.steraks.baseAdRatio,
+      }),
+    ),
+    /*
+     * The shield is not damage, and it is modelled for the same reason the crowd
+     * control is: the timeline is meant to read as a fight, and "you went in at
+     * 25 % and Sterak's caught you" is part of the fight.
+     */
+    createRuntime(): ItemRuntime {
+      let fired = false;
+      const arm = (ctx: SimContext): void => {
+        const { threshold, shieldRatioOfBonusHealth, shieldSeconds } =
+          DERIVED_CONSTANTS.steraksLifeline;
+        if (fired || ctx.attackerMaxHealth <= 0) return;
+        if (ctx.attackerCurrentHealth / ctx.attackerMaxHealth >= threshold) return;
+
+        fired = true;
+        ctx.grantShield({
+          amount: Math.max(0, ctx.stats.bonusHealth) * shieldRatioOfBonusHealth,
+          durationSeconds: shieldSeconds,
+          label: "Sterak's Gage · Lifeline",
+        });
+      };
+
+      return {
+        onAbilityCast(ctx) {
+          arm(ctx);
+        },
+        onBasicAttack(ctx) {
+          arm(ctx);
+          return null;
+        },
+      };
+    },
+  },
 
   derived(
     DERIVED_CONSTANTS.manamune.id,
@@ -124,12 +175,28 @@ export const DERIVED_ITEMS: ItemEffect[] = [
     }),
   ),
 
-  derived(
-    DERIVED_CONSTANTS.overlords.id,
-    "Overlord's Bloodmail",
-    'Tyranny: bonus attack damage equal to 2.5% of bonus health. Retribution ramps to +12% attack damage below 70% health, which needs the attacker\'s own current health.',
-    ({ baseline }) => ({
-      attackDamage: baseline.bonusHealth * DERIVED_CONSTANTS.overlords.bonusHealthToAd,
-    }),
-  ),
+  {
+    ...derived(
+      DERIVED_CONSTANTS.overlords.id,
+      "Overlord's Bloodmail",
+      "Tyranny: bonus attack damage equal to 2.5% of bonus health. Retribution ramps linearly to +12% physical damage as health falls from 70% to zero — the two endpoints are Riot's, the straight line between them is stated.",
+      ({ baseline }) => ({
+        attackDamage: baseline.bonusHealth * DERIVED_CONSTANTS.overlords.bonusHealthToAd,
+      }),
+    ),
+    /*
+     * Riot publishes the endpoints (nothing at 70 % health, +12 % at empty) and
+     * not the curve between them, so the ramp is linear: between two published
+     * endpoints that is the assumption that adds the least. Physical damage only —
+     * Riot calls it increased *attack* damage, and a burn is not that.
+     */
+    amplify(ctx: SimContext, hit: AmplifiableHit): number {
+      if (hit.type !== 'physical') return 0;
+      const { maxAmplification, threshold } = DERIVED_CONSTANTS.overlordsRetribution;
+      const fraction =
+        ctx.attackerMaxHealth > 0 ? ctx.attackerCurrentHealth / ctx.attackerMaxHealth : 1;
+      if (fraction >= threshold) return 0;
+      return maxAmplification * ((threshold - fraction) / threshold);
+    },
+  },
 ];

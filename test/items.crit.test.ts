@@ -152,6 +152,12 @@ function harness(target: Partial<TargetConfig> = {}) {
       );
     },
     target: config,
+    get attackerMaxHealth() {
+      return ctx.stats.maxHealth;
+    },
+    get attackerCurrentHealth() {
+      return ctx.stats.maxHealth;
+    },
     get targetMaxHealth() {
       return config.maxHealth;
     },
@@ -719,21 +725,34 @@ describe('Fiendhunter Bolts', () => {
     expect(h.ctx.stats.critChance).toBe(1);
   });
 
-  it('warns that a build which already crits is understated', () => {
+  it('pays the share that would have crit anyway, instead of warning about it', () => {
+    /*
+     * The window makes every attack crit at 80% of normal critical damage. An
+     * attack that would already have crit is paid differently in game — full
+     * crit plus 15% bonus true damage — and this file used to call that
+     * unmodellable and warn instead. Crits here are expected values, so the
+     * share that took the other branch is simply a weight.
+     */
     const plain = harness();
     plain.cast(runtimeOf('2512'), 'R');
-    // Nothing to warn about: every attack takes the 80% branch in game too.
     expect(plain.warnings).toEqual([]);
 
     const critting = harness();
     critting.equip({ critChance: 0.6 });
-    critting.cast(runtimeOf('2512'), 'R');
+    const runtime = runtimeOf('2512');
+    critting.cast(runtime, 'R');
+    const rider = critting.swing(runtime);
 
-    expect(critting.warnings).toHaveLength(1);
-    expect(critting.warnings[0]).toContain('60%');
-    // The branch that is missing, named by its number: bin BonusTrueDamage 0.15.
-    expect(critting.warnings[0]).toContain('15%');
-    expect(critting.warnings[0]).toContain('true damage');
+    // No warning any more: the number is computed rather than apologised for.
+    expect(critting.warnings).toEqual([]);
+    // Bin BonusTrueDamage 0.15 on the 60% that already crit, dealt as its own
+    // instance so the target's armour cannot eat it.
+    const trueHits = critting.instances.filter((entry) => entry.type === 'true');
+    expect(trueHits).toHaveLength(1);
+    expect(trueHits[0]!.label).toContain('true damage');
+    // And the missing fifth of the critical damage, on that same share.
+    expect(rider?.type).toBe('physical');
+    expect(rider?.amount ?? 0).toBeGreaterThan(0);
   });
 
   it('names the ultimate ability haste it cannot hold rather than inventing a stat', () => {

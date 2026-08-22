@@ -285,6 +285,17 @@ export interface AttackerConfig {
   shardIds: number[];
   /** Extra stats the user typed in by hand. */
   manualStats: Partial<StatBlock>;
+  /**
+   * The health the attacker goes in with, as a fraction of its maximum.
+   *
+   * An input, not a simulation: nothing in a one-sided fight takes health off the
+   * attacker, so this is the player saying "I am at 40 % going in". Items read it
+   * — Sterak's Lifeline arms below 30 %, Overlord's Retribution ramps below 70 %
+   * — and it is the first of the two health bars a duel needs.
+   *
+   * Missing means full, which is what every combo before this assumed.
+   */
+  currentHealthPercent?: number;
 }
 
 export type CritMode = 'expected' | 'always' | 'never';

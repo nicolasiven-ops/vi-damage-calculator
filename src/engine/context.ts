@@ -50,6 +50,16 @@ export interface SimContext {
   readonly target: TargetConfig;
   readonly targetMaxHealth: number;
   readonly targetCurrentHealth: number;
+  /**
+   * The attacker's own health, as it stands.
+   *
+   * An input rather than a running total for now — nothing in a one-sided fight
+   * spends it — but the items that read it (a lifeline, a missing-health ramp)
+   * are written against a value that will start moving the day the other side
+   * fights back, so they will not have to change.
+   */
+  readonly attackerMaxHealth: number;
+  readonly attackerCurrentHealth: number;
   readonly rank: (slot: AbilitySlot) => number;
 
   dealDamage(args: DealDamageArgs): DamageInstance;

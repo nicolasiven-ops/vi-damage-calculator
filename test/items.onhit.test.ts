@@ -161,6 +161,12 @@ function harness(effect: ItemEffect, options: HarnessOptions = {}): Harness {
     get target() {
       return { ...TARGET, maxHealth: targetMaxHealth };
     },
+    get attackerMaxHealth() {
+      return currentStats().maxHealth;
+    },
+    get attackerCurrentHealth() {
+      return currentStats().maxHealth;
+    },
     get targetMaxHealth() {
       return targetMaxHealth;
     },

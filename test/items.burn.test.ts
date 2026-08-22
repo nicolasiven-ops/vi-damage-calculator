@@ -152,6 +152,12 @@ function harness(
     get target() {
       return target;
     },
+    get attackerMaxHealth() {
+      return stats.maxHealth;
+    },
+    get attackerCurrentHealth() {
+      return stats.maxHealth;
+    },
     get targetMaxHealth() {
       return target.maxHealth;
     },

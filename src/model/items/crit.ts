@@ -607,13 +607,18 @@ const FIENDHUNTER_BOLTS: ItemEffect = {
   id: '2512',
   name: 'Fiendhunter Bolts',
   modelled: true,
-  note: 'Opening Barrage: after the ultimate, the next 3 attacks within 8 s gain +50% attack speed and critically strike for 80% of normal critical strike damage (45 s cooldown). The "already critting, so 15% bonus true damage instead" branch needs a crit roll this model does not make, and the 30 ultimate ability haste has no stat to hold it.',
+  note: 'Opening Barrage: after the ultimate, the next 3 attacks within 8 s gain +50% attack speed and critically strike for 80% of normal critical strike damage (45 s cooldown). The share of attacks that would have crit anyway is paid the way Riot pays it — full crit plus 15% bonus true damage — weighted by the crit chance at the cast, because crits here are expected values rather than rolls. The 30 ultimate ability haste has no stat to hold it.',
   createRuntime(): ItemRuntime {
     const bolts = CRIT_CONSTANTS.fiendhunterBolts;
     let readyAt = 0;
     let attacksLeft = 0;
     let windowEndsAt = -Infinity;
-    let warned = false;
+    /*
+     * The crit chance the build had *before* the buff set it to 1. It is the
+     * share of attacks that would have crit anyway, which is the share Riot pays
+     * differently — see the correction in `onBasicAttack`.
+     */
+    let critChanceAtCast = 0;
 
     return {
       onAbilityCast(ctx, slot) {
@@ -639,12 +644,7 @@ const FIENDHUNTER_BOLTS: ItemEffect = {
           label: `${OPENING_BARRAGE} · ${bolts.attacks} attacks · ×${empowered.toFixed(2)} guaranteed crit`,
         });
 
-        if (alreadyCrits > 0 && !warned) {
-          warned = true;
-          ctx.warn(
-            `Opening Barrage is modelled as ${(bolts.critModifier * 100).toFixed(0)}% of normal critical strike damage on all ${bolts.attacks} attacks. This build already has ${(alreadyCrits * 100).toFixed(0)}% critical strike chance, and in game that share of the attacks instead crits in full plus ${(bolts.bonusTrueDamage * 100).toFixed(0)}% bonus true damage — which needs a crit roll this calculator does not make, so those attacks are understated.`,
-          );
-        }
+        critChanceAtCast = Math.min(1, Math.max(0, alreadyCrits));
       },
 
       onBasicAttack(ctx): ItemAttackRider | null {
@@ -661,7 +661,54 @@ const FIENDHUNTER_BOLTS: ItemEffect = {
         // own damage has resolved, so the attack that spends the last charge
         // still had the buff.
         if (attacksLeft === 0) ctx.clearTemporaryStats(OPENING_BARRAGE);
-        return null;
+
+        /*
+         * The share that would have crit anyway, paid the way Riot pays it.
+         *
+         * The buff above makes every attack in the window crit at 80 % of normal
+         * critical damage. For an attack that would *already* have crit, the game
+         * does something else: it crits in full and adds 15 % bonus true damage.
+         * An earlier version of this file called that unmodellable because it
+         * "needs a crit roll" — it does not. Crits here are expected values, so
+         * the fix is a weight, not a roll: `critChanceAtCast` is exactly the share
+         * of the attack that took the other branch.
+         *
+         * Two corrections follow, both scaled by that share: the missing 20 % of
+         * the critical damage, and the true damage. The true part is its own
+         * instance because it ignores armour, and folding it into a physical
+         * rider would let the target's armour eat it.
+         */
+        if (critChanceAtCast <= 0) return null;
+
+        const attack = ctx.stats.totalAttackDamage;
+        // The unbuffed multiplier, recovered from the buff's own arithmetic.
+        const normalMultiplier = ctx.stats.critMultiplier / bolts.critModifier;
+
+        const trueShare = critChanceAtCast * bolts.bonusTrueDamage * attack * normalMultiplier;
+        if (trueShare > 0) {
+          ctx.dealDamage({
+            sourceId: 'item:2512',
+            sourceLabel: 'Fiendhunter Bolts · bonus true damage',
+            sourceKind: 'item',
+            type: 'true',
+            amount: trueShare,
+            notes: [
+              `${(bolts.bonusTrueDamage * 100).toFixed(0)}% of the ${(critChanceAtCast * 100).toFixed(0)}% of attacks that already crit`,
+            ],
+          });
+        }
+
+        const missingCrit =
+          critChanceAtCast * attack * (normalMultiplier - bolts.critModifier * normalMultiplier);
+        if (missingCrit <= 0) return null;
+        return {
+          amount: missingCrit,
+          type: 'physical',
+          label: 'Fiendhunter Bolts · full crit on the share that already crit',
+          notes: [
+            `the ${(critChanceAtCast * 100).toFixed(0)}% that would have crit anyway crits in full, not at ${(bolts.critModifier * 100).toFixed(0)}%`,
+          ],
+        };
       },
     };
   },

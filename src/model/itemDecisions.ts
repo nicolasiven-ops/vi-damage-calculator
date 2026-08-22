@@ -143,9 +143,6 @@ const NO_DAMAGE: Record<string, string> = {
  * unblocks rather than by whichever item came to mind.
  */
 const BLOCKED: Record<string, { mechanic: ItemMechanic; why: string }> = {
-  '2501': { mechanic: 'needs-own-health', why: "Overlord's Bloodmail: Tyranny is modelled; Retribution ramps to +12% attack damage below 70% of the attacker's own health." },
-  '2512': { mechanic: 'crit-modifier', why: "Fiendhunter Bolts: after the ultimate, three attacks crit at 80% of normal crit damage, or add 15% true damage if they would have crit anyway." },
-  '3053': { mechanic: 'needs-own-health', why: "Sterak's Gage: the attack damage is modelled; the Lifeline shield needs the attacker's own health." },
 };
 /**
  * The verdicts.

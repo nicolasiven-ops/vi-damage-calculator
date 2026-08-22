@@ -530,6 +530,20 @@ export function simulate(
     get targetCurrentHealth() {
       return targetCurrentHealth;
     },
+    get attackerMaxHealth() {
+      return currentStats().maxHealth;
+    },
+    get attackerCurrentHealth() {
+      /*
+       * An input, clamped: the attacker never loses health here, so this is the
+       * fraction the player set, applied to whatever the build's maximum works
+       * out to. It is a getter rather than a constant because the maximum can
+       * move mid-combo — Sterak's own health, a temporary buff — and a lifeline
+       * reading a stale maximum would arm at the wrong moment.
+       */
+      const fraction = Math.min(1, Math.max(0, input.attacker.currentHealthPercent ?? 1));
+      return currentStats().maxHealth * fraction;
+    },
     rank: (slot) => input.attacker.ranks[slot] ?? 0,
 
     dealDamage(args) {
